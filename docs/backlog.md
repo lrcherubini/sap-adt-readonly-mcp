@@ -81,29 +81,6 @@ at all: it is predictable, and the useful advice ("use the source, not ddicEleme
 
 ---
 
-## 4. The function-group `objectstructure` returns element types the projection does not declare
-
-**What is missing.** Re-measure the `FUGR` `objectstructure` and widen the declared set of element
-types. The record's own `fallback` says so.
-
-**Where it bit.** `SHAPE_DRIFT` fired dozens of times as **one** finding: almost every subject was a
-`FUGR`, all with the same fifteen element types outside the measured set:
-
-```
-TYPE/DG  FUGR/PT  FUGR/PD  FUGR/PU  FUGR/PL  FUGR/PLA  FUGR/PLM  FUGR/PN  FUGR/PO
-FUGR/PK  FUGR/PY  PROG/I  PROG/PNA  PROG/PNM  ENHS/XS
-```
-
-The function-module list stays correct. What is lost is the classification of everything else in
-the group: includes, screens, screen fields, local types, enhancement spots.
-
-**What to measure.** One `objectstructure` of a large group (a sales group returned 235 `FUGR/PT`
-alone; two small groups measured 2026-11-09 held only `FUGR/F`, `FUGR/FF`, `FUGR/I`, `PROG/I` and
-`FUGR/PX`, which proves nothing about the others), the whole reply kept, the shape added to the reference. Until then no tool may treat "element
-not classified" as "element does not exist".
-
----
-
 ## 5. Success traces in the failure stream: `FOUND_BY_FACET`, `FOUND_BY_URI`
 
 **What is missing.** Decide whether a successful-resolution trace belongs in the gap stream.

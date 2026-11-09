@@ -2192,6 +2192,29 @@ extractor; the route keeps `%2f` literal and admits it only as the namespace
 wrapper. Kept as a measurement: the route that read it was removed with the catalogue scripts on
 2026-11-08 (docs/security.md).
 
+**Re-measured 2026-11-09 on a large SAP group (`V45A`, SD copy functions).** The same read
+answered **200, 872,408 bytes**, with 20 element types. The counts, read with
+`adtcore:type="…"`:
+
+| Type | Count | Type | Count | Type | Count |
+|---|---|---|---|---|---|
+| `FUGR/PD` | 1956 | `PROG/I` | 40 | `FUGR/PO` | 4 |
+| `FUGR/PT` | 235 | `ENHO/XH` | 22 | `FUGR/PLM` | 3 |
+| `FUGR/FF` | 80 | `FUGR/I` | 17 | `FUGR/PS` | 2 |
+| `FUGR/PU` | 47 | `TYPE/DG` | 11 | `FUGR/F`, `FUGR/PL`, `FUGR/PZ`, `FUGR/PX` | 1 each |
+| `FUGR/PY` | 42 | `FUGR/PC` | 9 | `ENHS/XS`, `DIAL/A` | 1 each |
+| | | `FUGR/PK` | 5 | | |
+
+Two smaller groups held only `FUGR/F`, `FUGR/FF`, `FUGR/I`, `FUGR/PX` and `PROG/I`.
+
+Compared with the element types the removed extractor did not declare:
+- `FUGR/PLA`, `FUGR/PN`, `PROG/PNA` and `PROG/PNM` did not appear in this group;
+- `FUGR/PC`, `FUGR/PS`, `FUGR/PZ` and `DIAL/A` were never on that list.
+
+The set therefore grows with the group: no list measured on one group is complete. The reply also
+grows with the group. A tool that reads this resource again caps what it lists, and it reports
+any type outside its declared set as unclassified, never as absent.
+
 ### The ATC run: two POSTs, one worklist, the findings in the body — MEASURED 2026-09-14
 
 Round 17, steps 4-5, three runs on two Z objects (a report and a class), two variants.
