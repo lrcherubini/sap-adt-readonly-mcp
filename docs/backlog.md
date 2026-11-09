@@ -59,22 +59,6 @@ measurement.
 
 ---
 
-## 3. A gap code contradicts its own record
-
-**What is missing.** Correct `BATCH_ITEM_NOT_READ` in `lib/journal-codes.mjs`. Not cosmetic: the
-journal is the mechanism that makes silence visible, and a code that misstates its own finding
-spends the credibility of the others.
-
-It says *one failed item is never evidence of absence*, but its `detail` can read
-`Object '<name>' of type TABL/DS not found in the system`, and a single call with the same answer
-counts in `report` as a negative answer, not a failure. Two cases, "could not resolve or read the
-name" and "the name resolves to nothing", are collapsed into one code.
-
-**What to decide.** Either a sub-code for "does not exist" (with `impact` depending on it), or texts
-that stop asserting absence either way.
-
----
-
 ## 5. Success traces in the failure stream: `FOUND_BY_FACET`, `FOUND_BY_URI`
 
 **What is missing.** Decide whether a successful-resolution trace belongs in the gap stream.

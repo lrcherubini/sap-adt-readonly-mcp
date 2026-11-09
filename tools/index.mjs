@@ -30,6 +30,12 @@ import { publish, schemaErrors, closeSchema, withStructuredContent } from '../li
 // Z*, Y* and /NAMESPACE/ objects are ours; anything else is SAP standard.
 const CUSTOM_NAMESPACE = /^([ZY]|\/)/;
 
+/** What a "not found" in a batch does and does not say -- the caveat of an empty adt_search. */
+const NOT_FOUND_NOTE =
+  'the search answered no object of this name, and so did the direct URI where the type has one ' +
+  '(PROG/P, PROG/I, CLAS/OC, FUGR/F): the name resolves to nothing here. The index does not know ' +
+  'every object that exists (measured), so for other types this is the index speaking';
+
 const asText = (value) => ({
   content: [
     {
@@ -561,6 +567,13 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
                 ...(one.enhancedObject !== undefined ? { enhancedObject: one.enhancedObject } : {}),
                 source: one.header + one.source + one.enhFooter });
             } catch (e) {
+              // A name that resolves to nothing is an ANSWER, the same one a single call gives
+              // (lib/report.mjs counts it as a negative answer, not a failure): counted apart, no
+              // gap. It carries the caveat adt_search carries, because the index is not complete.
+              if (e?.notFound === true) {
+                items.push({ name, notFound: true, error: `${e.name ?? 'Error'}: ${e.message}`, note: NOT_FOUND_NOTE });
+                continue;
+              }
               // The batch goes on. The item says why, the journal counts it, and the count
               // at the top of the reply cannot be read as "all were read".
               journal?.gap?.({
@@ -573,8 +586,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
               items.push({ name, error: `${e.name ?? 'Error'}: ${e.message}` });
             }
           }
-          const failed = items.filter((i) => i.error).length;
-          return asText({ count: items.length, read: items.length - failed, failed, items });
+          const notFound = items.filter((i) => i.notFound).length;
+          const failed = items.filter((i) => i.error && !i.notFound).length;
+          return asText({ count: items.length, read: items.length - failed - notFound, notFound, failed, items });
         }
         if (!objectName) throw new Error('objectName (or objectNames) is required.');
         const one = await readOne(objectName, flags);

@@ -858,17 +858,35 @@ test('adt_read_source reads a batch, keeps going past a failed name, and counts 
   );
   assert.equal(out.count, 3);
   assert.equal(out.read, 2);
-  assert.equal(out.failed, 1);
+  // ZNOPE resolves to nothing on every route: an answer, counted apart from a failure, no gap.
+  assert.equal(out.notFound, 1);
+  assert.equal(out.failed, 0);
   assert.equal(out.items[0].name, 'ZI_TEST');
   assert.match(out.items[0].source, /define view entity/);
   assert.equal(out.items[0].type, 'DDLS/DF');
-  assert.ok(out.items[1].error, 'the failed item carries its error');
+  assert.equal(out.items[1].notFound, true);
+  assert.match(out.items[1].error, /not found in the system/, 'the text table-meta and report read is kept');
+  assert.match(out.items[1].note, /index does not know every object/);
   assert.equal(out.items[1].source, undefined);
   assert.equal(out.items[2].read, undefined);
-  // The failed name is counted in the journal, and the two reads are audited one each.
-  const gap = journalLines.find((l) => l.code === 'BATCH_ITEM_NOT_READ');
-  assert.equal(gap?.subject, 'ZNOPE');
+  assert.equal(journalLines.filter((l) => l.code === 'BATCH_ITEM_NOT_READ').length, 0);
   assert.equal(log.filter((l) => l.tool === 'adt_read_source').length, 2);
+});
+
+test('a batch item whose read FAILED is a gap, never a notFound', async () => {
+  // ZBROKEN: the search misses and a derivable URI answers 500 -- a failed read, not an absence.
+  const api = fakeApi({
+    searchObject: () => [],
+    objectStructure: () => {
+      throw Object.assign(new Error('Internal Server Error'), { status: 500 });
+    },
+  });
+  const out = jsonOf(await byName(toolsWith(api), 'adt_read_source').handler({ objectNames: ['ZBROKEN'] }));
+  assert.equal(out.notFound, 0);
+  assert.equal(out.failed, 1);
+  assert.equal(out.items[0].notFound, undefined);
+  const gap = journalLines.find((l) => l.code === 'BATCH_ITEM_NOT_READ');
+  assert.equal(gap?.subject, 'ZBROKEN');
 });
 
 test('adt_read_source refuses objectName together with objectNames, an empty batch and one over the cap', async () => {

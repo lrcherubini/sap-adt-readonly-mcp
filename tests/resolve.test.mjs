@@ -152,6 +152,28 @@ test('an empty search is a question: the derivable URI answers, and the answer s
   assert.equal(bySearch.foundBy, 'search');
 });
 
+test('"not found" carries notFound only when every route answered 404 or there was none to try', async () => {
+  const missing = fakeApi([]);
+  missing.objectStructure = async () => Promise.reject(Object.assign(new Error('Not Found'), { status: 404 }));
+  const e404 = await resolveObject(missing, 'ZNOPE', 'PROG/P').catch((e) => e);
+  assert.match(e404.message, /not found in the system/);
+  assert.equal(e404.notFound, true);
+
+  // A type with no derivable URI: the search was the only route, and it answered nothing.
+  const noUri = await resolveObject(fakeApi([]), 'ZDEMO_S_NONE', 'TABL/DS').catch((e) => e);
+  assert.equal(noUri.notFound, true);
+
+  // A 500 (or an error with no status) is a failed read, never folded into "not found".
+  const broken = fakeApi([]);
+  broken.objectStructure = async () => Promise.reject(Object.assign(new Error('boom'), { status: 500 }));
+  const e500 = await resolveObject(broken, 'ZNOPE', 'PROG/P').catch((e) => e);
+  assert.match(e500.message, /not found in the system/, 'the text is unchanged');
+  assert.equal(e500.notFound, false);
+  const bare = fakeApi([]);
+  bare.objectStructure = async () => Promise.reject(new Error('socket hang up'));
+  assert.equal((await resolveObject(bare, 'ZNOPE', 'PROG/P').catch((e) => e)).notFound, false);
+});
+
 // `FUGR/I` is not a searchable facet: the ADT quick search answers an EMPTY list for it, and empty
 // is indistinguishable from "does not exist". Measured on 2026-09-11 with LV05CFZZ and L0KBLFZ1 --
 // both found by the SAME search, as FUGR/I, when no filter is passed. Filtering by an unsupported
