@@ -2943,6 +2943,27 @@ GETs named below. Every echoed `executedQueryString` was the statement sent, fol
   `UNAM`). `BALOBJ` and `BALOBJT` are class `E` with no append and no personal field
   (verdict REVIEW).
 
+### Legacy objects end to end, and NULL in the data preview — MEASURED 2026-11-09
+
+`adt_search` through the restarted server, on the development system:
+- **`Z*`, `APLO`:** 4 ADT hits and 12 legacy objects from SLG0, `complete: true`, matching
+  SLG0's own list.
+- **`*`, `CHKV`:** 18 ADT hits and the SCI variants in `legacy`, `DEFAULT` among them.
+  - The three local variants were listed by name, without their owner. One of them is the
+    system check variant.
+  - `complete: false`, because the global read reached the 200-row cap.
+  - `SCICHKV_TX` gave no text for the SAP-delivered global variants; SCI shows none for them
+    either.
+
+⚠️ **NULL exists in the database, not in ABAP.** A non-key column added to a table after its rows
+were written can hold NULL in those rows. The data preview runs Open SQL, where `FIELD = ' '`
+compares with a blank and **does not match NULL**, so a `WHERE` with a blank value on such a
+column can drop rows in silence. Key columns are NOT NULL in the database, so a blank `WHERE`
+on a key is exact. The rule applied here: filter on keys, read a non-key flag as a column, and
+decide on the client (`IS_CHKV !== 'X'` keeps both blank and NULL). `DEFAULT` was returned with
+`IS_CHKV = ' '`, so at least that row holds a blank. Whether other rows hold NULL was not
+measured, and the rule removes the need to know.
+
 ### ATC check variants: `/atc/checkvariants` — MEASURED 2026-11-09
 
 One customer variant, GET only.

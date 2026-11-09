@@ -66,8 +66,9 @@ test('APLO: BALOBJ minus TADIR R3TR APLO are the SLG0 objects, with their texts'
 test('CHKV: SCI variants, global with text and local by name only -- no user is ever selected', async () => {
   const sent = [];
   const raw = rawOf([
-    [/FROM SCICHKV_HD .*CIUSER = ' '/, { CHECKVNAME: ['DEFAULT', 'ZDEMO_GLOBAL'], CHECKVID: ['00001', '00010'] }],
-    [/FROM SCICHKV_HD .*CIUSER <> ' '/, { CHECKVNAME: ['ZDEMO_LOCAL', 'ZDEMO_LOCAL'] }],
+    // IS_CHKV as the database may hold it: blank, NULL (read back empty), or 'X' for an ADT variant.
+    [/FROM SCICHKV_HD .*CIUSER = ' '/, { CHECKVNAME: ['DEFAULT', 'ZDEMO_GLOBAL', 'ZDEMO_ADT'], CHECKVID: ['00001', '00010', '00011'], IS_CHKV: [' ', '', 'X'] }],
+    [/FROM SCICHKV_HD .*CIUSER <> ' '/, { CHECKVNAME: ['ZDEMO_LOCAL', 'ZDEMO_LOCAL'], IS_CHKV: ['', ''] }],
     [/FROM SCICHKV_TX/, { LANGUAGE: ['E'], CHECKVID: ['00010'], TEXT: ['Demo governance'] }],
   ], sent);
   const out = await readLegacyObjects(raw, 'CHKV', '*', { language: 'EN' });
@@ -78,7 +79,9 @@ test('CHKV: SCI variants, global with text and local by name only -- no user is 
     { name: 'ZDEMO_LOCAL', scope: 'local', description: null },
   ]);
   assert.ok(sent.every((s) => !/SELECT [^F]*\b(CIUSER|UNAM)\b[^F]*FROM/.test(s)), 'no user column in any select list');
-  assert.ok(sent.every((s) => / IS_CHKV = ' '/.test(s) || /SCICHKV_TX/.test(s)), 'ADT-created (CHKV) variants are not legacy');
+  // IS_CHKV is read, never filtered on: a NULL in the database would not match = ' ' (ABAP has no NULL).
+  assert.ok(sent.every((s) => !/WHERE .*IS_CHKV/.test(s)), 'no WHERE on IS_CHKV');
+  assert.ok(!out.objects.some((o) => o.name === 'ZDEMO_ADT'), 'an ADT-created (CHKV) variant is not legacy');
 });
 
 test('a capped read is complete: false, and a failed read files the gap and says nothing about legacy', async () => {
