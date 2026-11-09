@@ -2687,6 +2687,91 @@ A name that does not exist answers **404** with an ADT message in the logon lang
 `repositoryId=""`. The kind of a binding is read from `srvb:binding` in the binding document,
 never from which detail path answers.
 
+### Service bindings and definitions, broad probe: nine bindings, eight SRVDs — MEASURED 2026-11-09
+
+GET only, on nine bindings:
+- three customer bindings: OData V4 UI, OData V2 UI and SQL;
+- three namespaced SAP demo bindings: `/DMO/UI_AGENCY_O4` (V4 UI), `/DMO/UI_FLIGHT_R_V2` (V2 UI,
+  the **only published one**) and `/DMO/API_TRAVEL_U_V2` (V2 Web API);
+- three SAP-standard bindings: `UI_ACCRUALS_MANAGE`, `UI_APJ_JOB_USER_O2` and `API_ABOPRUN`
+  (V4 Web API).
+
+**Discovery templates.** The server publishes these templates itself:
+- the detail is `…/odatav4|odatav2/{objectname}{?servicename,serviceversion,srvdname}`, where
+  `objectname` is the **binding** (as the IDE sends it). The probe sent the service name in that
+  position and the server still answered 200, so the parameters are what the server reads;
+- `…/odatav2/publishjobs|unpublishjobs{?servicename,serviceversion}`: actions, never followed;
+- `…/bindings/validation`, `uiconfig/{bindtype}` and `schema/{bindtype}`;
+- `…/businessservices/release{?objectname,bindtype,bindtypeversion,repositoryid,servicename,serviceversion}`
+  (*Service Binding Classification*);
+- for SRVD, only the object and `source/main`, plus `ddic/srvd/elementinfo{?path}`.
+
+**The binding document.**
+- Every one of the nine answered **200** `…servicebinding.v2+xml`, 2.8-2.9 KB.
+  `…servicebinding.v1+xml` answers **406** on all nine, so v2 is the only representation.
+- `srvb:binding` names the kind. Measured: `ODATA V4` and `ODATA V2`, each with category `0` (UI)
+  or `1` (Web API), and `SQL` with no version and category `1`.
+- Contract measured: `C1` on every UI binding, `C2` on the Web API and SQL ones.
+- Each of the nine held **one** `srvb:services` with **one** `srvb:content` (version `0001`).
+  A binding with several versions was not among them.
+- **The service name is not the binding name.**
+  - On a V4 binding it is the SRVD name (`/DMO/UI_AGENCY_O4` → service `/DMO/UI_AGENCY`).
+  - It can be mixed case (`API_ABOPRUN` → service `ABOPRun`).
+  - A V2 and a V4 binding can share one SRVD.
+  - The name, version and SRVD for the detail are therefore read from the document, never
+    derived from the binding name.
+- `…/bindings/<b>/objectstructure` answers **404** on all nine; it does not exist.
+- `…/bindings/<b>/versions` answers 200 `application/atom+xml;type=feed`, 0.5-1.1 KB:
+  - one entry per version, with an author, `atom:content src=…/versions/<stamp>/<id>/content`
+    (`application/json`), and links to the transport request;
+  - the feed title is in a logon-dependent language.
+
+**The detail of the declared kind** (one read per binding, with the IDE's Accept list
+`…odatavN.v1+xml, v2, v3`; the server answers `odatav2.v2` and `odatav4.v1`):
+- On the **published** V2 binding, the `odatav2:services` row carries:
+  - `published="true"` and `created="true"`;
+  - `serviceUrl` (`/sap/opu/odata/<ns>/<service>`, the root that `odataMetadata` reads);
+  - `annotationUrl` (the catalogue service's `Annotations(TechnicalName='…_VAN',Version='0001')/$value/`);
+  - a filled `serviceInfo:serviceInformation` with one `serviceInfo:collection` per entity set
+    (`name`, `isLeading`, `isRoot`) and `serviceInfo:navigation` (`name`, `target`).
+  This is the binding-side list of entity sets, read without calling the service.
+- On every **unpublished** binding, `published="false"`, `serviceUrl=""`, `annotationUrl=""` and
+  an **empty** `serviceInformation`. `created` is `true` when the service was generated and
+  `false` otherwise.
+- A V4 `serviceUrlPrefix` is filled only when the group was created
+  (`/sap/opu/odata4/sap/<binding>/srvd/`); otherwise it is `""`.
+- ⚠️ A version the binding does not hold (`serviceversion=0099`) answers **200** on every
+  binding. The reply echoes `0099` with `created="false"` and `published="false"`. A 200 proves
+  nothing; only `created`/`published` in the row do.
+
+**The Gateway error log is not written by these reads.** The probe read the logged-on user's
+`/sap/bc/adt/gw/errorlog` before the run, after each binding and after the edges. The feed held
+one entry from before the run (a "No service found" client error) and gained **none**. That
+includes the very triple (V2 service name with a shared V4 SRVD) that the earlier row named. That
+row came from another action in the IDE, not from the detail read.
+
+The error-log entry shape, which was unmeasured until now (`entriesMeasured: false`):
+- `atom:author/atom:name` holds the user and full name;
+- `atom:id` is `ClientError/<32 hex>`;
+- `atom:updated` is UTC;
+- `atom:summary type="html"` holds the whole ST22-style page (header, service information, error
+  context, source extract, call stack) as escaped HTML;
+- there is no `atom:category` and no structured fields, so a parser has to read the HTML table
+  rows.
+
+**The service definition.**
+- `GET …/ddic/srvd/sources/<srvd>` (namespaced as `%2fdmo%2f…`) answers 200
+  `application/vnd.sap.adt.ddic.srvd.v1+xml`, about 2 KB.
+- The root is `srvd:srvdSource`, with `srvd:srvdSourceType` (`S`, "Definition", on all eight),
+  `srvd:sourceOrigin` (`0`, "ABAP Development Tools"), `abapsource:sourceUri`, the `adtcore:*`
+  header and four links (versions, language versions, source).
+- `/source/main` answers `text/plain`.
+- `/objectstructure` answers **404** on all eight.
+- An SRVD of another source type (A2X) was not among the cases.
+
+**Absent names.** `bindings/<absent>` and `srvd/sources/<absent>` both answer **404** with an ADT
+message in the logon language.
+
 ### ATC check variants: `/atc/checkvariants` — MEASURED 2026-11-09
 
 One customer variant, GET only.
