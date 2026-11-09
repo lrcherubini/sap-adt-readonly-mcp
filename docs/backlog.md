@@ -142,7 +142,9 @@ folders. The shapes are in the reference (the sections dated 2026-11-09).
   - a published V4 binding, UI and Web API;
   - a published V2 Web API;
   - a published binding without navigations;
-  - a binding holding several versions;
+  - a binding holding several versions: rare in customer bindings, common in SAP-standard ones,
+    and the open question is whether `published` and `releaseState` belong to the binding or to
+    each version;
   - an SRVD whose source type is not `S`.
   Until those are read, nothing about the detail's content may be generalised. Only `created`
   and `published` in the row are trusted, because a wrong version also answers 200.
