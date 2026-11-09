@@ -2898,6 +2898,21 @@ the corrected (upper-case) path:
   full contract.
 - No row was written to the logged-on user's Gateway error log.
 
+### Two kinds of one object, and the ADT sees only one — OBSERVED 2026-11-09
+
+Some configuration objects exist in two forms. Only the form created in the ADT is a repository
+object; the form created in the classic transaction lives in table rows the ADT does not
+publish. A search, a read or a list through the ADT therefore answers for the first kind only.
+
+| Object | Created in the ADT | Created in the transaction | What the ADT sees |
+|---|---|---|---|
+| ATC check variant | `CHKV` repository object | transaction SCI | only `CHKV`. SAP documents that SCI variants "cannot be displayed or edited in ADT"; `/atc/checkvariants` answers 404 for them (measured) |
+| Application log object | `APLO` repository object | transaction SLG0 (rows of table `BALOBJ`) | only `APLO`. On the development system, `type:aplo z*` in the ADT search listed 4 objects, while SLG0 listed 16 in `BALOBJ`; the 4 are the ones SLG0 marks "only modifiable through ADT" |
+
+Consequence: an ADT answer about these types is a statement about the ADT-created ones, never
+about all of them. The application-log figures come from the owner's screenshots of the ADT
+search and of SLG0, not from a probe.
+
 ### ATC check variants: `/atc/checkvariants` — MEASURED 2026-11-09
 
 One customer variant, GET only.
