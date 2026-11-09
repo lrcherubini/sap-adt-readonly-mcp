@@ -6,7 +6,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { record, recordStart, recordStop, resetBudget } from '../lib/audit.mjs';
+import { record, recordStart, recordStop, recordLogonRefused, resetBudget } from '../lib/audit.mjs';
+import { logonWith } from '../lib/session.mjs';
 import { runsFromAudit, renderRuns } from '../lib/audit-runs.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -190,4 +191,51 @@ test('a half-written line is skipped and counted, not fatal', () => {
   const out = runsFromAudit(file);
   assert.equal(out.unreadable, 1);
   assert.equal(out.runs.length, 1);
+});
+
+// --- a refused logon (docs/security.md, "The trail also records a refused logon") ---------
+
+test('a refused logon is one run line: the status, never the message or the password', () => {
+  resetBudget();
+  const [cfg, lines] = sink({ user: null });
+  recordLogonRefused(cfg, { status: 401, user: 'DEVUSER1' });
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0].event, 'logon-refused');
+  assert.equal(lines[0].status, 401);
+  assert.equal(lines[0].user, 'DEVUSER1', 'the user typed at the prompt, not the configured one');
+  const allowed = new Set(['ts', 'run', 'event', 'pid', 'host', 'client', 'user', 'machine', 'status']);
+  assert.deepEqual(Object.keys(lines[0]).filter((k) => !allowed.has(k)), []);
+});
+
+test('logonWith records an answered refusal before the error leaves, and tries once', async () => {
+  const [cfg, lines] = sink();
+  let logins = 0;
+  const refusing = { login: async () => { logins++; throw Object.assign(new Error('Unauthorized'), { response: { status: 401 } }); } };
+  await assert.rejects(() => logonWith(cfg, refusing, 'DEVUSER1'), /NOT retrying/);
+  assert.equal(logins, 1);
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0].event, 'logon-refused');
+  assert.equal(lines[0].status, 401);
+  assert.equal(JSON.stringify(lines[0]).includes('Unauthorized'), false, "the server's text stays out");
+});
+
+test('a logon that never reached the system writes nothing; a logon that worked writes nothing', async () => {
+  const [cfg, lines] = sink();
+  const unreachable = { login: async () => { throw Object.assign(new Error('getaddrinfo ENOTFOUND'), { code: 'ENOTFOUND' }); } };
+  await assert.rejects(() => logonWith(cfg, unreachable, 'DEVUSER1'), /ENOTFOUND/);
+  await logonWith(cfg, { login: async () => {} }, 'DEVUSER1');
+  assert.deepEqual(lines, []);
+});
+
+test('--runs names a refused logon and counts them, so restarts add up', () => {
+  const file = tempFile([
+    { ts: '2026-09-23T09:00:00.000Z', run: 'r1', event: 'logon-refused', status: 401, user: 'DEVUSER1', client: '001' },
+    { ts: '2026-09-23T09:01:00.000Z', run: 'r2', event: 'logon-refused', status: 401, user: 'DEVUSER1', client: '001' },
+    { ts: '2026-09-23T09:02:00.000Z', run: 'r3', event: 'start', user: 'DEVUSER1' },
+  ]);
+  const out = runsFromAudit(file);
+  assert.equal(out.runs.filter((r) => r.refused).length, 2);
+  const md = renderRuns(out);
+  assert.match(md, /2 logon\(s\) refused by the system/);
+  assert.match(md.split('\n').find((l) => l.includes('`r1`')), /logon refused\*\* \(HTTP 401\)/);
 });

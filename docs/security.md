@@ -959,7 +959,7 @@ path resolves inside a git work tree:
 | `sap-adt.db` | the environment store (SQLite): host, port, client, user, language, the catalogue release, the installation's customer tables and ATC variants. Written only by `npm run config` | user name only, no password; no SAP data |
 | `catalog/` (and `catalog.prev/`) | SAP's Clean Core catalogue -- one release file, `objectClassifications_SAP.json`, `PROVENANCE.json` -- written only by `npm run sync:catalog` | public SAP data (Apache-2.0); no system data |
 | `token` | 32 random bytes, hex, mode 0600 | guards the local MCP port; **not** a SAP credential |
-| `audit.log` | one JSON line per call: timestamp, run id, tool, target object, result size — plus one `start`/`stop` pair per process (pid, host, client, user, machine, and how it stopped) | no payload, ever |
+| `audit.log` | one JSON line per call: timestamp, run id, tool, target object, result size — plus one `start`/`stop` pair per process (pid, host, client, user, machine, and how it stopped), or one `logon-refused` line (the same fields and the HTTP status) | no payload, ever |
 | `measurements/<name>-<UTC stamp>/` | transcripts of the probes and measuring scripts (`scripts/measure-*.mjs`, `scripts/probes/*.mjs`): raw ADT replies, whole bodies, so a truncated terminal never loses a reading | **SAP data** — DDLA definitions, version feeds, transport documents; may name third parties. Never inside a git work tree, by construction (`stateDir()`) |
 
 **There is no response cache, and that is a property rather than an omission.** An earlier
@@ -1033,6 +1033,27 @@ with a reason.
 The audit log records *that* a class was read, never *what* it said. Source that is read lives
 in memory for one call (see above: there is no cache), and `adt_read_source` output is never
 committed automatically anywhere.
+
+### The trail also records a refused logon — 2026-11-09
+
+The question was what the trail is for: auditing what an authenticated server did, or also
+protecting the account it logs on with. **Both.** The one-attempt rule (*One attempt, no retry*,
+above) exists only to protect the account, and it holds per process: whoever restarts the server,
+or runs `propose:table`, starts from zero. Repeated refusals lock the SAP user, and the IDE,
+abapGit and transports go with it. Only the trail outlives a process, so only the trail can say
+"two refusals on this machine since the last successful start". Before this decision a refused
+logon wrote nothing at all, because `recordStart` runs after the logon.
+
+**What is written.** One line, `event: 'logon-refused'`, written by `logonWith` in
+`lib/session.mjs` before the error leaves, so the server and every script that logs on are covered.
+It has the fields of a run line (run, pid, host, client, user, machine) and the **HTTP status** the
+system answered. It never carries the password, and never the server's reason text, which is not
+ours to keep. A failure with no HTTP status (DNS, TLS, a refused socket) never reached the logon,
+is not a failed logon, and writes nothing. An empty password is refused locally and is never sent.
+
+**Why it does not move the frontier.** The line is metadata about a process, like `start`/`stop`:
+nothing was read, so nothing can leak. `npm run report -- --runs` lists each refused logon and
+counts them.
 
 ### Probes: measured on the system, transcribed, deleted
 
