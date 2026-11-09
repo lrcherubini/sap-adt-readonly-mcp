@@ -291,10 +291,11 @@ field allowlist is needed.
 on both counts. `SFW_SWITCH` and `SFW_BF` carry `AUTHOR`/`CHANGEDBY` and add nothing the chain
 needs, so they are left out.
 
-**What it does not license.** Admitting the rows is not reading the cause. The chain was measured
-against the known `KNA1` case (reference, *The switch chain*), and `propose:table` prints it as
-evidence beside the absence. It never states it as the reason an append is missing, and it still
-points to `SE11`/`SFW_BROWSER`.
+**What it does not license.** Admitting the rows is not reading the cause. On `KNA1` the chain is
+consistent with the one absent append, and it shows that a switch belonging to no business
+function can still carry active appends (reference, *The switch chain*). So `propose:table` prints
+it as evidence beside the absence, never as the reason an append is missing, and still points to
+`SE11`/`SFW_BROWSER`.
 
 #### The list has two layers: standard in the repository, the installation's own in the store
 

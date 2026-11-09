@@ -266,29 +266,43 @@ declares is in the table. An append can also be missing from the active list bec
 activated, activated with an error, or targets another object, so the absence alone says nothing
 about why.
 
-**The switch chain, measured 2026-11-09** through `adt_customizing` on the five admitted `SFW_*`
-tables (`docs/security.md`, *Switch Framework tables*). The four appends are `OIC_KNA1`,
-`OID_KNA1` and `OIF_KNA1` (package `OI0_COMMON_2`) and `OILKNA1` (package `OI0_COMMON`); every
-one says `extend type kna1`. (`OI0_KNA1` and `OI0_KNA1_X` share the prefix but extend other
-structures.)
+**Re-read 2026-11-09: the four are now ONE.** `propose:table KNA1` on the same system names **14**
+appends, and the membership test marks only **`OILKNA1`** (`RES_CNTRY`, `CCODE`, both labelled
+"unused, will be deleted in the future") `NOT IN THE ACTIVE TABLE`. `OIC_KNA1`, `OID_KNA1` and
+`OIF_KNA1` are active: `OIDRC`, `OID_POREQD` and `OIPBL` are in the `ddicElement` list (blocks
+22-24). Whether the system changed since 2026-09-22 or that reading was wrong is not known. Either
+way, an absence from an earlier run is not a fact about today: re-run the membership test before
+reading a cause into it.
 
-| step | `OI0_COMMON_2` | `OI0_COMMON` |
+**The switch chain, measured 2026-11-09** through `adt_customizing` on the five admitted `SFW_*`
+tables (`docs/security.md`, *Switch Framework tables*). Every one of the four `OI*` appends says
+`extend type kna1`. (`OI0_KNA1` and `OI0_KNA1_X` share the prefix but extend other structures.)
+
+| step | `OI0_COMMON_2` (`OIC_KNA1`, `OID_KNA1`, `OIF_KNA1`: **active**) | `OI0_COMMON` (`OILKNA1`: **absent**) |
 |---|---|---|
 | `SFW_PACKAGE` (package → switch) | switch `OI0_COMMON_2`, `VERSION` A | switch `OI0_COMMON_DS`, `VERSION` A |
 | `SFW_SW_BF` (switch → business function) | **no row**: the switch belongs to no business function | `BUSINESS_FUNCTION_BASIS_COM` (standby, E) and `COMMODITY_MGMT_&_BULK_LOGISTIC` (activation, A) |
 | `SFW_ACTIVE_BFUNC` (active in this client) | — | neither is there |
 
-The negative control is three appends of the same table whose fields **are** active:
-`AKNA1_FMFG` (`FMFG_E`), `J_3GKNA1A` (`J3GD_APP`) and `/VSO/R_KNA1_A` (`/VSO/R`). None of the
-three packages has an `SFW_PACKAGE` row. So the chain separates 4 of 4 absent from 3 of 3 present
-(the other four present appends were not checked). The domains say `VERSION` is A/I/P (active,
-inactive, pending after import) and `SWITCHTYPE` is A/E (activation, standby). `X_OFF` is empty
-on all 169 rows of `SFW_ACTIVE_BFUNC` in this client, so its meaning when set is unobserved.
+Three more appends whose fields are active sit in packages with no `SFW_PACKAGE` row at all:
+`AKNA1_FMFG` (`FMFG_E`), `J_3GKNA1A` (`J3GD_APP`) and `/VSO/R_KNA1_A` (`/VSO/R`).
 
-What a tool may say from this: the package hangs on a switch, and which business functions that
-switch belongs to and whether they are active here. That is evidence beside the absence. It is
-still not the stated cause, because a conflict switch or an activation error is not read.
-`SFW_ACTIVE_BFUNC` is per client, so the answer is about the logon client only.
+What this does and does not show:
+
+- The one absent append hangs on a switch whose business functions are not active in this client.
+  That is **consistent** with a switch keeping it out, on one case. It is not a separation.
+- ⚠️ **A switch that belongs to no business function is NOT therefore off.** Switch `OI0_COMMON_2`
+  has no `SFW_SW_BF` row, and its three appends are active. So "no business function" must never be
+  printed as "switched off". How that switch is set is not read here. A switch can be set outside a
+  business function, and this server does not read that.
+- The domains say `VERSION` is A/I/P (active, inactive, pending after import) and `SWITCHTYPE` is
+  A/E (activation, standby). `X_OFF` is empty on all 169 rows of `SFW_ACTIVE_BFUNC` in this client,
+  so its meaning when set is unobserved.
+
+What a tool may say from this: the package hangs on a switch, which business functions that switch
+belongs to, and whether they are active here. That is evidence beside the absence, never its
+stated cause: a switch set outside a business function, a conflict switch or an activation error
+is not read. `SFW_ACTIVE_BFUNC` is per client, so the answer is about the logon client only.
 
 The `where` grammar of the data preview has no `&`, and a business function name can carry one
 (`COMMODITY_MGMT_&_BULK_LOGISTIC`). Such a name is reached with `LIKE` on a prefix.

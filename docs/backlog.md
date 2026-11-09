@@ -22,8 +22,9 @@ what runs.
 
 **What exists.** The DDIC half is built: `propose:table` prints the switch chain beside an append
 `NOT IN THE ACTIVE TABLE` (`lib/switch-chain.mjs`). The chain goes package → `SFW_PACKAGE` →
-`SFW_SW_BF` → `SFW_ACTIVE_BFUNC`, all admitted tables, and is measured on `KNA1` (reference,
-*The switch chain*).
+`SFW_SW_BF` → `SFW_ACTIVE_BFUNC`, all admitted tables. It was read on `KNA1` (reference, *The
+switch chain*): consistent on one absent append, and a switch with no business function was seen
+carrying active appends.
 
 **What to measure.** Whether an enhancement implementation is switched through its package, like
 the appends, or through its own name: `SFW_PACKAGE` and `SFW_SW_BF` both carry `ENHNAME`, empty

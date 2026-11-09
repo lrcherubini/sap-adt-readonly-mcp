@@ -398,7 +398,7 @@ async function report(payload, readStructures, readDdic, readEnhancements, readS
       // four with no block belong to an industry solution (OI*_KNA1), and none of their fields is
       // in the table. Printing OIDRC without saying so invites code written against a field that is
       // not there. WHY they are absent is not stated: the switch chain below is printed as
-      // evidence beside the absence (measured on KNA1, 4 of 4 / 3 of 3), never as its cause.
+      // evidence beside the absence (consistent on the one KNA1 case, 2026-11-09), never its cause.
       //
       // The test is MEMBERSHIP, not position: does any field this append declares appear in the
       // active list? That is sound whatever the marker order does, which is why it is the check

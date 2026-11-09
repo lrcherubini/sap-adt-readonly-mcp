@@ -43,6 +43,9 @@ test('the measured case: one switch with no business function, one whose functio
   const a = byPackage.get('ZDEMO_PKG_A');
   assert.deepEqual(a.switches.map((s) => [s.id, s.functions.length]), [['ZDEMO_SW_ORPHAN', 0]]);
   assert.match(describeChain(a)[0], /switch ZDEMO_SW_ORPHAN, which belongs to NO business function/);
+  // Measured: such a switch carried active appends, so the line must never read as "off".
+  assert.match(describeChain(a)[0], /does not make it off/);
+  assert.equal(/switched off|is off\b/i.test(describeChain(a)[0]), false);
 
   const b = byPackage.get('ZDEMO_PKG_B');
   assert.deepEqual(
