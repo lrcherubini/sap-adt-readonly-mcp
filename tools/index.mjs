@@ -14,6 +14,7 @@ import { resolveDataElement, readDomain } from '../lib/ddic.mjs';
 import { contractOf, sourceRefusal } from '../lib/type-contract.mjs';
 import { readServiceBinding } from '../lib/service-binding.mjs';
 import { virtualFoldersPost, parseVirtualFolders } from '../lib/virtual-folders.mjs';
+import { legacyKindOf, readLegacyObjects } from '../lib/legacy-objects.mjs';
 import { valueHelpTool } from './value-help.mjs';
 import { cleanCoreScanTool } from './clean-core-scan.mjs';
 import { contractCheckTool } from './contract-check.mjs';
@@ -364,7 +365,10 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         name: 'adt_search',
         description:
           'Search ABAP repository objects in the SAP system by name pattern (e.g. "ZCL_SD*"). ' +
-          'Returns name, type, package and ADT URI. Read-only.',
+          'Returns name, type, package and ADT URI. Read-only. For an application log object ' +
+          '(objectType APLO) or a check variant (CHKV) it also answers `legacy`: the ones created ' +
+          'in SLG0 or transaction SCI, which the ADT does not publish, read from their standard ' +
+          'tables, with guidance on where they live and how to work with them.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -415,6 +419,19 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         // many": the quick search has no paging and no total. Measured: ENHO/XHH
         // answered 182 of a 200 cap -- 18 of headroom that the next census could spend
         // without anyone noticing. So the cap is a signal in the answer, and a gap.
+        // APLO and CHKV have a second kind the ADT never lists (SLG0 / SCI): read it from its
+        // tables, so an ADT-only answer is not taken for the whole set (lib/legacy-objects.mjs).
+        const legacyKind = legacyKindOf(facet);
+        let legacy;
+        if (legacyKind) {
+          legacy = session.raw
+            ? await readLegacyObjects(session.raw, legacyKind, query, {
+                language: cfg?.language,
+                gap: (row) => journal?.gap?.(row),
+                audit: (target, n) => record(cfg, 'adt_search', target, n),
+              })
+            : { objects: [], complete: false, note: 'legacy objects not read: this session has no raw client' };
+        }
         const atCap = hits.length >= limit;
         if (atCap) {
           journal?.gap?.({
@@ -456,6 +473,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
                       'for PROG/P, PROG/I, CLAS/OC and FUGR/F and say foundBy: "uri"',
                   }
                 : {}),
+          ...(legacy ? { legacy } : {}),
           hits: hits.map((h) => ({
             name: h['adtcore:name'],
             type: h['adtcore:type'],

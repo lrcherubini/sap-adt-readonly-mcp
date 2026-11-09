@@ -1607,6 +1607,43 @@ test('adt_object_info on a SRVB reads the binding and the detail of each version
   assert.match(n.bindingNote, /no raw client/);
 });
 
+test('adt_search on APLO also answers the legacy objects created in SLG0; other types answer none', async () => {
+  const preview = (sql, cols) =>
+    '<?xml version="1.0" encoding="utf-8"?><dataPreview:tableData xmlns:dataPreview="http://www.sap.com/adt/dataPreview">' +
+    `<dataPreview:totalRows>${Object.values(cols)[0].length}</dataPreview:totalRows>` +
+    `<dataPreview:executedQueryString>${sql.replace(/'/g, '&apos;')} INTO TABLE @DATA(LT_RESULT) UP TO 200 ROWS .</dataPreview:executedQueryString>` +
+    Object.entries(cols).map(([k, v]) => `<dataPreview:columns><dataPreview:metadata dataPreview:name="${k}" dataPreview:type="C" dataPreview:description="${k}" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>` +
+      (v.length ? `<dataPreview:dataSet>${v.map((x) => `<dataPreview:data>${x}</dataPreview:data>`).join('')}</dataPreview:dataSet>` : '<dataPreview:dataSet/>') + '</dataPreview:columns>').join('') +
+    '</dataPreview:tableData>';
+  const raw = {
+    httpClient: {
+      request: async (url, c = {}) => {
+        const sql = String(c.body ?? '').replace(/\s+/g, ' ').trim();
+        if (/FROM BALOBJ WHERE/.test(sql)) return { status: 200, body: preview(sql, { OBJECT: ['ZDEMO_SLG0', 'ZDEMO_APLO'] }), headers: {} };
+        if (/FROM TADIR/.test(sql)) return { status: 200, body: preview(sql, { OBJ_NAME: ['ZDEMO_APLO'] }), headers: {} };
+        if (/FROM BALOBJT/.test(sql)) return { status: 200, body: preview(sql, { SPRAS: ['E'], OBJECT: ['ZDEMO_SLG0'], OBJTXT: ['Demo log'] }), headers: {} };
+        throw Object.assign(new Error('unexpected'), { err: 500 });
+      },
+    },
+  };
+  const aplo = { 'adtcore:name': 'ZDEMO_APLO', 'adtcore:type': 'APLO/TYP', 'adtcore:packageName': 'ZDEMO', 'adtcore:uri': '/sap/bc/adt/applicationlog/objects/zdemo_aplo' };
+  const api = fakeApi({ searchObject: () => [aplo] });
+  const session = { api, sources: { catalog: null, mirror: null, precedent: null }, raw };
+  const out = jsonOf(await byName(buildTools(cfgWith([]), session), 'adt_search').handler({ query: 'Z*', objectType: 'APLO' }));
+  assert.equal(out.hits.length, 1, 'the ADT hits are unchanged');
+  assert.equal(out.legacy.kind, 'SLG0');
+  assert.deepEqual(out.legacy.objects, [{ name: 'ZDEMO_SLG0', description: 'Demo log' }]);
+  assert.equal(out.legacy.complete, true);
+  assert.match(out.legacy.guidance, /SLG0/);
+
+  const cls = jsonOf(await byName(buildTools(cfgWith([]), session), 'adt_search').handler({ query: 'Z*', objectType: 'CLAS/OC' }));
+  assert.equal(cls.legacy, undefined);
+
+  const noRaw = jsonOf(await byName(toolsWith(api), 'adt_search').handler({ query: 'Z*', objectType: 'CHKV' }));
+  assert.equal(noRaw.legacy.complete, false);
+  assert.match(noRaw.legacy.note, /no raw client/);
+});
+
 // --- argument validation (tools/index.mjs argumentErrors) ---------------------
 
 test('a missing required argument is refused before the handler, naming what arrived', async () => {

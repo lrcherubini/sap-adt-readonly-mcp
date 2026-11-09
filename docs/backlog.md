@@ -130,25 +130,6 @@ to protect the account?
 
 ---
 
-## 9. Objects the ADT sees only in part: `APLO` and `CHKV`
-
-**What is missing.** An ADT search or read of an application log object (`APLO`) or an ATC check
-variant (`CHKV`) sees only the ones created in the ADT. Those created in SLG0 (table `BALOBJ`)
-or in transaction SCI are not repository objects (reference: *Two kinds of one object*).
-
-**Where it would bite.** `adt_search` with `objectType` `APLO` answered 4 objects where SLG0
-holds 16. A caller reading that as "these are the application log objects" is wrong without any
-error. `adt_atc_run` already says so for variants (`variantKind: SCI`).
-
-**What to decide.**
-- Should `adt_search` attach a fixed note to an `APLO` or `CHKV` answer ("only the objects
-  created in the ADT; SLG0/SCI ones are not in it")? That is cheap and closes the silent
-  partial answer.
-- Should `BALOBJ` (and `BALSUB`) join the customizing list through `npm run propose:table`
-  if a tool ever needs every log object? That is the owner's decision.
-
----
-
 ## Accepted limit (not work): a per-target gap cannot retire itself
 
 Recorded so it does not come back as a defect.
