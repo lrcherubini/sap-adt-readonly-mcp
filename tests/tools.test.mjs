@@ -1519,6 +1519,41 @@ test('adt_object_info on an ENHO/XHB reads its body once at its own URI and answ
   assert.match(n.badiNote, /no raw client/);
 });
 
+test('adt_object_info on a SRVB reads the binding and the detail of each version; without a raw client it says so', async () => {
+  const fs = await import('node:fs');
+  const fx = (n) => fs.readFileSync(new URL(`./fixtures/service-binding/${n}`, import.meta.url), 'utf8');
+  const srvb = hit('ZDEMO_UI_FLIGHT_O2', 'SRVB/SVB', 'ZDEMO', '/sap/bc/adt/businessservices/bindings/zdemo_ui_flight_o2');
+  const structure = { objectUrl: srvb['adtcore:uri'], metaData: {}, links: [] };
+  const api = fakeApi({ searchObject: () => [srvb], objectStructure: () => structure });
+  const urls = [];
+  const session = {
+    api,
+    sources: { catalog: null, mirror: null, precedent: null },
+    raw: {
+      httpClient: {
+        request: async (url, c = {}) => {
+          urls.push({ url, method: c.method });
+          const body = /serviceversion=0001/.test(url) ? fx('detail-v2-0001-unpublished.xml')
+            : /serviceversion=0002/.test(url) ? fx('detail-v2-0002-published.xml')
+            : fx('binding-v2-two-versions.xml');
+          return { status: 200, body, headers: {} };
+        },
+      },
+    },
+  };
+  const log = [];
+  const out = jsonOf(await byName(buildTools(cfgWith(log), session), 'adt_object_info').handler({ objectName: 'ZDEMO_UI_FLIGHT_O2', objectType: 'SRVB/SVB', fields: false }));
+  assert.deepEqual(urls.map((u) => u.method), ['GET', 'GET', 'GET']);
+  assert.equal(out.binding.type, 'ODATA');
+  assert.deepEqual(out.binding.versions.map((v) => [v.version, v.published]), [['0001', false], ['0002', true]]);
+  assert.equal(out.bindingNote, undefined);
+  assert.ok(log.some((l) => l.target === 'ZDEMO_UI_FLIGHT_O2#0002'), 'each detail read is audited on its own line');
+
+  const n = jsonOf(await byName(toolsWith(api), 'adt_object_info').handler({ objectName: 'ZDEMO_UI_FLIGHT_O2', objectType: 'SRVB/SVB', fields: false }));
+  assert.equal(n.binding, undefined);
+  assert.match(n.bindingNote, /no raw client/);
+});
+
 // --- argument validation (tools/index.mjs argumentErrors) ---------------------
 
 test('a missing required argument is refused before the handler, naming what arrived', async () => {

@@ -758,6 +758,39 @@ What `$metadata` carries: entity sets, types, property names, operations and the
 annotations. No row and no field value. It is the document every Fiori app downloads on start-up,
 for every user it has.
 
+### Service bindings: the document and the detail of each version -- 2026-11-09
+
+The owner asked for what the IDE shows about a service binding (`SRVB/SVB`). Before this,
+`adt_object_info` could only say that a binding has no source. Three GET routes were added
+under the `adt` authority. They were measured on 388 bindings in three rounds: OData V2/V4, UI and
+Web API, SQL, published and unpublished, with and without navigations, namespaced, and two
+versions.
+
+| Route | Path | What it reads |
+|---|---|---|
+| `serviceBinding` | `/sap/bc/adt/businessservices/bindings/<binding>` | the kind, contract and each service version with its release state and SRVD |
+| `serviceBindingDetailV2` / `V4` | `/sap/bc/adt/businessservices/odatav2|odatav4/<binding>?servicename=&serviceversion=&srvdname=` | whether one version is published, its service URL, and its entity sets and navigations |
+
+What keeps these routes narrow:
+- **The detail is asked only for the kind the binding declares, once per version.** The name,
+  version and SRVD sent are the ones the binding document names, never derived from the binding
+  name. The detail answers 200 for either kind and for a version the binding does not hold (both
+  measured), so a 200 is not trusted. Only the row the detail returns for the version that was
+  asked is used.
+- **`published` is reported per version.** The binding's root flag read "true" while one of two
+  versions was unpublished, so it is returned labelled as the binding-level flag and never stands
+  in for a version.
+- **What the detail publishes next to its answer is never followed.** That covers the
+  `publishjobs`/`unpublishjobs` actions and the `testclass` and `semanticversion` links. The
+  route's segment and parameters are closed alphabets, so none of those paths can be built.
+- **No side effect.** The IDE runs the same read every time a binding is opened. About 750 of
+  these reads, measured against the logged-on user's Gateway error log before and after, added no
+  row. An earlier "No service found" row came from another action in the IDE.
+- **The service is not called.** The entity sets come from the binding's own description. A
+  published version's service URL is mapped to `odataMetadata` / `odataMetadataV4` only when
+  the URL has the form those routes measured. A V2 version above 1 (`;v=2`) and a namespaced
+  service are reported as unmapped, with the reason, until they are measured.
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:

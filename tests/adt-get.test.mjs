@@ -71,6 +71,9 @@ test('the route table is closed, and these are the routes in it', () => {
     'odataMetadataV4',
     'quickSearch',
     'runtimeDumps',
+    'serviceBinding',
+    'serviceBindingDetailV2',
+    'serviceBindingDetailV4',
     'structureEnhancements',
     'tableEnhancements',
     'transportDetail',
@@ -889,3 +892,25 @@ test('a failing launchpad read names the Gateway catalogue as its authority, not
   assert.equal(transport.seen[0].headers.Accept, 'application/json');
 });
 
+// --- service bindings (docs/security.md, 2026-11-09) ---------------------------
+
+test('the binding routes: one document, the detail of one version, nothing else', () => {
+  assert.equal(buildUrl('serviceBinding', { binding: 'zdemo_ui_o4' }), '/sap/bc/adt/businessservices/bindings/zdemo_ui_o4');
+  assert.equal(buildUrl('serviceBinding', { binding: '%2fdmo%2fui_agency_o4' }), '/sap/bc/adt/businessservices/bindings/%2fdmo%2fui_agency_o4');
+  assert.equal(TEMPLATES.get('serviceBinding').accept, 'application/vnd.sap.adt.businessservices.servicebinding.v2+xml');
+  assert.equal(
+    buildUrl('serviceBindingDetailV2', { binding: 'zdemo_ui_o2', servicename: 'ZDEMO_UI_O2', serviceversion: '0002', srvdname: 'ZDEMO_SRVD' }),
+    '/sap/bc/adt/businessservices/odatav2/zdemo_ui_o2?servicename=ZDEMO_UI_O2&serviceversion=0002&srvdname=ZDEMO_SRVD'
+  );
+  // Mixed case and a namespace are measured service names.
+  assert.match(buildUrl('serviceBindingDetailV4', { binding: 'api_demo', servicename: 'DemoRun', serviceversion: '0001', srvdname: '/DMO/X' }), /servicename=DemoRun&serviceversion=0001&srvdname=%2FDMO%2FX$/);
+  for (const k of ['V2', 'V4']) assert.ok(TEMPLATES.get(`serviceBindingDetail${k}`).accept.endsWith(`odata${k.toLowerCase()}.v3+xml`));
+  // Every parameter is required: a detail without its version would answer a row for nothing.
+  assert.throws(() => buildUrl('serviceBindingDetailV2', { binding: 'zdemo_ui_o2', servicename: 'ZDEMO_UI_O2', srvdname: 'X' }), /requires 'serviceversion'/);
+  assert.throws(() => buildUrl('serviceBindingDetailV2', { binding: 'zdemo_ui_o2', servicename: 'ZDEMO_UI_O2', serviceversion: '2', srvdname: 'X' }), /Blocked/);
+  // The actions published next to the detail are not reachable through it.
+  for (const binding of ['publishjobs/x', '../bindings', 'a?x=1']) {
+    assert.throws(() => buildUrl('serviceBindingDetailV4', { binding, servicename: 'X', serviceversion: '0001', srvdname: 'X' }), /Blocked/);
+  }
+  assert.throws(() => buildUrl('serviceBinding', { binding: '/dmo/ui_agency_o4' }), /Blocked/, 'a bare slash is a second segment');
+});

@@ -12,6 +12,7 @@ import { dumpAfter500, explainWithDump } from '../lib/dump-after-500.mjs';
 import { openJournal } from '../lib/journal.mjs';
 import { resolveDataElement, readDomain } from '../lib/ddic.mjs';
 import { contractOf, sourceRefusal } from '../lib/type-contract.mjs';
+import { readServiceBinding } from '../lib/service-binding.mjs';
 import { valueHelpTool } from './value-help.mjs';
 import { cleanCoreScanTool } from './clean-core-scan.mjs';
 import { contractCheckTool } from './contract-check.mjs';
@@ -574,7 +575,10 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           'answers `fieldsNote` saying why no field list was asked. A package ' +
           '(DEVC/K) also answers its ancestry (`packagePath`, root first, and `parentPackage`); ' +
           'a BAdI implementation (ENHO/XHB) answers `badi`: spot, BAdI definition, implementing ' +
-          'class and referenced objects. A data element (DTEL/DE) answers `dataElement`: its ' +
+          'class and referenced objects. A service binding (SRVB/SVB) answers `binding`: OData ' +
+          'V2/V4 or SQL, UI or Web API, contract, and per service version its release state, SRVD, ' +
+          'published state, service URL and entity sets (the root `published` does not speak for ' +
+          'every version). A data element (DTEL/DE) answers `dataElement`: its ' +
           'domain, type, value table and the domain FIXED VALUES (`fixValueList`); a domain ' +
           '(DOMA/DD) answers `domain` with the same. Read-only.',
         inputSchema: {
@@ -858,6 +862,23 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           }
         }
 
+        // A service binding is form-based (no source, no fields): what it IS lives in the binding
+        // document and, per version, in the detail (lib/service-binding.mjs). Needs the raw client.
+        let binding;
+        let bindingNote;
+        if (hit['adtcore:type'] === 'SRVB/SVB') {
+          if (!session.raw) {
+            bindingNote = 'binding not read: this session has no raw client';
+          } else {
+            const out = await readServiceBinding(transportFor(session.raw), hit['adtcore:name'], {
+              gap: (row) => journal?.gap?.(row),
+              audit: (target, n) => record(cfg, 'adt_object_info', target, n),
+            });
+            binding = out.binding;
+            bindingNote = out.note;
+          }
+        }
+
         record(cfg, 'adt_object_info', hit['adtcore:name'], elements.length);
         return asText({
           found: hit,
@@ -869,6 +890,8 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           ...(packagePathNote ? { packagePathNote } : {}),
           ...(badi !== undefined ? { badi } : {}),
           ...(badiNote ? { badiNote } : {}),
+          ...(binding !== undefined ? { binding } : {}),
+          ...(bindingNote ? { bindingNote } : {}),
           ...(elementsNote ? { elementsNote } : {}),
           metadata,
           elements,
