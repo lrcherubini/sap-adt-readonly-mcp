@@ -2428,7 +2428,7 @@ Fixtures are in `tests/fixtures/launchpad/`, cut from these bodies by
 
 ### The UI5 repository over the ADT, and the live `$metadata` of a Fiori app's service — MEASURED 2026-11-09
 
-Two probes on the development system, 49 GETs in all. The app was a Fiori elements List Report
+Three probes on the development system, 79 GETs in all. The app was a Fiori elements List Report
 (V2) with a controller extension. The route decision is in [`security.md`](security.md),
 *The $metadata of a service a Fiori app consumes -- 2026-11-09*.
 
@@ -2486,10 +2486,29 @@ references the live service `$metadata` and holds an empty schema.
 - `.create("/<Set>", payload, …)`
 - `getModel("<json model>").getProperty("/…")`, which names no service
 
-**Not measured yet: OData V4.** A V4 manifest writes
-`/sap/opu/odata4/sap/<binding>/<srvd group>/sap/<srvd>/<nnnn>/`. Route `odataMetadataV4` is
-built and tested, and it is `shapeObserved: false` until `scripts/probes/ui5-repository-3.mjs`
-reads a V4 app on this system.
+**OData V4, live.** A third probe, 30 GETs. It read the manifests of the Z/Y apps in the list
+one by one until three of them named a V4 data source (22 manifests).
+- **The URI forms met** (`odataVersion`, then `uri`):
+
+  | Count | Form |
+  |---|---|
+  | 19 | `2.0` `/sap/opu/odata/sap/<SERVICE>/` |
+  | 2 | `4.0` `/sap/opu/odata4/sap/<binding>/srvd_a2x/sap/<srvd>/0001/` |
+  | 1 | `4.0` `/sap/opu/odata4/sap/<binding>/srvd/sap/<srvd>/0001/` |
+
+  No `;v=`, no `;o=` and no `srvd_f4` appeared. One app in the list had no `manifest.json`
+  (the "does not exist" 404 above).
+- `GET <uri>$metadata`, with the uri exactly as the manifest writes it (lower case), returned
+  200 on all three: 14 to 211 KB, `application/xml`.
+- **The shape.** `edmx:Edmx Version="4.0"`, three `edmx:Reference`s (vocabularies), then **one**
+  `Schema` with `Namespace="com.sap.gateway.<srvd|srvd_a2x>.<srvd>.v0001"` and
+  `Alias="SAP__self"`, holding `EntityContainer Name="Container"`. In both groups the namespace
+  names the service definition, so an app is attributed to its SRVD as in V2.
+- **Operations** are `Action` and `Function`. A bound action is overloaded, one per entity type
+  under the same name: 43 `Action` elements came down to 8 names. No `ActionImport` or
+  `FunctionImport` was met. Annotations are inline, 21 to 360 `<Annotations>` per document.
+- **Case.** The same URL with binding, group and service definition upper-cased returned the same
+  bytes on all three, so the path is case-insensitive. The route builds the lower-case form.
 
 ## How to reproduce
 

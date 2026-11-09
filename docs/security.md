@@ -721,7 +721,7 @@ What is admitted, and nothing more:
 | Route | Path | Measured |
 |---|---|---|
 | `odataMetadata` | `/sap/opu/odata/sap/<SERVICE>/$metadata` (V2) | yes, 2026-11-09: 200, 92 KB, `application/xml` |
-| `odataMetadataV4` | `/sap/opu/odata4/sap/<binding>/<srvd group>/sap/<srvd>/<nnnn>/$metadata` (V4) | **not yet**: `shapeObserved: false`, the tool does not call it |
+| `odataMetadataV4` | `/sap/opu/odata4/sap/<binding>/<srvd group>/sap/<srvd>/<nnnn>/$metadata` (V4), the group `srvd` or `srvd_a2x` | yes, 2026-11-09: 200 on three apps, 14-211 KB, `application/xml` |
 
 `assertRouteTable()` enforces the shape at import. A route under `metadata` must declare the service
 as its segment and the literal `/$metadata` as its suffix, with no query parameter and no fixed

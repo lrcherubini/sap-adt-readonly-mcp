@@ -123,7 +123,9 @@ test('the manifest names V2 and V4 services, each with the route of its $metadat
       dataSources: {
         v2: { uri: '/sap/opu/odata/sap/ZUI_DEMO_O2/', type: 'OData' },
         v4: { uri: '/sap/opu/odata4/sap/zui_demo_travel_o4/srvd/sap/zui_demo_travel/0001/', type: 'OData', settings: { odataVersion: '4.0' } },
+        a2x: { uri: '/sap/opu/odata4/sap/zui_demo_api_o4/srvd_a2x/sap/zui_demo_api/0001/', type: 'OData', settings: { odataVersion: '4.0' } },
         versioned: { uri: '/sap/opu/odata/sap/ZUI_DEMO_O2;v=2/', type: 'OData' },
+        f4: { uri: '/sap/opu/odata4/sap/zui_demo_vh_o4/srvd_f4/sap/zui_demo_vh/0001/', type: 'OData', settings: { odataVersion: '4.0' } },
         annotation: { uri: 'annotations/annotation.xml', type: 'ODataAnnotation' },
       },
     },
@@ -131,9 +133,12 @@ test('the manifest names V2 and V4 services, each with the route of its $metadat
   assert.deepEqual(ds.map((d) => [d.name, d.route, d.key]), [
     ['v2', 'odataMetadata', 'ZUI_DEMO_O2'],
     ['v4', 'odataMetadataV4', 'zui_demo_travel_o4/srvd/sap/zui_demo_travel/0001'],
+    ['a2x', 'odataMetadataV4', 'zui_demo_api_o4/srvd_a2x/sap/zui_demo_api/0001'],
     ['versioned', null, null],
+    ['f4', null, null],
   ]);
-  assert.match(ds[2].unmeasured, /V2.*V4/);
+  assert.match(ds[3].unmeasured, /V2.*V4/);
+  assert.match(ds[4].unmeasured, /srvd_f4/, 'a service group not measured in a manifest is said, not read');
   assert.equal(ds[1].srvd, 'ZUI_DEMO_TRAVEL');
   assert.deepEqual([...odataModelsOf(MANIFEST)], [['', 'mainService']], 'a JSON model names no service');
 });
@@ -296,7 +301,7 @@ test('$metadata of ONE service and nothing else of it: V2 under /sap/opu/odata/s
   for (const bad of ['ZUI_DEMO/Monitor', 'ZUI_DEMO;v=2', "ZUI_DEMO/Monitor('1')", 'ZUI_DEMO/$batch', 'zui demo']) {
     assert.throws(() => buildUrl('odataMetadata', { service: bad }), RouteViolation, bad);
   }
-  for (const bad of ['zui_x/srvd/sap/zui_x', 'zui_x/srvd/sap/zui_x/0001/Travel', 'zui_x/../sap/zui_x/0001', 'zui_x/srvd/iwbep/zui_x/0001', 'ZUI_X/srvd/sap/zui_x/0001']) {
+  for (const bad of ['zui_x/srvd/sap/zui_x', 'zui_x/srvd/sap/zui_x/0001/Travel', 'zui_x/../sap/zui_x/0001', 'zui_x/srvd/iwbep/zui_x/0001', 'ZUI_X/srvd/sap/zui_x/0001', 'zui_x/srvd_f4/sap/zui_x/0001']) {
     assert.throws(() => buildUrl('odataMetadataV4', { service: bad }), RouteViolation, bad);
   }
   assert.equal(routeAuthority('/sap/opu/odata/sap'), 'metadata');
@@ -314,13 +319,13 @@ test('a metadata route must name one service and read /$metadata; a multi-part s
   );
 });
 
-test('the $metadata read is a GET with the one Accept, and V4 stays unobserved until measured', async () => {
+test('the $metadata read is a GET with the one Accept, and both versions are measured', async () => {
   const asked = [];
   await namedGet(async (r) => (asked.push(r), { status: 200, body: V2, headers: {} }), 'odataMetadata', { service: 'ZUI_DEMO_MONITOR_O2' });
   assert.equal(asked[0].method, 'GET');
   assert.deepEqual({ ...asked[0].headers }, { Accept: 'application/xml' });
   assert.equal(TEMPLATES.get('odataMetadata').shapeObserved, true);
-  assert.equal(TEMPLATES.get('odataMetadataV4').shapeObserved, false);
+  assert.equal(TEMPLATES.get('odataMetadataV4').shapeObserved, true);
 });
 
 // --- the tool, end to end ------------------------------------------------------------------------
@@ -411,18 +416,25 @@ test('an app that does not exist is a gap, not an empty app', async () => {
   assert.equal(lines.find((l) => l.stream === 'gaps')?.code, 'UI5_APP_NOT_READ');
 });
 
-test('a V4 data source is not checked while its route is unmeasured, and says so', async () => {
-  const v4manifest = { 'sap.app': { dataSources: { mainService: { uri: '/sap/opu/odata4/sap/zui_demo_travel_o4/srvd/sap/zui_demo_travel/0001/', type: 'OData', settings: { odataVersion: '4.0' } } } } };
+test('a V4 data source is read by its parts, and the app is checked against it', async () => {
+  const uri = '/sap/opu/odata4/sap/zui_demo_travel_o4/srvd/sap/zui_demo_travel/0001/';
+  const v4manifest = { 'sap.app': { dataSources: { mainService: { uri, type: 'OData', settings: { odataVersion: '4.0' } } } } };
   const asked = [];
-  const transport = async ({ url, headers }) => {
-    asked.push(url);
+  const transport = async ({ url, method, headers }) => {
+    asked.push({ url, method, accept: headers.Accept });
     if (url.endsWith('manifest.json/content')) return { status: 200, body: JSON.stringify(v4manifest), headers: {} };
     if (headers.Accept === 'application/atom+xml') return { status: 200, body: FEED([]), headers: {} };
+    if (url === `${uri}$metadata`) return { status: 200, body: V4, headers: { 'content-type': 'application/xml' } };
     throw new Error(`unexpected ${url}`);
   };
   const out = await runContractCheck(cfg(), api, { service: 'ZUI_DEMO_MONITOR', apps: ['ZUI5_DEMO_V4'] }, null, transport);
-  assert.ok(!asked.some((u) => u.includes('/odata4/')), 'an unmeasured route is not called');
-  assert.match(out.apps[0].services[0].metadata, /not been measured/);
+  const md = asked.filter((a) => a.url.includes('/odata4/'));
+  assert.deepEqual(md, [{ url: `${uri}$metadata`, method: 'GET', accept: 'application/xml' }]);
+  assert.deepEqual(out.apps[0].services[0], {
+    dataSource: 'mainService', uri, version: '4.0',
+    service: 'ZUI_DEMO_TRAVEL_O4', srvd: 'ZUI_DEMO_TRAVEL', odata: '4.0', entitySets: 2, operations: 2,
+  });
+  assert.ok(!out.apps[0].notRead.some((n) => /not measured|were NOT checked/.test(n)), JSON.stringify(out.apps[0].notRead));
 });
 
 test('apps are names, at most ten, and need a session that can reach the repository', async () => {
