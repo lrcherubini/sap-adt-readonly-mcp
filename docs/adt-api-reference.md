@@ -2913,6 +2913,36 @@ Consequence: an ADT answer about these types is a statement about the ADT-create
 about all of them. The application-log figures come from the owner's screenshots of the ADT
 search and of SLG0, not from a probe.
 
+### Legacy objects in their tables: `BALOBJ`, `TADIR`, `LIKE` in the data preview — MEASURED 2026-11-09
+
+A probe sent `/datapreview/freestyle` reads, the same POST that `adt_customizing` sends, plus the
+GETs named below. Every echoed `executedQueryString` was the statement sent, followed by
+`INTO TABLE … UP TO n ROWS`.
+
+- **`LIKE` is accepted, and so is `ESCAPE`.**
+  - `OBJECT LIKE 'Z%'` returned 16 rows.
+  - `LIKE 'Z_%'`, where `_` is the one-character wildcard, also returned 16: every `Z` name has
+    some second character.
+  - `LIKE 'Z#_%' ESCAPE '#'` returned the **one** name with a literal `_` in second position.
+    So a name's own `_` must be escaped, or the pattern over-matches.
+  - `LIKE '%LOG%'` (99 rows) and `LIKE '/%'` (342 rows, 200 returned at the cap) also work.
+- **Volume.** `BALOBJ` holds 2,104 rows on the development system, almost all SAP's. A broad
+  pattern reaches the 200-row cap, and `totalRows` says by how much.
+- **ADT objects and SLG0 objects.** Of the 16 `Z*` rows in `BALOBJ`, 4 have a `TADIR` entry
+  `R3TR APLO` (the ADT objects) and 12 have none (created in SLG0). `TADIR` named no `APLO` that
+  is missing from `BALOBJ`. `ABAP_LANGUAGE_VERSION` was read for the same 16 rows.
+- **Texts.** `BALOBJT` held texts for 10 of the 16, in the logon language and in English
+  (`SPRAS` `P` and `E`). An object can have no text at all.
+- **The ADT "List of Variants" is empty.** `GET /sap/bc/adt/atc/variants`, bare and with
+  `maxItemCount=500`, `data=*` and `data=Z*`, answered 200 `nameditems.v1+xml` with
+  `totalItemCount 0` every time. The ADT has no list of the variants created in transaction
+  SCI.
+- **The variant tables are class `L`.** `npm run propose:table` read `SCICHKV_HD` and
+  `SCICHKV_TX` as delivery class `L` and refused them (security.md: classes `A` and `L` are
+  refused outright). Their fields hold users (`CIUSER`, the owner of a local variant, and
+  `UNAM`). `BALOBJ` and `BALOBJT` are class `E` with no append and no personal field
+  (verdict REVIEW).
+
 ### ATC check variants: `/atc/checkvariants` — MEASURED 2026-11-09
 
 One customer variant, GET only.
