@@ -43,22 +43,6 @@ Until measured, nothing may **assert** a switch as the cause. Reports state abse
 
 ---
 
-## 2. Namespaced subjects on the enhancement routes: admitted by the alphabet, never measured
-
-**What is missing.** One read of `/sap/bc/adt/ddic/structures/%2f<ns>%2f<name>/enhancement/elements`.
-The two `enhancement/elements` routes accept the `%2f` form because they reuse the alphabet the
-function-group route proved, but for a **function group**, not this resource.
-
-**Where it bit.** Not yet. Namespaced appends show up in responses and read normally as objects;
-the case where the namespaced object is the one being asked about is missing.
-
-**What to measure.** A `propose:table` over a namespaced structure that has an append. On 404/422
-the report must say *not asked* rather than let the node look enumerated. Today it would fall into
-`refusedAsk` ("node(s) not enumerated"), which is right, but that is a reading of the code, not a
-measurement.
-
----
-
 ## Accepted limit (not work): a per-target gap cannot retire itself
 
 Recorded so it does not come back as a defect.

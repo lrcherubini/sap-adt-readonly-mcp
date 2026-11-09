@@ -240,6 +240,23 @@ one of these says the opposite of the truth — it brings a whole structure.
 `enhancement/elements` route has a segment alphabet that stops at the slash, and conflating the two
 made an earlier version of the report claim a source could not be read when it could.
 
+**A namespaced SUBJECT answers through the `%2f` form — measured 2026-11-09.** `propose:table` on
+`/BOFU/DDMOCUST_H` (a namespaced `TABL/DT`, nesting depth 3) asked `enhancement/elements` for the
+table and for each of its five namespaced structures (`/BOFU/S_DEMO_CUSTOMER_HDR`, `…_HDR_1`,
+`/BOFU/INCL_EEW_DEMO_CUST_HDR`, `/BOFU/DEMO_ARCH_KEYS`, `/BOFU/S_DEMO_CUSTOMER_ID`, plus one
+non-namespaced include). All seven answered, with the segment written `%2fbofu%2f<name>`, lower
+case, as `segmentFor` builds it. The list was empty on all seven, and the `ddicElement` view
+agreed: 26 fields and no `.append` marker. So the form is measured on both routes, tables and
+structures. A namespaced subject that really HAS an append is still not observed.
+
+Two details of the same reading. The relative links of a namespaced objectStructure write the
+wrapper upper case (`./%2Fbofu%2Fs_demo_customer_hdr/source/main`), while `adtcore:uri` writes it
+lower case; the route pattern is case-insensitive and admits both. And the published
+`relations/enhancements` link is absent on `BAPIRET2`, `SYST`, `/BOFU/S_DEMO_CUSTOMER_HDR` and
+`/BOFU/INCL_EEW_TEST_CUST_HDR` (the last two extensible) and present on `KOMPAZ`, which carries
+appends. Together with the run above, where the resource answered for nodes that publish no link,
+this confirms that the link is a hint about the object, not a precondition of the resource.
+
 ⚠️ **NAMING AN APPEND IS NOT SAYING IT IS IN THE TABLE — measured on `KNA1` 2026-09-22.** The
 resource names **11** appends; `ddicElement` carries **7** `.append` blocks. The four with no block
 belong to an industry solution (`OI*_KNA1`), and not one of their fields is in the active list.

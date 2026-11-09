@@ -20,6 +20,7 @@ import {
   transportFor,
 } from '../lib/adt-get.mjs';
 import { deniedMethods } from '../lib/guard.mjs';
+import { segmentFor } from '../lib/enhancement-elements.mjs';
 import { annotationChainTool } from '../tools/annotation-chain.mjs';
 
 /** The reply the development system actually gave on 2026-09-09; see tests/annotation-chain.test.mjs. */
@@ -802,6 +803,12 @@ test('a namespaced subject is admitted only as the %2f wrapper the ADT itself wr
   assert.equal(
     buildUrl('structureEnhancements', { name: '%2fisdfps%2fmerep_outtab_purchdoc' }),
     '/sap/bc/adt/ddic/structures/%2fisdfps%2fmerep_outtab_purchdoc/enhancement/elements'
+  );
+  // The measured form (2026-11-09): segmentFor writes it lower case, and both routes take it.
+  assert.equal(segmentFor('/BOFU/DDMOCUST_H'), '%2fbofu%2fddmocust_h');
+  assert.equal(
+    buildUrl('tableEnhancements', { name: segmentFor('/BOFU/DDMOCUST_H') }),
+    '/sap/bc/adt/ddic/tables/%2fbofu%2fddmocust_h/enhancement/elements'
   );
   // Double encoding names a resource that does not exist (measured on a function-group route,
   // 2026-09-14), and a bare slash is a second segment.
