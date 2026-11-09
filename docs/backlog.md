@@ -130,19 +130,6 @@ to protect the account?
 
 ---
 
-## 8. IDE endpoints, now measured: which become routes
-
-**What is missing.** A route decision for each family measured from an Eclipse communication log:
-Service Bindings and their `odatav4` detail, ATC check variants, release states and virtual
-folders. The shapes are in the reference (the sections dated 2026-11-09).
-
-**What to decide** (each one needs a `docs/security.md` entry before it can be built):
-- **Release states.** A 20-row SAP-standard list: a candidate for `data/defaults/` rather than a
-  route. A capped reply reports the capped count as `totalItemCount`.
-- **Virtual folders.** The only POST. Decide whether a POST that reads may enter the guard at all.
-
----
-
 ## 9. Objects the ADT sees only in part: `APLO` and `CHKV`
 
 **What is missing.** An ADT search or read of an application log object (`APLO`) or an ATC check

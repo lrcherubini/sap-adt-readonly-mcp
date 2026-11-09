@@ -768,6 +768,30 @@ What `$metadata` carries: entity sets, types, property names, operations and the
 annotations. No row and no field value. It is the document every Fiori app downloads on start-up,
 for every user it has.
 
+### Virtual folders: a POST that reads -- 2026-11-09
+
+The owner approved a POST whose only effect is to read. The IDE's project tree is such a POST:
+`/sap/bc/adt/repository/informationsystem/virtualfolders/contents`. `adt_package_tree` sends it,
+once per package and only with `describe: true`. It returns every sub-package's description,
+aligned (the tree resource sends descriptions shifted by one row, measured), and the number of
+objects below each sub-package. Before this, the same answer cost one search per sub-package.
+
+It is the **third POST**, and it is fenced the way the other two are (`lib/virtual-folders.mjs`):
+- the path is fixed;
+- the body is built in the module from one package name checked against a closed alphabet, with
+  the package preselected and the facet order fixed;
+- the raw transport is used, because the guarded client has no verb;
+- `tests/guard.test.mjs` ("the virtual folders are the third POST") proves that a bad name
+  never reaches a socket.
+Measured: 200 with about 3 KB; no lock and no object touched. If the read fails, the tool falls
+back to the searches and files `PACKAGE_FOLDERS_NOT_READ`.
+
+### Release states: not read -- 2026-11-09
+
+`/sap/bc/adt/repository/informationsystem/releasestates` (20 SAP-standard states, measured) gets no
+route and no file in `data/defaults/`. Nothing in this server would consume the list: the Clean
+Core levels come from the catalogue. Reopen it when a tool needs the state texts.
+
 ### ATC check variants: the checks of the variant that ran -- 2026-11-09
 
 The owner asked `adt_atc_run` to say what a variant checks, not only what it found. One GET route,

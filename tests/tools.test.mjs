@@ -1408,6 +1408,33 @@ test('the description belongs to the package it is printed next to', async () =>
   );
   assert.equal(api.count('searchObject'), 3);
   assert.match(described.descriptions, /from the search/);
+
+  // With a raw client: ONE virtual-folders POST answers every description and the counts below.
+  const sent = [];
+  const folders = [
+    '<vfs:virtualFoldersResult objectCount="9" xmlns:vfs="http://www.sap.com/adt/ris/virtualFolders">',
+    '<vfs:virtualFolder counter="0" text="directly assigned objects" name="..ZROOT" facet="PACKAGE"/>',
+    '<vfs:virtualFolder counter="4" text="Module A" name="ZA" uri="/sap/bc/adt/packages/za" facet="PACKAGE"/>',
+    '<vfs:virtualFolder counter="3" text="Module B" name="ZB" uri="/sap/bc/adt/packages/zb" facet="PACKAGE"/>',
+    '<vfs:virtualFolder counter="2" text="Module C" name="ZC" uri="/sap/bc/adt/packages/zc" facet="PACKAGE"/>',
+    '</vfs:virtualFoldersResult>',
+  ].join('');
+  const api2 = fakeApi({ nodeContents: (t, name) => ({ nodes: name === 'ZROOT' ? SHIFTED : [] }), searchObject: () => [] });
+  const raw = { httpClient: { request: async (url, c = {}) => (sent.push({ url, ...c }), { status: 200, body: folders, headers: {} }) } };
+  const viaFolders = jsonOf(await byName(buildTools(cfgWith([]), { api: api2, sources: { catalog: null, mirror: null, precedent: null }, raw }), 'adt_package_tree').handler({ packageName: 'ZROOT', describe: true, depth: 1 }));
+  assert.deepEqual(
+    viaFolders.objects.map((o) => [o.name, o.description, o.objectsBelow]),
+    [['ZA', 'Module A', 4], ['ZB', 'Module B', 3], ['ZC', 'Module C', 2]]
+  );
+  assert.equal(sent.filter((r) => r.method === 'POST').length, 1, 'one POST for the package, not one search per sub-package');
+  assert.equal(api2.count('searchObject'), 0);
+
+  // The POST failing costs calls, never the answer: the search is asked and the gap is filed.
+  const failing = { httpClient: { request: async () => { throw Object.assign(new Error('nope'), { err: 500 }); } } };
+  const viaSearch = jsonOf(await byName(buildTools(cfgWith([]), { api, sources: { catalog: null, mirror: null, precedent: null }, raw: failing }), 'adt_package_tree').handler({ packageName: 'ZROOT', describe: true }));
+  assert.deepEqual(viaSearch.objects.map((o) => o.description), ['Module A', 'Module B', 'Module C']);
+  assert.ok(viaSearch.objects.every((o) => o.objectsBelow === undefined));
+  assert.equal(journalLines.filter((l) => l.code === 'PACKAGE_FOLDERS_NOT_READ').length, 1);
 });
 
 // Measured and 2026-09-14, 3 of 3 class enhancements on the system, with every

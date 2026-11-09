@@ -1,6 +1,7 @@
 // The guard is the safety property of this server, so it is the one thing with a test
 // that runs offline: no SAP system, no credentials.
 
+import { virtualFoldersPost, buildVirtualFoldersBody, VirtualFoldersViolation } from '../lib/virtual-folders.mjs';
 import { test } from 'node:test';
 import { buildSelect, previewPost, SelectViolation } from '../lib/data-preview.mjs';
 import { atcPost, buildRunBody, AtcViolation } from '../lib/atc.mjs';
@@ -265,6 +266,23 @@ test('the two POSTs are the data preview and the ATC run; a table outside the li
   assert.equal(sent[0].method, 'POST');
   assert.equal(sent[0].url, '/sap/bc/adt/datapreview/freestyle?rowNumber=5');
   assert.equal(sent[0].body, 'SELECT * FROM T683S');
+});
+
+test('the virtual folders are the third POST: one fixed path, a body built here, a bad name never reaches a socket', async () => {
+  // docs/security.md, 2026-11-09: a POST that reads (the IDE's project tree). The path is fixed,
+  // the body is built from one validated package name, and nothing else can be sent.
+  const sent = [];
+  const raw = { httpClient: { request: async (url, cfg) => { sent.push({ url, ...cfg }); return { status: 200, body: '<vfs:virtualFoldersResult/>', headers: {} }; } } };
+  for (const bad of ['ZDEMO<x/>', 'A B', '../x', 'ZDEMO"', 'a'.repeat(31), '']) {
+    await assert.rejects(() => virtualFoldersPost(raw, bad), VirtualFoldersViolation, bad);
+  }
+  assert.equal(sent.length, 0, 'nothing left the client');
+  await virtualFoldersPost(raw, 'zdemo_root');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].method, 'POST');
+  assert.equal(sent[0].url, '/sap/bc/adt/repository/informationsystem/virtualfolders/contents');
+  assert.equal(sent[0].body, buildVirtualFoldersBody('ZDEMO_ROOT'));
+  assert.match(sent[0].body, /<vfs:value>ZDEMO_ROOT<\/vfs:value>/);
 });
 
 test('the ATC run is the second POST: a variant outside the set or a bad URI never reaches a socket', async () => {

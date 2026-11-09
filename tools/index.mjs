@@ -13,6 +13,7 @@ import { openJournal } from '../lib/journal.mjs';
 import { resolveDataElement, readDomain } from '../lib/ddic.mjs';
 import { contractOf, sourceRefusal } from '../lib/type-contract.mjs';
 import { readServiceBinding } from '../lib/service-binding.mjs';
+import { virtualFoldersPost, parseVirtualFolders } from '../lib/virtual-folders.mjs';
 import { valueHelpTool } from './value-help.mjs';
 import { cleanCoreScanTool } from './clean-core-scan.mjs';
 import { contractCheckTool } from './contract-check.mjs';
@@ -977,7 +978,8 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           'by type, with counts. Read-only. The tree resource sends its short descriptions ' +
           'MISALIGNED by one row (measured), so they are returned as ' +
           '`treeDescription`, not as the description of the row; pass `describe: true` to ' +
-          'fetch the sub-package descriptions from the search (one call per sub-package).',
+          'get each sub-package\'s correct description and the number of objects below it ' +
+          '(`objectsBelow`) from the virtual folders, one call per package.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -995,8 +997,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             describe: {
               type: 'boolean',
               description:
-                'Also read the correct description of each sub-package through the search ' +
-                '(one extra ADT call per sub-package). Off by default.',
+                'Also read the correct description of each sub-package and the objects below it ' +
+                '(one virtual-folders call per package; the search per sub-package if that fails). ' +
+                'Off by default.',
             },
           },
           required: ['packageName'],
@@ -1035,11 +1038,48 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             treeDescription: n.DESCRIPTION,
           }));
           const objects = all.filter((o) => (o.name ?? '').trim());
-          if (wantsDescriptions) {
-            for (const o of objects.filter((x) => x.type === 'DEVC/K')) {
-              const hits = await api.searchObject(o.name, 'DEVC/K', 5);
-              const own = hits.find((h) => String(h['adtcore:name']).toUpperCase() === String(o.name).toUpperCase());
-              o.description = own?.['adtcore:description'] ?? null;
+          const subs = objects.filter((x) => x.type === 'DEVC/K');
+          if (wantsDescriptions && subs.length) {
+            // One POST for the whole package (lib/virtual-folders.mjs): every sub-package's
+            // description, aligned, and the objects below it. The search per sub-package stays as
+            // the fallback, so a failed POST costs calls, never the answer.
+            let vf = null;
+            if (session.raw) {
+              let out;
+              try {
+                out = await virtualFoldersPost(session.raw, pkg);
+                vf = parseVirtualFolders(out.body);
+              } catch (e) {
+                journal?.gap?.({
+                  code: 'PACKAGE_FOLDERS_NOT_READ',
+                  subject: pkg,
+                  detail: `HTTP ${e?.status ?? '?'}: ${e?.message}`,
+                  impact: 'the descriptions were read through the search instead (one call per sub-package); objectsBelow is not given',
+                  fallback: 'the project explorer of Eclipse ADT',
+                });
+              } finally {
+                record(cfg, 'adt_package_tree', `${pkg}#folders`, out?.bytes ?? 0);
+              }
+              if (vf?.drift.length) {
+                journal?.gap?.({
+                  code: 'SHAPE_DRIFT',
+                  subject: pkg,
+                  detail: vf.drift.map((d) => `<${d.node}> x${d.count}`).join('; '),
+                  impact: 'the folders read stand; the measured shape of the virtual folders has aged',
+                  fallback: 're-measure (docs/adt-api-reference.md, "Virtual folders")',
+                });
+              }
+            }
+            for (const o of subs) {
+              const f = vf?.subPackages.find((x) => String(x.name).toUpperCase() === String(o.name).toUpperCase());
+              if (f) {
+                o.description = f.description;
+                o.objectsBelow = f.objectsBelow;
+              } else {
+                const hits = await api.searchObject(o.name, 'DEVC/K', 5);
+                const own = hits.find((h) => String(h['adtcore:name']).toUpperCase() === String(o.name).toUpperCase());
+                o.description = own?.['adtcore:description'] ?? null;
+              }
             }
           }
           const folders = all.length - objects.length;
@@ -1072,7 +1112,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             'treeDescription is the text the tree resource sent on that row, and on this system ' +
             'it belongs to the NEXT row (measured, docs/adt-api-reference.md). ' +
             (wantsDescriptions
-              ? 'description on each sub-package is from the search, which answers correctly.'
+              ? 'description on each sub-package is from the virtual folders (with objectsBelow), or from the search where those were not read; both answer correctly.'
               : 'Pass describe: true, or adt_search(name, DEVC/K), for the correct text.'),
         });
       },
