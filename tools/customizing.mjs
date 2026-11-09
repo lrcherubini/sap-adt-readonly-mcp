@@ -60,8 +60,8 @@ export function customizingTool(cfg, session, journal) {
               type: 'object',
               properties: {
                 field: { type: 'string' },
-                op: { type: 'string', enum: ['=', '<>', 'IN'] },
-                value: { description: 'string, or array of strings for IN' },
+                op: { type: 'string', enum: ['=', '<>', 'IN', 'LIKE'] },
+                value: { description: 'string; array of strings for IN; for LIKE a name with * wildcards (Z*, *LOG*), never SQL' },
               },
               required: ['field', 'value'],
             },

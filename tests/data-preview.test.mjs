@@ -16,6 +16,7 @@ import {
   MAX_ROWS,
   MAX_LINE,
   assertRanAsSent,
+  likeLiteral,
 } from '../lib/data-preview.mjs';
 
 /** Column-major, exactly as the system answered `SELECT KALSM, STUNR, KOFRM FROM T683S ... UP TO 2 ROWS`. */
@@ -67,7 +68,8 @@ test('buildSelect refuses what the grammar cannot say, before any socket', () =>
   bad({ table: 'T683S; DROP TABLE X' }, /not an identifier/);
   bad({ table: 'T683S', fields: [] }, /non-empty array/);
   bad({ table: 'T683S', fields: ['A B'] }, /not an identifier/);
-  bad({ table: 'T683S', where: [{ field: 'X', op: 'LIKE', value: 'a' }] }, /not one of/);
+  bad({ table: 'T683S', where: [{ field: 'X', op: 'BETWEEN', value: 'a' }] }, /not one of/);
+  bad({ table: 'T683S', where: [{ field: 'X', op: 'LIKE', value: ['A*'] }] }, /one search pattern/);
   bad({ table: 'T683S', where: [{ field: 'X', op: 'IN', value: 'a' }] }, /non-empty array/);
   bad({ table: 'T683S', where: [{ field: 'X', value: ['a'] }] }, /takes one value/);
   bad({ table: 'T683S', where: [{ field: 'X', value: "a' OR 1=1 --" }] }, /character the grammar does not allow/);
@@ -119,16 +121,74 @@ test('assertRanAsSent accepts the echo of the statement sent and refuses a trunc
   assert.throws(() => assertRanAsSent("SELECT * FROM T683S WHERE KVEWE = 'A' AND KAPPL = 'V'", "SELECT * FROM T683S WHERE KVEWE = 'A' INTO TABLE @DATA(LT_RESULT) UP TO 5 ROWS ."), /different statement/);
 });
 
+test('LIKE takes a search pattern, never SQL: the module writes the literal and the ESCAPE', () => {
+  // Measured 2026-11-09: `Z_%` matched every Z name (`_` is a wildcard); `Z#_%' ESCAPE '#'` one.
+  assert.equal(likeLiteral('z_*'), "'Z#_%' ESCAPE '#'");
+  assert.equal(likeLiteral('*LOG*'), "'%LOG%' ESCAPE '#'");
+  assert.equal(likeLiteral('/DMO/*'), "'/DMO/%' ESCAPE '#'");
+  assert.equal(likeLiteral('*'), "'%' ESCAPE '#'");
+  assert.equal(
+    buildSelect({ table: 'BALOBJ', fields: ['OBJECT'], where: [{ field: 'OBJECT', op: 'LIKE', value: 'Z*' }] }).sql,
+    "SELECT OBJECT FROM BALOBJ WHERE OBJECT LIKE 'Z%' ESCAPE '#'"
+  );
+  // Injection attempts: none of them is a pattern, and none reaches a statement.
+  for (const attack of [
+    "Z%' OR '1'='1",
+    "Z' OR 1=1 --",
+    'Z") UNION',
+    "Z*' ESCAPE '",
+    '*"',
+    "Z*' ESCAPE '!",
+    'Z% ',
+    'Z#*',
+    '* FROM TADIR',
+    'Z*;',
+    'A'.repeat(31),
+    '',
+  ]) {
+    assert.throws(() => likeLiteral(attack), SelectViolation, attack);
+    assert.throws(() => buildSelect({ table: 'BALOBJ', where: [{ field: 'OBJECT', op: 'LIKE', value: attack }] }), SelectViolation, attack);
+  }
+});
+
+test('a field allowlist: the columns a table admits, `*` meaning only those, filter-only columns never selected', () => {
+  // SCICHKV_HD holds users (CIUSER, UNAM): admitted by exception with an allowlist (docs/security.md).
+  const spec = CUSTOMIZING_TABLES.get('SCICHKV_HD');
+  assert.deepEqual(spec.fields, ['CHECKVNAME', 'CHECKVID', 'IS_CHKV', 'TRANSPORT', 'REMOTE', 'HIDDEN', 'PROXY']);
+  assert.deepEqual(spec.filterOnly, ['CIUSER']);
+  assert.equal(
+    buildSelect({ table: 'SCICHKV_HD', where: [{ field: 'CIUSER', op: '<>', value: ' ' }] }).sql,
+    "SELECT CHECKVNAME, CHECKVID, IS_CHKV, TRANSPORT, REMOTE, HIDDEN, PROXY FROM SCICHKV_HD WHERE CIUSER <> ' '"
+  );
+  for (const fields of [['UNAM'], ['CIUSER'], ['CREADATE'], ['CHECKVNAME', 'UNAM']]) {
+    assert.throws(() => buildSelect({ table: 'SCICHKV_HD', fields }), /may be read only for/, fields.join());
+  }
+  assert.throws(() => buildSelect({ table: 'SCICHKV_HD', where: [{ field: 'UNAM', value: 'X' }] }), /may be filtered only on/);
+  assert.equal(CUSTOMIZING_TABLES.get('SCICHKV_TX').fields.includes('CIUSER'), false);
+});
+
+test('previewPost re-checks the allowlist on the statement: a hand-built SELECT cannot read a user field', async () => {
+  const sent = [];
+  const raw = { httpClient: { request: async (url, c) => (sent.push({ url, ...c }), { status: 200, body: '', headers: {} }) } };
+  for (const sql of ['SELECT * FROM SCICHKV_HD', 'SELECT UNAM FROM SCICHKV_HD', 'SELECT CHECKVNAME, CIUSER FROM SCICHKV_HD']) {
+    await assert.rejects(() => previewPost(raw, sql, 5), SelectViolation, sql);
+  }
+  assert.equal(sent.length, 0, 'nothing left the client');
+});
+
 test('the allow-list is closed and every entry says why', () => {
   assert.deepEqual(
     [...CUSTOMIZING_TABLES.keys()],
-    ['T683S', 'T683U', 'T683T', 'T685', 'T685A', 'T685T', 'T682I', 'T681', 'TMC1T', 'TVCPA', 'TVCPF', 'TVCPL', 'TFRM', 'TFRMT', '/UI2/SEMOBJC', '/UI2/SEMOBJCT', '/UI2/SEMOBJ', 'TADIR', 'DDHEADANNO', 'T052', 'T052U', 'TVARVC', 'TPAER', 'T133A', 'T133B', 'T133C', 'D020S', 'D020T', 'D021T', 'DDFTX', 'TSDIR', 'DYNPSOURCE', 'T130M', 'T133K', 'T133S', 'T133T', 'TSTC', 'TSTCP', 'MDLV', 'MDLG', 'T460A', 'T460T', 'T438A', 'T438T', 'T439A', 'T141', 'T141T', 'TVMS', 'TVMST', 'TFACD', 'TFACT', 'TFAIN', 'TFACS', 'THOC', 'THOCI', 'THOL', 'THOLT', 'FHC_CONFIG', 'FHC_C_FCAL', 'T001', 'T001K', 'T001L', 'T001W', 'T001B', 'T001Z']
+    ['T683S', 'T683U', 'T683T', 'T685', 'T685A', 'T685T', 'T682I', 'T681', 'TMC1T', 'TVCPA', 'TVCPF', 'TVCPL', 'TFRM', 'TFRMT', '/UI2/SEMOBJC', '/UI2/SEMOBJCT', '/UI2/SEMOBJ', 'BALOBJ', 'BALOBJT', 'SCICHKV_HD', 'SCICHKV_TX', 'TADIR', 'DDHEADANNO', 'T052', 'T052U', 'TVARVC', 'TPAER', 'T133A', 'T133B', 'T133C', 'D020S', 'D020T', 'D021T', 'DDFTX', 'TSDIR', 'DYNPSOURCE', 'T130M', 'T133K', 'T133S', 'T133T', 'TSTC', 'TSTCP', 'MDLV', 'MDLG', 'T460A', 'T460T', 'T438A', 'T438T', 'T439A', 'T141', 'T141T', 'TVMS', 'TVMST', 'TFACD', 'TFACT', 'TFAIN', 'TFACS', 'THOC', 'THOCI', 'THOL', 'THOLT', 'FHC_CONFIG', 'FHC_C_FCAL', 'T001', 'T001K', 'T001L', 'T001W', 'T001B', 'T001Z']
   );
   for (const [t, spec] of CUSTOMIZING_TABLES) assert.ok(spec.why.length > 10, `${t} has no reason`);
   assert.ok(![...CUSTOMIZING_TABLES.keys()].some((t) => /^[ZY]/.test(t)), 'the standard list carries no customer table');
 });
 
 test('an installation adds its own tables through the same validation, and never redefines a standard one', () => {
+  assert.throws(() => installCustomizingTables([{ name: 'zdemo_x', why: 'a demo table with a filter column', filterOnly: ['OWNER'] }]), /filterOnly needs a fields allowlist/);
+  assert.throws(() => installCustomizingTables([{ name: 'zdemo_x', why: 'a demo table with a filter column', fields: ['A', 'OWNER'], filterOnly: ['OWNER'] }]), /also a selectable field/);
+  installCustomizingTables([]);
   try {
     installCustomizingTables([{ name: 'zdemo_region', why: 'state -> sales district of a demo integration', keyColumns: ['region'] }]);
     assert.ok(CUSTOMIZING_TABLES.has('ZDEMO_REGION'), 'names are normalized to upper case');

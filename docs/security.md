@@ -768,6 +768,38 @@ What `$metadata` carries: entity sets, types, property names, operations and the
 annotations. No row and no field value. It is the document every Fiori app downloads on start-up,
 for every user it has.
 
+### Legacy objects: `LIKE`, a field allowlist, and a class-L exception -- 2026-11-09
+
+The owner asked `adt_search` to list the application log objects created in SLG0 and the check
+variants created in transaction SCI. The ADT publishes neither (reference: *Two kinds of one
+object*), and its own list of ATC variants is empty (measured). The only source is the standard
+tables, read through the data preview. Three changes to the fence follow, each one tested.
+
+- **`LIKE`, without SQL injection by construction.** A caller never writes a pattern. It sends a
+  search pattern, `^[A-Z0-9_/*]{1,30}$`: a name with `*` anywhere. That alphabet has no quote,
+  blank, `#`, `%`, parenthesis or operator, so it can neither close the literal nor add a
+  condition. `likeLiteral` writes the literal: `*` becomes `%`, the name's own `_` becomes
+  `#_`, and `ESCAPE '#'` is always appended. The escape was measured: `Z_%` matched all 16
+  `Z` objects, `Z#_%' ESCAPE '#'` the one with a literal `_`. The echo check
+  (`assertRanAsSent`) and the 255-character line rule still apply. Injection attempts are
+  tests, and none reaches a socket.
+- **A field allowlist per table.** A list entry may declare `fields`. Any other column is
+  refused, `*` means only those, and `previewPost` re-checks the select list of the statement
+  itself. A `filterOnly` column may decide which rows are read and is never selected. This
+  holds for every caller, `adt_customizing` included.
+- **Four tables.**
+  - `BALOBJ` and `BALOBJT` (delivery class `E`, no append, no personal field) are admitted by
+    review.
+  - `SCICHKV_HD` and `SCICHKV_TX` are delivery class `L`, which this list refuses outright.
+    They are admitted **by exception**, the owner's decision on 2026-11-09, because they are the
+    only source of SCI variants. The allowlist keeps them narrow: `CHECKVNAME`, `CHECKVID`,
+    `IS_CHKV`, `TRANSPORT`, `REMOTE`, `HIDDEN`, `PROXY`, and the text. `CIUSER` (the owner of
+    a local variant) is filter-only: local variants are listed by name, never with their
+    owner, because on the development system the system check variant is a local one.
+    `UNAM` and `CREADATE` can never be read.
+  - The class-`L` rule stays for every other table, and `propose:table` still refuses class
+    `L`.
+
 ### Virtual folders: a POST that reads -- 2026-11-09
 
 The owner approved a POST whose only effect is to read. The IDE's project tree is such a POST:
