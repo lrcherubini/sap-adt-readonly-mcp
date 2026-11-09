@@ -262,11 +262,36 @@ resource names **11** appends; `ddicElement` carries **7** `.append` blocks. The
 belong to an industry solution (`OI*_KNA1`), and not one of their fields is in the active list.
 
 **What is measured:** the append is named by the resource, and none of the fields its own source
-declares is in the table. Nothing here reads WHY. The Switch Framework is the obvious suspect —
-the count reconciles exactly and all four are from one component — but this reading was **not
-verified**: no switch table was queried, and an append can also be missing from the active list
-because it never activated, activated with an error, or targets another object. A tool must
-therefore report the absence, never the cause.
+declares is in the table. An append can also be missing from the active list because it never
+activated, activated with an error, or targets another object, so the absence alone says nothing
+about why.
+
+**The switch chain, measured 2026-11-09** through `adt_customizing` on the five admitted `SFW_*`
+tables (`docs/security.md`, *Switch Framework tables*). The four appends are `OIC_KNA1`,
+`OID_KNA1` and `OIF_KNA1` (package `OI0_COMMON_2`) and `OILKNA1` (package `OI0_COMMON`); every
+one says `extend type kna1`. (`OI0_KNA1` and `OI0_KNA1_X` share the prefix but extend other
+structures.)
+
+| step | `OI0_COMMON_2` | `OI0_COMMON` |
+|---|---|---|
+| `SFW_PACKAGE` (package → switch) | switch `OI0_COMMON_2`, `VERSION` A | switch `OI0_COMMON_DS`, `VERSION` A |
+| `SFW_SW_BF` (switch → business function) | **no row**: the switch belongs to no business function | `BUSINESS_FUNCTION_BASIS_COM` (standby, E) and `COMMODITY_MGMT_&_BULK_LOGISTIC` (activation, A) |
+| `SFW_ACTIVE_BFUNC` (active in this client) | — | neither is there |
+
+The negative control is three appends of the same table whose fields **are** active:
+`AKNA1_FMFG` (`FMFG_E`), `J_3GKNA1A` (`J3GD_APP`) and `/VSO/R_KNA1_A` (`/VSO/R`). None of the
+three packages has an `SFW_PACKAGE` row. So the chain separates 4 of 4 absent from 3 of 3 present
+(the other four present appends were not checked). The domains say `VERSION` is A/I/P (active,
+inactive, pending after import) and `SWITCHTYPE` is A/E (activation, standby). `X_OFF` is empty
+on all 169 rows of `SFW_ACTIVE_BFUNC` in this client, so its meaning when set is unobserved.
+
+What a tool may say from this: the package hangs on a switch, and which business functions that
+switch belongs to and whether they are active here. That is evidence beside the absence. It is
+still not the stated cause, because a conflict switch or an activation error is not read.
+`SFW_ACTIVE_BFUNC` is per client, so the answer is about the logon client only.
+
+The `where` grammar of the data preview has no `&`, and a business function name can carry one
+(`COMMODITY_MGMT_&_BULK_LOGISTIC`). Such a name is reached with `LIKE` on a prefix.
 
 So the two resources answer different questions and neither subsumes the other:
 

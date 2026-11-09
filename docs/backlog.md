@@ -32,16 +32,13 @@ when no field of an append appears in the active field list, and stops there on 
 **What remains.** The tables of the chain package → `SFW_PACKAGE` → `SFW_SW_BF` →
 `SFW_ACTIVE_BFUNC` are admitted (`docs/security.md`, *Switch Framework tables*, 2026-11-09).
 `VERSION` is A/I/P (active, inactive, pending after import) and `SWITCHTYPE` is A/E (activation,
-standby), both read from their domains. Still to do:
-1. **Measure the chain on the known case**, through `adt_customizing`. The four `OI*_KNA1` appends
-   missing from the active `KNA1` all sit in package `OI0_COMMON_2`. Read its `SFW_PACKAGE` rows,
-   then the business functions of each switch, then whether those are in `SFW_ACTIVE_BFUNC`, and
-   what `X_OFF` means there. If the chain explains the four and leaves the seven present ones
-   alone, it is evidence; if it does not, it is not built.
-2. **Then** `propose:table` prints, for each append `NOT IN THE ACTIVE TABLE`, the switch and the
-   business function its package hangs on, and whether that function is active. That is evidence
-   next to the absence, never the stated cause.
-3. The code half (`ENHO` behind a switch) is not started.
+standby), both read from their domains. The chain is measured on the known `KNA1` case: it
+separates 4 of 4 absent appends from 3 of 3 present ones (reference, *The switch chain*). Still to
+do:
+1. `propose:table` prints, for each append `NOT IN THE ACTIVE TABLE`, the switch its package hangs
+   on, that switch's business functions, and whether they are active in the logon client. That is
+   evidence next to the absence, never the stated cause.
+2. The code half (`ENHO` behind a switch) is not started.
 
 Until measured, nothing may **assert** a switch as the cause. Reports state absence and point to
 `SE11`/`SFW_BROWSER`.
