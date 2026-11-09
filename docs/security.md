@@ -746,6 +746,16 @@ What is admitted, and nothing more:
 |---|---|---|
 | `odataMetadata` | `/sap/opu/odata/sap/<SERVICE>/$metadata` (V2) | yes, 2026-11-09: 200, 92 KB, `application/xml` |
 | `odataMetadataV4` | `/sap/opu/odata4/sap/<binding>/<srvd group>/sap/<srvd>/<nnnn>/$metadata` (V4), the group `srvd` or `srvd_a2x` | yes, 2026-11-09: 200 on three apps, 14-211 KB, `application/xml` |
+| `odataMetadataV2Path` | `/sap/opu/odata/<sap or NS>/<SERVICE>[;v=N]/$metadata` (V2 in another namespace, or a version above 1) | yes, 2026-11-09: 200 on five services (three `;v=2`, two `/DMO/`), 37-189 KB |
+| `odataMetadataV4Path` | `/sap/opu/odata4/<ns>/<binding>/<srvd group>/<ns>/<srvd>/<nnnn>/$metadata` (V4 in another namespace) | yes, 2026-11-09: 200 on one `/DMO/` service, 159 KB |
+
+The two `Path` routes were added the same day, for the service URLs that published bindings name
+(the next decision). Their alphabets are as closed as the first two:
+- the V2 namespace is `sap` or upper case, and `;v=N` is the only matrix parameter, admitted only
+  at the end and sent literally (`;o=` system aliases stay unread);
+- the V4 namespace must be the same in both places it is written.
+The roots `/sap/opu/odata` and `/sap/opu/odata4` are admitted bare, exactly as the first two
+roots are.
 
 `assertRouteTable()` enforces the shape at import. A route under `metadata` must declare the service
 as its segment and the literal `/$metadata` as its suffix, with no query parameter and no fixed
@@ -790,9 +800,9 @@ What keeps these routes narrow:
   these reads, measured against the logged-on user's Gateway error log before and after, added no
   row. An earlier "No service found" row came from another action in the IDE.
 - **The service is not called.** The entity sets come from the binding's own description. A
-  published version's service URL is mapped to `odataMetadata` / `odataMetadataV4` only when
-  the URL has the form those routes measured. A V2 version above 1 (`;v=2`) and a namespaced
-  service are reported as unmapped, with the reason, until they are measured.
+  published version's service URL is mapped to one of the four `$metadata` routes only when the
+  URL has a form they measured (`sap` and other namespaces, V2 `;v=N`). Any other form is
+  reported as unmapped, with the reason.
 
 ### Self-contained: every source is read from the system -- 2026-11-08
 

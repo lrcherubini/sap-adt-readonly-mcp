@@ -63,9 +63,15 @@ test('only a measured service URL form is mapped to a $metadata route; the other
     metadataRouteOf('V4', '/sap/opu/odata4/sap/zdemo_ui_clsf_o4/srvd/sap/zdemo_ui_clsf/0001/'),
     { route: 'odataMetadataV4', service: 'zdemo_ui_clsf_o4/srvd/sap/zdemo_ui_clsf/0001' }
   );
-  assert.match(metadataRouteOf('V2', '/sap/opu/odata/sap/ZDEMO_UI_O2;v=2').why, /;v=N/);
+  // Measured 2026-11-09 and admitted: a V2 version above 1, a V2 or V4 namespace.
+  assert.deepEqual(metadataRouteOf('V2', '/sap/opu/odata/sap/ZDEMO_UI_O2;v=2'), { route: 'odataMetadataV2Path', service: 'sap/ZDEMO_UI_O2;v=2' });
   const ns = parseBindingDetail(fixture('detail-v2-namespaced-published.xml'));
-  assert.match(metadataRouteOf('V2', ns.serviceUrl).why, /outside the sap namespace/);
+  assert.deepEqual(metadataRouteOf('V2', ns.serviceUrl), { route: 'odataMetadataV2Path', service: 'DMO/UI_FLIGHT_R_V2' });
+  assert.deepEqual(
+    metadataRouteOf('V4', '/sap/opu/odata4/dmo/ui_demo_o4/srvd/dmo/ui_demo/0001/'),
+    { route: 'odataMetadataV4Path', service: 'dmo/ui_demo_o4/srvd/dmo/ui_demo/0001' }
+  );
+  assert.match(metadataRouteOf('V2', '/sap/opu/odata/sap/ZDEMO_UI_O2;o=LOCAL').why, /not measured/);
   assert.match(metadataRouteOf('V2', null).why, /not published/);
   assert.equal(metadataRouteOf('V4', '/sap/opu/odata4/sap/x/other/sap/y/0001/').route, null);
 });
@@ -114,8 +120,8 @@ test('reading a two-version binding asks each version once, with that version an
   assert.equal(out.binding.rootPublished, true);
   assert.match(out.binding.rootPublishedNote, /does not speak for every version/);
   assert.deepEqual([v1.published, v2.published], [false, true]);
-  assert.equal(v1.metadata.route, null);
-  assert.match(v2.metadata.why, /;v=N/);
+  assert.equal(v1.metadata.route, null, 'unpublished: no URL to read');
+  assert.deepEqual(v2.metadata, { route: 'odataMetadataV2Path', service: 'sap/ZDEMO_UI_FLIGHT_O2;v=2' });
   assert.deepEqual(audit, ['ZDEMO_UI_FLIGHT_O2#binding', 'ZDEMO_UI_FLIGHT_O2#0001', 'ZDEMO_UI_FLIGHT_O2#0002']);
 });
 

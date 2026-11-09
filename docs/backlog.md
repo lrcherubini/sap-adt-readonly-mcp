@@ -137,13 +137,6 @@ Service Bindings and their `odatav4` detail, ATC check variants, release states 
 folders. The shapes are in the reference (the sections dated 2026-11-09).
 
 **What to decide** (each one needs a `docs/security.md` entry before it can be built):
-- **Bindings: the `$metadata` of two service URL forms.** `adt_object_info` now reads bindings.
-  A published version's URL is mapped to a `$metadata` route only in the forms those routes
-  measured. Still unmeasured, so reported as unmapped:
-  - a V2 version above 1 (`/sap/opu/odata/sap/<S>;v=2`);
-  - a namespaced V2 service (`/sap/opu/odata/<ns>/<S>`);
-  - a namespaced V4 service path.
-  Each one needs one `$metadata` GET read before `odataMetadata`/`odataMetadataV4` can admit it.
 - **Check variants.** The variant itself is small; the 300 KB form template is the check
   catalogue and is probably not worth a route.
 - **Release states.** A 20-row SAP-standard list: a candidate for `data/defaults/` rather than a

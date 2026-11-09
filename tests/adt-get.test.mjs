@@ -68,7 +68,9 @@ test('the route table is closed, and these are the routes in it', () => {
     'gatewayErrors',
     'objectProperties',
     'odataMetadata',
+    'odataMetadataV2Path',
     'odataMetadataV4',
+    'odataMetadataV4Path',
     'quickSearch',
     'runtimeDumps',
     'serviceBinding',
@@ -918,4 +920,20 @@ test('the binding routes: one document, the detail of one version, nothing else'
     assert.throws(() => buildUrl('serviceBindingDetailV4', { binding, servicename: 'X', serviceversion: '0001', srvdname: 'X' }), /Blocked/);
   }
   assert.throws(() => buildUrl('serviceBinding', { binding: '/dmo/ui_agency_o4' }), /Blocked/, 'a bare slash is a second segment');
+});
+
+test('the full service paths a binding publishes: a V2 namespace or version, a V4 namespace', () => {
+  // The exact URLs measured 2026-11-09 (names anonymised): `;v=N` travels literally.
+  assert.equal(buildUrl('odataMetadataV2Path', { service: 'sap/ZDEMO_UI_O2;v=2' }), '/sap/opu/odata/sap/ZDEMO_UI_O2;v=2/$metadata');
+  assert.equal(buildUrl('odataMetadataV2Path', { service: 'DMO/UI_DEMO_V2' }), '/sap/opu/odata/DMO/UI_DEMO_V2/$metadata');
+  assert.equal(buildUrl('odataMetadataV4Path', { service: 'dmo/ui_demo/srvd/dmo/ui_demo/0001' }), '/sap/opu/odata4/dmo/ui_demo/srvd/dmo/ui_demo/0001/$metadata');
+  for (const service of ['sap/X;o=1', 'sap/X;v=2;v=3', 'sap/X;v=0', 'DMO/X/Y', '../X', 'dmo/X', 'sap/X%3Bv%3D2']) {
+    assert.throws(() => buildUrl('odataMetadataV2Path', { service }), /Blocked/, service);
+  }
+  // The namespace is written twice and must be the same both times.
+  for (const service of ['dmo/x/srvd/sap/x/0001', 'dmo/x/srvd_f4/dmo/x/0001', 'dmo/x/srvd/dmo/x/1', 'dmo/x/srvd/dmo/x/0001/x']) {
+    assert.throws(() => buildUrl('odataMetadataV4Path', { service }), /Blocked/, service);
+  }
+  // Only $metadata: nothing below the two roots is under any authority.
+  for (const p of ['/sap/opu/odata/DMO/UI_DEMO_V2', '/sap/opu/odata/DMO', '/sap/opu/odata4/dmo/x']) assert.equal(routeAuthority(p), null, p);
 });

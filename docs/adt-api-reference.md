@@ -2872,6 +2872,32 @@ Conclusions:
 - A 200 from this resource proves nothing by itself. Only a row with `created="true"` for the
   version that was asked describes that version.
 
+### The `$metadata` of the service URLs a binding publishes — MEASURED 2026-11-09
+
+A GET was sent once to `<serviceUrl>/$metadata` for every published version whose URL the first
+two `$metadata` routes did not admit. The URLs were the ones the binding detail names, read with
+the corrected (upper-case) path:
+
+| Form | Example (anonymised) | Reads | Reply |
+|---|---|---|---|
+| V2, version above 1 | `/sap/opu/odata/sap/<S>;v=2/$metadata` | 3 | 200 `application/xml`, 37-42 KB, edmx 1.0 |
+| V2, another namespace | `/sap/opu/odata/DMO/<S>/$metadata` | 2 | 200 `application/xml`, 58-189 KB, edmx 1.0 |
+| V4, another namespace | `/sap/opu/odata4/dmo/<binding>/srvd/dmo/<srvd>/0001/$metadata` | 1 | 200 `application/xml`, 159 KB, edmx 4.0 |
+
+- **`;v=2` travels literally**, as the serviceUrl writes it. A V2 namespace is upper case
+  (`DMO`). A V4 namespace replaces `sap` in **both** places (`odata4/dmo/…/srvd/dmo/…`).
+- **The binding's entity list is a subset of the `$metadata`, never the other way round.**
+  Every set the detail listed was in the document (none missing in six reads). The document adds:
+  - on V2, the same twelve framework sets every time: `SAP__Currencies`,
+    `SAP__UnitsOfMeasure`, `SAP__MyDocumentDescriptions`, `SAP__FormatSet`,
+    `SAP__PDFStandardSet`, `SAP__TableColumnsSet`, `SAP__CoverPageSet`, `SAP__SignatureSet`,
+    `SAP__HierarchySet`, `SAP__PDFHeaderSet`, `SAP__PDFFooterSet` and `SAP__ValueHelpSet`;
+  - on a draft-enabled service, `I_DraftAdministrativeData` (and on V2 also
+    `I_DraftAdministrativeUserVH`).
+  So the binding lists the entities the service definition exposes, and the `$metadata` is the
+  full contract.
+- No row was written to the logged-on user's Gateway error log.
+
 ### ATC check variants: `/atc/checkvariants` — MEASURED 2026-11-09
 
 One customer variant, GET only.

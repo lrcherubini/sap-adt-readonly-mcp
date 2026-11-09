@@ -125,6 +125,9 @@ test('the manifest names V2 and V4 services, each with the route of its $metadat
         v4: { uri: '/sap/opu/odata4/sap/zui_demo_travel_o4/srvd/sap/zui_demo_travel/0001/', type: 'OData', settings: { odataVersion: '4.0' } },
         a2x: { uri: '/sap/opu/odata4/sap/zui_demo_api_o4/srvd_a2x/sap/zui_demo_api/0001/', type: 'OData', settings: { odataVersion: '4.0' } },
         versioned: { uri: '/sap/opu/odata/sap/ZUI_DEMO_O2;v=2/', type: 'OData' },
+        nsV2: { uri: '/sap/opu/odata/DMO/UI_DEMO_V2/', type: 'OData' },
+        nsV4: { uri: '/sap/opu/odata4/dmo/ui_demo_o4/srvd/dmo/ui_demo/0001/', type: 'OData', settings: { odataVersion: '4.0' } },
+        matrix: { uri: '/sap/opu/odata/sap/ZUI_DEMO_O2;o=LOCAL/', type: 'OData' },
         f4: { uri: '/sap/opu/odata4/sap/zui_demo_vh_o4/srvd_f4/sap/zui_demo_vh/0001/', type: 'OData', settings: { odataVersion: '4.0' } },
         annotation: { uri: 'annotations/annotation.xml', type: 'ODataAnnotation' },
       },
@@ -134,11 +137,15 @@ test('the manifest names V2 and V4 services, each with the route of its $metadat
     ['v2', 'odataMetadata', 'ZUI_DEMO_O2'],
     ['v4', 'odataMetadataV4', 'zui_demo_travel_o4/srvd/sap/zui_demo_travel/0001'],
     ['a2x', 'odataMetadataV4', 'zui_demo_api_o4/srvd_a2x/sap/zui_demo_api/0001'],
-    ['versioned', null, null],
+    ['versioned', 'odataMetadataV2Path', 'sap/ZUI_DEMO_O2;v=2'],
+    ['nsV2', 'odataMetadataV2Path', 'DMO/UI_DEMO_V2'],
+    ['nsV4', 'odataMetadataV4Path', 'dmo/ui_demo_o4/srvd/dmo/ui_demo/0001'],
+    ['matrix', null, null],
     ['f4', null, null],
   ]);
-  assert.match(ds[3].unmeasured, /V2.*V4/);
-  assert.match(ds[4].unmeasured, /srvd_f4/, 'a service group not measured in a manifest is said, not read');
+  assert.equal(ds[5].srvd, 'UI_DEMO');
+  assert.match(ds[6].unmeasured, /V2.*V4/, 'a system alias (;o=) is not measured: said, not read');
+  assert.match(ds[7].unmeasured, /srvd_f4/, 'a service group not measured in a manifest is said, not read');
   assert.equal(ds[1].srvd, 'ZUI_DEMO_TRAVEL');
   assert.deepEqual([...odataModelsOf(MANIFEST)], [['', 'mainService']], 'a JSON model names no service');
 });
