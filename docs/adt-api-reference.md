@@ -293,16 +293,14 @@ What this does and does not show:
   That is **consistent** with a switch keeping it out, on one case. It is not a separation.
 - ⚠️ **A switch that belongs to no business function is NOT therefore off.** Switch `OI0_COMMON_2`
   has no `SFW_SW_BF` row, and its three appends are active. So "no business function" must never be
-  printed as "switched off". How that switch is set is not read here. A switch can be set outside a
-  business function, and this server does not read that.
+  printed as "switched off". It is stored **on** (`SFW_SWITCH_STATE` `T`, *The switch state*
+  below): a switch is set outside its business functions.
 - The domains say `VERSION` is A/I/P (active, inactive, pending after import) and `SWITCHTYPE` is
   A/E (activation, standby). `X_OFF` is empty on all 169 rows of `SFW_ACTIVE_BFUNC` in this client,
   so its meaning when set is unobserved.
 
-What a tool may say from this: the package hangs on a switch, which business functions that switch
-belongs to, and whether they are active here. That is evidence beside the absence, never its
-stated cause: a switch set outside a business function, a conflict switch or an activation error
-is not read. `SFW_ACTIVE_BFUNC` is per client, so the answer is about the logon client only.
+The business functions do not decide the state: see *The switch state* below, where
+`SFW_SWITCH_STATE` reproduces these appends 10 of 10 and the business-function chain is retired.
 
 The `where` grammar of the data preview has no `&`, and a business function name can carry one
 (`COMMODITY_MGMT_&_BULK_LOGISTIC`). Such a name is reached with `LIKE` on a prefix.
@@ -2251,8 +2249,44 @@ objects behind those switches are plainly in use: the three `KNA1` appends of `O
 switch with no business function, are in the active table (*The switch chain* above). A switch's
 state is not derived from `SFW_ACTIVE_BFUNC` alone. It is stored in **`SFW_SWITCH_STATE`**
 (`SWITCH_ID`, `CLIENT`, `VERSION`, `USERNAME`, `STATE`; `STATE` is domain `SFW_SETTING`: `T` on,
-`S` stand-by, `F` off). That table was refused (class L, a user name in the key), so whether the
-listed implementations run is **not answered** by anything this server reads.
+`S` stand-by, `F` off). It was admitted by exception the same day (`docs/security.md`), and its
+reading is the next section.
+
+### The switch state: `SFW_SWITCH_STATE` — MEASURED 2026-11-09
+
+Read through `adt_customizing`, with `USERNAME` as a filter only.
+
+**Shape.** 1,835 rows `T` and 1,331 `F`/`S` (`VERSION` A). **No row** carries a user name, so blank
+`USERNAME` is the whole table here. `CLIENT` is blank on cross-client rows. On the 826 others it
+names a client (`000`, and the logon client on client-dependent switches such as
+`FL_SHIPMENT_LIGHT_SWITCH`). So a switch's state for the logon client is its row for that client,
+else its blank row, else none.
+
+**Validated against the active field list of `KNA1`**, 10 of 10 appends of SAP packages:
+
+| appends | package → switch | stored state | in the active table |
+|---|---|---|---|
+| `OIC_KNA1`, `OID_KNA1`, `OIF_KNA1` | `OI0_COMMON_2` → `OI0_COMMON_2` | **T** | yes |
+| `OILKNA1` | `OI0_COMMON` → `OI0_COMMON_DS` | **no row** | no |
+| `AKNA1_FMFG`, `AKNA1_PSO`, `J_3GKNA1A`, `/VSO/R_KNA1_A`, `CRMS4_BP_KNA1`, `J_1IMOCUST_KNA1_A` | no switch | — | yes |
+
+**And it contradicts the business-function chain.** `OIJ_TSW` and `FICA` are stored **T** with
+every business function inactive. `SFSW_FASHION` and `ITMF_SFW_SD_TC` are **F**. Of the four
+implementations `SAPMV45A` lists, one is behind a switch stored on, two behind switches stored off,
+and one behind a switch with no stored row:
+
+| ENHO | switch | stored state |
+|---|---|---|
+| `OI0_COMMON_SAPMV45A` | `OI0_COMMON_DS` | no row |
+| `OIJ_SAPMV45A` | `OIJ_TSW` | T |
+| `FSH_DET_PROCESS` | `SFSW_FASHION` | F |
+| `ITMF_SAPMV45A_01` | `ITMF_SFW_SD_TC` | F |
+
+What is **not** observed: an `F` or `S` switch checked against a field truth. No append was found
+behind one in this sweep. "No row" agreed with "off" once (`OILKNA1`). So the tools print the
+state as read, and print a missing row as such, never as "off". `lib/switch-chain.mjs` reads this
+table instead of the business functions, and `adt_read_source` prints each listed
+implementation's switch with its state.
 
 The same day, `OIH_SAPLV45A` (`OIH` → `OIH_EXCISE_DUTY`, no active business function) enhances
 function group `V45A` and is **not** in the listing of the group's main program, which shows only

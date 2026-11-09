@@ -397,8 +397,8 @@ async function report(payload, readStructures, readDdic, readEnhancements, readS
       // resource names 11 appends while the active DDIC list carries 7 `.append` blocks, and the
       // four with no block belong to an industry solution (OI*_KNA1), and none of their fields is
       // in the table. Printing OIDRC without saying so invites code written against a field that is
-      // not there. WHY they are absent is not stated: the switch chain below is printed as
-      // evidence beside the absence (consistent on the one KNA1 case, 2026-11-09), never its cause.
+      // not there. WHY they are absent is not stated: the stored state of the switch its package
+      // hangs on is printed beside it (agreed with the active list on KNA1, 10 of 10, 2026-11-09).
       //
       // The test is MEMBERSHIP, not position: does any field this append declares appear in the
       // active list? That is sound whatever the marker order does, which is why it is the check
@@ -450,17 +450,17 @@ async function report(payload, readStructures, readDdic, readEnhancements, readS
       };
       const packageOf = (name) => (sources.get(String(name).toUpperCase()) ?? sources.get(name))?.package ?? null;
 
-      // THE SWITCH CHAIN, for the absent appends only (docs/adt-api-reference.md, "The switch
-      // chain", measured 2026-11-09): package -> switch -> business function -> active here.
-      // Evidence printed beside the absence, never its stated cause. One lookup for all of them.
+      // THE SWITCH STATE, for the absent appends only (docs/adt-api-reference.md, "The switch
+      // state", measured 2026-11-09): package -> switch -> the state SFW_SWITCH_STATE stores.
+      // Printed beside the absence as what was read. One lookup for all of them.
       const absentApps = withAppends.flatMap((a) => a.appends).filter((ap) => membership(ap).absent);
       let chain = null;
       let chainNote = null;
       if (absentApps.length) {
         try {
-          chain = await switchChain(absentApps.map((ap) => packageOf(ap.name)), queryCustomizing);
+          chain = await switchChain(absentApps.map((ap) => packageOf(ap.name)), queryCustomizing, { client: cfg.client });
         } catch (e) {
-          chainNote = `switch chain not read: ${e.name ?? 'Error'}: ${e.message}`;
+          chainNote = `switch state not read: ${e.name ?? 'Error'}: ${e.message}`;
         }
       }
 
@@ -475,7 +475,7 @@ async function report(payload, readStructures, readDdic, readEnhancements, readS
               ? [chainNote]
               : pkg
                 ? describeChain(chain?.byPackage.get(String(pkg).toUpperCase()))
-                : ['switch chain: the package of this append is unknown (the read did not name it)'];
+                : ['switch: the package of this append is unknown (the read did not name it)'];
             for (const l of lines) say(`        ⤷ ${l}`);
           }
           if (!sub) {
@@ -500,11 +500,11 @@ async function report(payload, readStructures, readDdic, readEnhancements, readS
       say('    DT_COMP and ST_COMP. No name heuristic finds those; only this list does.');
       if (marked) {
         say('    NOT IN THE ACTIVE TABLE means the append exists as an object but none of its');
-        say('    fields are in the DDIC list. This says the fields are ABSENT. The ⤷ lines are');
-        say('    EVIDENCE beside it: the switch its package hangs on and whether that switch\'s');
-        say('    business functions are active in this client. They are not the cause: a conflict');
-        say('    switch or an activation error is not read. Do not write code against those');
-        say('    fields, and check SE11/SFW_BROWSER before concluding a cause.');
+        say('    fields are in the DDIC list. This says the fields are ABSENT. The ⤷ lines give');
+        say('    the switch its package hangs on and the state the system stores for it, in this');
+        say('    client. A switch that is OFF, or has no stored state, agreed with the absence on');
+        say('    every KNA1 append measured; an activation error is still not read. Do not write');
+        say('    code against those fields, and check SE11/SFW_BROWSER before concluding a cause.');
         if (chain?.notes.length) for (const n of chain.notes) say(`    ⚠ ${n}`);
       }
     } else if (asked.some((a) => a.ok)) {

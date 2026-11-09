@@ -350,6 +350,55 @@ const ENHANCEMENTS = {
   ],
 };
 
+// A data-preview reply in the measured column-major shape, echoing the statement it was sent
+// (the same builder as tests/legacy-objects.test.mjs).
+const previewReply = (sql, columns) => {
+  const col = (name, values) =>
+    `<dataPreview:columns><dataPreview:metadata dataPreview:name="${name}" dataPreview:type="C" dataPreview:description="${name}" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>` +
+    (values.length ? `<dataPreview:dataSet>${values.map((v) => `<dataPreview:data>${v}</dataPreview:data>`).join('')}</dataPreview:dataSet>` : '<dataPreview:dataSet/>') +
+    '</dataPreview:columns>';
+  const n = Object.values(columns)[0]?.length ?? 0;
+  const esc = sql.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/'/g, '&apos;');
+  return '<?xml version="1.0" encoding="utf-8"?><dataPreview:tableData xmlns:dataPreview="http://www.sap.com/adt/dataPreview">' +
+    `<dataPreview:totalRows>${n}</dataPreview:totalRows><dataPreview:isHanaAnalyticalView>false</dataPreview:isHanaAnalyticalView>` +
+    `<dataPreview:executedQueryString>${esc} INTO TABLE @DATA(LT_RESULT) UP TO 200 ROWS .</dataPreview:executedQueryString>` +
+    '<dataPreview:queryExecutionTime>0.1</dataPreview:queryExecutionTime>' +
+    Object.entries(columns).map(([k, v]) => col(k, v)).join('') + '</dataPreview:tableData>';
+};
+
+test('each listed enhancement carries the stored state of its switch, read in three statements', async () => {
+  const sent = [];
+  const rules = [
+    [/FROM TADIR/, { OBJ_NAME: ['ZENH_SD_ORDER_CHECK'], DEVCLASS: ['ZDEMO_PKG_OIL'] }],
+    [/FROM SFW_PACKAGE/, { SWITCH_ID: ['ZDEMO_SW_OIL'], DEVCLASS: ['ZDEMO_PKG_OIL'] }],
+    [/FROM SFW_SWITCH_STATE/, { SWITCH_ID: ['ZDEMO_SW_OIL'], CLIENT: [''], STATE: ['F'] }],
+  ];
+  const raw = {
+    httpClient: {
+      request: async (url, c) => {
+        const sql = String(c.body).replace(/\s+/g, ' ').trim();
+        sent.push(sql);
+        const rule = rules.find(([re]) => re.test(sql));
+        return { status: 200, body: previewReply(sql, rule[1]), headers: {} };
+      },
+    },
+  };
+  const log = [];
+  const api = fakeApi({ objectEnhancements: () => ENHANCEMENTS });
+  const tools = buildTools(cfgWith(log), { api, raw, sources: { catalog: null, mirror: null, precedent: null } });
+  const text = textOf(await byName(tools, 'adt_read_source').handler({ objectName: 'ZI_TEST', enhancements: true }));
+  assert.match(text, /ZENH_SD_ORDER_CHECK \(ENHO\/XH, version active\) on MV45AFZZ\n\*   switch: package ZDEMO_PKG_OIL -> switch ZDEMO_SW_OIL: OFF \(SFW_SWITCH_STATE F\)/);
+  assert.equal(sent.length, 3, 'one statement per table, for the whole list');
+  assert.ok(sent.every((s) => !/USERNAME,|SELECT \*|, USERNAME/.test(s)), 'USERNAME is never selected');
+  assert.ok(log.some((l) => /SFW_SWITCH_STATE/.test(l.target)), 'the reads are audited');
+
+  // A failed read says so in the footer: no switch line must never read as "behind no switch".
+  const broken = { httpClient: { request: async () => { throw Object.assign(new Error('Internal Server Error'), { status: 500 }); } } };
+  const t2 = buildTools(cfgWith([]), { api: fakeApi({ objectEnhancements: () => ENHANCEMENTS }), raw: broken, sources: { catalog: null, mirror: null, precedent: null } });
+  const text2 = textOf(await byName(t2, 'adt_read_source').handler({ objectName: 'ZI_TEST', enhancements: true }));
+  assert.match(text2, /⚠ switch state not read: .*Internal Server Error/);
+});
+
 test('adt_read_source lists the enhancements when asked, and only then', async () => {
   const api = fakeApi({ objectEnhancements: () => ENHANCEMENTS });
   const plain = textOf(await byName(toolsWith(api), 'adt_read_source').handler({ objectName: 'ZI_TEST' }));

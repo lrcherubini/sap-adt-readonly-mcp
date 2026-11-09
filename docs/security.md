@@ -301,11 +301,11 @@ this table. It is class **L** and carries `USERNAME` in its key, so it is admitt
 and `STATE`, and `USERNAME` is filter-only, so it can select the system setting (blank) and is
 never returned. The class-L rule stays for every other table.
 
-**What it does not license.** Admitting the rows is not reading the cause. On `KNA1` the chain is
-consistent with the one absent append, and it shows that a switch belonging to no business
-function can still carry active appends (reference, *The switch chain*). So `propose:table` prints
-it as evidence beside the absence, never as the reason an append is missing, and still points to
-`SE11`/`SFW_BROWSER`.
+**What it does not license.** Reading a state is not reading a cause. The stored state agreed with
+the active field list on all ten `KNA1` appends checked (reference, *The switch state*). The tools
+print it as read: on, stand-by, off, or no stored row, which is never shown as "off". They do not
+state it as the reason an append is missing or an implementation does not run: an activation
+error is still not read. They still point to `SE11`/`SFW_BROWSER`.
 
 #### The list has two layers: standard in the repository, the installation's own in the store
 

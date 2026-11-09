@@ -11,6 +11,7 @@ import { parseObjectProperties, isClasenh, clasenhGap, CLASENH_WHERE } from '../
 import { dumpAfter500, explainWithDump } from '../lib/dump-after-500.mjs';
 import { openJournal } from '../lib/journal.mjs';
 import { resolveDataElement, readDomain } from '../lib/ddic.mjs';
+import { previewQuery, packagesOf, switchChain, describeChain } from '../lib/switch-chain.mjs';
 import { contractOf, sourceRefusal } from '../lib/type-contract.mjs';
 import { readServiceBinding } from '../lib/service-binding.mjs';
 import { virtualFoldersPost, parseVirtualFolders } from '../lib/virtual-folders.mjs';
@@ -207,6 +208,35 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
   // A form-based type has no source (lib/type-contract.mjs, measured): refused with
   // the call that does answer -- before any request when the type is given, after the
   // resolver otherwise. A type the contract never decided is attempted, and filed.
+  /**
+   * The stored switch state of each listed enhancement implementation, by name. A failure or a
+   * missing raw client is said in `switchNotes`, never left as an absent line: "no switch line"
+   * must not read as "behind no switch".
+   */
+  const enhancementSwitches = async (impls) => {
+    const switchOf = new Map();
+    const switchNotes = [];
+    if (!impls.length) return { switchOf, switchNotes };
+    if (!session.raw) {
+      switchNotes.push('switch state not read: this session has no raw client for the data preview');
+      return { switchOf, switchNotes };
+    }
+    try {
+      const query = previewQuery(session.raw, { audit: (target, n) => record(cfg, 'adt_read_source', target, n) });
+      const { packages, notes } = await packagesOf('ENHO', impls.map((i) => i.name), query);
+      const chain = await switchChain([...packages.values()], query, { client: cfg?.client });
+      switchNotes.push(...notes, ...chain.notes);
+      for (const i of impls) {
+        const name = String(i.name).toUpperCase();
+        const pkg = packages.get(name);
+        switchOf.set(name, pkg ? describeChain(chain.byPackage.get(pkg)).join('; ') : 'package not found in TADIR -- switch not read');
+      }
+    } catch (e) {
+      switchNotes.push(`switch state not read: ${e.name ?? 'Error'}: ${e.message}`);
+    }
+    return { switchOf, switchNotes };
+  };
+
   const readOne = async (objectName, { objectType, include, enhancements, enhancementSource, context }) => {
     const early = objectType ? sourceRefusal(objectType, objectName) : null;
     if (early) throw early;
@@ -299,12 +329,17 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
       try {
         const found = await api.objectEnhancements(sourceUrl, context, !!enhancementSource);
         const impls = found?.implementations ?? [];
+        // Bound is not running: the listing ignores switches (measured on SAPMV45A). So each
+        // implementation gets the stored state of the switch its package hangs on -- TADIR,
+        // SFW_PACKAGE, SFW_SWITCH_STATE, three reads for the whole list (lib/switch-chain.mjs).
+        const { switchOf, switchNotes } = await enhancementSwitches(impls);
         // `version` is the OBJECT's version (adtcore:version), not its switch: the listing names
         // implementations whose package sits behind a switch with no active business function
         // too (measured on SAPMV45A, 2026-11-09). So the heading says "bound to", never "runs".
         const lines = impls.flatMap((i) => [
           `* ${i.name} (${i.type ?? '?'}, version ${i.version ?? '?'})` +
             (i.enhancedObject?.name ? ` on ${i.enhancedObject.name}` : ''),
+          ...(switchOf.has(String(i.name).toUpperCase()) ? [`*   switch: ${switchOf.get(String(i.name).toUpperCase())}`] : []),
           ...(i.elements ?? []).map(
             (e) =>
               `*   [${e.id}] ${e.fullname}` +
@@ -321,7 +356,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           `\n\n* ===== ${impls.length} enhancement implementation(s) bound to ` +
           `${hit['adtcore:name']} =====\n` +
           (lines.length
-            ? '* listed whatever their Switch Framework switch says: bound is not running\n' + lines.join('\n')
+            ? '* listed whatever their Switch Framework switch says: bound is not running\n' +
+              switchNotes.map((n) => `* ⚠ ${n}\n`).join('') +
+              lines.join('\n')
             : '* none -- the system reports no enhancement bound to this object') +
           '\n';
       } catch (e) {
@@ -523,8 +560,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
               type: 'boolean',
               description:
                 'Also list the enhancement implementations bound to this object: the ENHO, the ' +
-                'enhancement-point path, whether it REPLACES the point, and the line it sits at. ' +
-                'Costs 1 extra ADT call.',
+                'enhancement-point path, whether it REPLACES the point, the line it sits at, and ' +
+                'the stored state (on / stand-by / off) of the Switch Framework switch its package ' +
+                'hangs on. Costs 1 extra ADT call, plus 3 data-preview reads when any is listed.',
             },
             enhancementSource: {
               type: 'boolean',

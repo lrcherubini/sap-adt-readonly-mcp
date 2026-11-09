@@ -316,8 +316,10 @@ The server follows the MCP specification (2025-06-18) and the official TypeScrip
 
 `adt_read_source` answers a second question the working tree cannot: **who implanted code
 into this standard object.** With `enhancements: true` it lists the enhancement
-implementations bound to the source, whatever their Switch Framework switch says — the ENHO, the enhancement-point path, whether the
-implementation *replaces* that point, and the line it sits at — and with
+implementations bound to the source — the ENHO, the enhancement-point path, whether the
+implementation *replaces* that point, the line it sits at, and the stored state (on, stand-by,
+off) of the Switch Framework switch its package hangs on, because the system lists an
+implementation whether or not its switch is on — and with
 `enhancementSource: true` the implanted source itself. An implicit enhancement or an
 enhancement spot implementation never appears in a Z-namespace sweep, and no abapGit
 repository serialises it against the standard object it modifies. When the read fails, the

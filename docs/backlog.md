@@ -13,28 +13,18 @@ Last reviewed: 2026-11-09, against the self-contained server (every source read 
 
 ---
 
-## 1. Switch Framework: whether a switch is ON is not read
+## 1. Switch states `F`, `S` and "no row": read, never checked against a field truth
 
-**What is missing.** The real state of a switch. The ADT lists enhancement implementations
-whatever their switch says (reference, *The enhancement listing ignores the Switch Framework*),
-and the business-function chain cannot stand in for the state. On this S/4HANA system no classic
-business function is active, yet objects behind those switches are in use. So "this ENHO is bound"
-cannot be followed by "and it runs", or "it does not", and the DDIC chain printed by
-`propose:table` is weaker evidence than it looks.
+**What is missing.** `SFW_SWITCH_STATE` is read, and it agreed with the active field list on all
+ten `KNA1` appends of SAP packages (reference, *The switch state*). But only `T` has been seen
+against a field truth more than once. "No row" agreed with an absence once (`OILKNA1`), and `F`
+and `S` never, because no append behind such a switch turned up in the sweep. So the tools print
+the state as read, and print a missing row as such, never as "off".
 
-**Where it bit.**
-- `SAPMV45A` lists four implementations, all behind switches with no active business function.
-- `KNA1`: three appends of a switch with no business function are active, and one append of a
-  switch whose business functions are inactive is not.
-
-**Decided** (2026-11-09, `docs/security.md`): `SFW_SWITCH_STATE` is admitted by exception, with
-`STATE` (`T` on, `S` stand-by, `F` off) readable and `USERNAME` filter-only.
-
-**Measure.** The state of `OI0_COMMON_2` (expected on: its appends are active),
-`OI0_COMMON_DS` (expected off: `OILKNA1` is absent), and the switches of the four
-`SAPMV45A` implementations. If the table reproduces both known `KNA1` facts, it replaces the
-business-function step in `lib/switch-chain.mjs`, and the enhancement footer can say per
-implementation whether its switch is on.
+**What to measure.** One append, or an implementation with an observable effect, behind an `F` and
+behind an `S` switch: `SFW_PACKAGE` of a package that holds `TABL` objects, joined to switches
+stored `F`/`S`, then the membership test of `propose:table` on the extended table. If "no row"
+and `F` agree again, the printed line may say "off" for both. Until then it does not.
 
 ---
 
