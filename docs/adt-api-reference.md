@@ -132,9 +132,10 @@ included, which no source read can give. Three things to hold on to:
   name, see `enhancement/elements` in the next section, which pairs with these markers.
 - **It does not work on a structure**, and that is not the URI defect. Asked by NAME, after the
   fix, `KOMPAZ`, `KOMPCV`, `INCL_EEW_KNA1` and `MEREP_OUTTAB_PURCHDOC` — all `TABL/DS` — answer
-  `{children: []}`, the same empty tree a wrong path gives. `TABL/DT` answers full. The split is
-  by object type, so for a structure the source read plus `enhancement/elements` are the only
-  routes.
+  `{children: []}`, the same empty tree a wrong path gives; `EXTCMDEXEX` (2026-10-01), `BAPIRET2`
+  and `SYST` (2026-11-09) answer the same, 7 of 7. `TABL/DT` answers full. The split is by object
+  type, so for a structure the source read plus `enhancement/elements` are the only routes, and
+  `adt_object_info` does not ask (`lib/type-contract.mjs`).
 - **An empty tree is never an empty object.** It is what this resource returns for a path it does
   not resolve, so `tools/index.mjs` files `DDIC_FIELDS_NOT_READ` instead of reporting no fields.
 
@@ -336,7 +337,7 @@ binding):
 | type | sample | `ddicElement` by name | source read |
 |---|---|---|---|
 | `TABL/DT` | `ZDEMO_TRK_OC` | 25 fields | reads |
-| `TABL/DS` | `EXTCMDEXEX` | **0 children** — a real gap, kept | reads |
+| `TABL/DS` | `EXTCMDEXEX` | **0 children**, like every structure measured (7 of 7) — not asked since 2026-11-09 | reads |
 | `DDLS/DF` | `ZI_DemoChannel` | 11 fields (`DDLS/STOB` → `STOB/DOF`) | reads |
 | `BDEF/BDO` | `ZR_DEMOOCCGROUPTP` | ⚠️ the fields of the **DDLS of the same name** | reads |
 | `DDLX/EX` | `ZC_DEMOOCCCODETP` | ⚠️ the fields of the **DDLS of the same name** | reads |

@@ -59,25 +59,19 @@ measurement.
 
 ---
 
-## 3. Two gap codes contradict their own records
+## 3. A gap code contradicts its own record
 
-**What is missing.** Correct two codes in `lib/journal-codes.mjs`. Not cosmetic: the journal is the
-mechanism that makes silence visible, and a code that misstates its own finding spends the
-credibility of the others.
+**What is missing.** Correct `BATCH_ITEM_NOT_READ` in `lib/journal-codes.mjs`. Not cosmetic: the
+journal is the mechanism that makes silence visible, and a code that misstates its own finding
+spends the credibility of the others.
 
-- **`BATCH_ITEM_NOT_READ`** says *one failed item is never evidence of absence*, but its `detail`
-  can read `Object '<name>' of type TABL/DS not found in the system`. That **is** evidence of
-  absence. Two cases, "could not resolve the name" and "the object does not exist", are collapsed
-  into one code.
-- **`DDIC_FIELDS_NOT_READ`** is `medium` and says *no statement can be made about the fields*. It
-  fires for every structure, but `ddicElement` returns an empty tree for **every** `TABL/DS`: a
-  measured property of the type (in the reference), not a failure. A `medium` that fires on a
-  structural property hides what broke among what simply is so.
+It says *one failed item is never evidence of absence*, but its `detail` can read
+`Object '<name>' of type TABL/DS not found in the system`, and a single call with the same answer
+counts in `report` as a negative answer, not a failure. Two cases, "could not resolve or read the
+name" and "the name resolves to nothing", are collapsed into one code.
 
 **What to decide.** Either a sub-code for "does not exist" (with `impact` depending on it), or texts
-that stop asserting absence either way. For the second code, whether a `TABL/DS` should file a gap
-at all: it is predictable, and the useful advice ("use the source, not ddicElement") is already in
-`fallback`.
+that stop asserting absence either way.
 
 ---
 

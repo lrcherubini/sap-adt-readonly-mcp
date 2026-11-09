@@ -616,6 +616,17 @@ test('the field list is asked only of a type that has one: a package gets a note
   assert.equal(journalLines.filter((l) => l.code === 'DDIC_FIELDS_NOT_READ').length, 0);
 });
 
+test('a structure is not asked for a field list: ddicElement answers every TABL/DS empty', async () => {
+  // Measured on 7 of 7 structures (docs/adt-api-reference.md, "Type contract"): asking filed a
+  // DDIC_FIELDS_NOT_READ on every structure, a medium gap for a property of the type.
+  const api = apiOfType('ZDEMO_S_ITEM', 'TABL/DS', '/sap/bc/adt/ddic/structures/zdemo_s_item', { ddicElement: () => ({ children: [] }) });
+  const out = jsonOf(await byName(toolsWith(api), 'adt_object_info').handler({ objectName: 'ZDEMO_S_ITEM' }));
+  assert.equal(api.count('ddicElement'), 0);
+  assert.equal(out.ddic, undefined);
+  assert.match(out.fieldsNote, /every structure.*adt_read_source.*enhancement\/elements/s);
+  assert.equal(journalLines.filter((l) => l.code === 'DDIC_FIELDS_NOT_READ').length, 0);
+});
+
 test('a BDEF is not answered with the fields of the CDS of the same name', async () => {
   const api = apiOfType('ZR_X', 'BDEF/BDO', '/sap/bc/adt/bo/behaviordefinitions/zr_x', { ddicElement: () => ({ children: [{ name: 'F' }] }) });
   const out = jsonOf(await byName(toolsWith(api), 'adt_object_info').handler({ objectName: 'ZR_X' }));

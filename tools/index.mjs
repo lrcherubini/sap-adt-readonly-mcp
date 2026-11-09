@@ -588,10 +588,11 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         name: 'adt_object_info',
         description:
           'Metadata of an object as the system holds it: package, responsible, created/changed, ' +
-          'API/release state when the kernel exposes it, plus structure. For tables, structures ' +
+          'API/release state when the kernel exposes it, plus structure. For tables ' +
           'and CDS views it also returns the field list with data element, type and annotations, ' +
-          'which source text cannot give (a projection field inherits its type); any other type ' +
-          'answers `fieldsNote` saying why no field list was asked. A package ' +
+          'which source text cannot give (a projection field inherits its type); any other type, ' +
+          'a structure included (read its source with adt_read_source), answers `fieldsNote` ' +
+          'saying why no field list was asked. A package ' +
           '(DEVC/K) also answers its ancestry (`packagePath`, root first, and `parentPackage`); ' +
           'a BAdI implementation (ENHO/XHB) answers `badi`: spot, BAdI definition, implementing ' +
           'class and referenced objects. A service binding (SRVB/SVB) answers `binding`: OData ' +
