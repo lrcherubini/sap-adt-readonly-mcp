@@ -2916,6 +2916,41 @@ One customer variant, GET only.
   checks, not the variant. Whether it differs between variants has not been measured.
 - A name that does not exist answers **404** with an ADT message in the logon language.
 
+### Check variants, broad round: what `/atc/checkvariants` reads and what it does not — MEASURED 2026-11-09
+
+GET only, on 20 variants:
+- `DEFAULT`;
+- the `systemCheckVariant` named by `/atc/customizing`;
+- 18 variants from the `CHKV` quick search: 9 SAP ones (`ABAP_CLOUD_DEVELOPMENT_DEFAULT`,
+  `ABAP_CLOUD_READINESS`, `API_RELEASE`, `SLIN_SEC`, `FUNCTIONAL_DB`, …) and 9 customer ones.
+
+- **`DEFAULT` and the system check variant answer 404** ("error importing the object", in the
+  logon language). These are the two that `adt_atc_run` runs by default, and both run normally
+  through `POST /atc/worklists?checkVariant=` (measured 2026-09-14 and 2026-11-09). There are
+  two kinds of check variant, and SAP documents the split (ADT user guide, *Editing ATC Check
+  Variants*):
+  - a variant created in the ADT is a repository object of type `CHKV`. This resource serves it,
+    and transaction SCI can only display it;
+  - a variant created in transaction SCI "cannot be displayed or edited in ADT". It is not an
+    error and not an authorisation issue; the ADT has no representation of it. The ATC still runs
+    it by name.
+  The 404 is therefore the documented answer for an SCI variant, not a failed read.
+- **All 18 `CHKV` variants answered 200** (1.9-30 KB):
+  - 0 to 42 `chkvcheck:check` each; two customer variants list **none**;
+  - `referencedVariant` empty on all 18, so a reference to another variant was not seen;
+  - `remoteEnabled` false on all 18;
+  - every `parameterValueXml` parses as JSON, and on 69 checks it carries keys beyond
+    `checkName`, the check's parameter values.
+- **Element set** (the union of the 18): `chkv:checkvariant`, `chkv:content`, `chkv:name`,
+  `chkv:referencedVariant`, `chkv:remoteEnabled`, `chkvcheck:check`,
+  `chkvcheck:parameterValueXml`, `chko:checkObject`, `chko:content`, `chko:category`,
+  `chko:implementingClass`, `chko:remoteEnabled`, the `chkoParameter:*` family (`parameters`,
+  `parameter`, `parameterName`, `parameterTechnicalId`, `parameterDescription`,
+  `parameterModifiable`), `abapsource:syntaxConfiguration`/`language`/`version`,
+  `adtcore:packageRef` and `atom:link`.
+- **Discovery** also publishes `/sap/bc/adt/atc/variants{?maxItemCount,data}` (*List of
+  Variants*), with no Accept. It has not been read.
+
 ### Release states: `/informationsystem/releasestates` — MEASURED 2026-11-09
 
 - `GET …/repository/informationsystem/releasestates?maxItemCount=999&name=*` returns **200**
