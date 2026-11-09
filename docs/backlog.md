@@ -137,13 +137,7 @@ Service Bindings and their `odatav4` detail, ATC check variants, release states 
 folders. The shapes are in the reference (the sections dated 2026-11-09).
 
 **What to decide** (each one needs a `docs/security.md` entry before it can be built):
-- **Bindings: one combination is still missing.** The coverage round (376 bindings) filled
-  every kind × category × published cell. It found **no binding with several versions**. Ask the
-  owner for one known SAP-standard example, and measure it before the route decides whether
-  `published`/`releaseState` belong to the binding or to each version. Until then the route
-  reports them per version, as the document nests them, and claims nothing about the binding as
-  a whole.
-- **Bindings.** The best fit, because `adt_object_info` / `adt_contract_check` could state a
+- **Bindings.** Every combination is measured (see the reference, the three binding sections). The best fit, because `adt_object_info` / `adt_contract_check` could state a
   `SRVB`'s kind, contract and published state. Read the kind from `srvb:binding`: the `odatav2`/`odatav4`
   detail answers 200 for either kind.
 - **Check variants.** The variant itself is small; the 300 KB form template is the check

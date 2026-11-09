@@ -2796,11 +2796,8 @@ and the metadata of its SRVD.
 | OData V4 | 1 (Web API) | true | 16 |
 | OData V4 | 1 (Web API) | false | 64 |
 
-- **One service and one version in every binding.** All 376 held exactly one `srvb:services` with
-  one `srvb:content`, and every detail held one `services` row. A binding with several versions
-  (the owner reports them as common in SAP-standard content) was **not found in this sample**.
-  Whether `published`/`releaseState` belong to the binding or to each version is therefore
-  still unmeasured. Absence from 376 is not proof that none exist.
+- **One service and one version in every one of the 376.** The several-version case is measured
+  in the next section.
 - **`releaseState` values:** `NOT_RELEASED` (356), `RELEASED` (11) and
   `NOT_TO_BE_RELEASED_STABLE` (9).
 - **The binding and the detail agree on `published`** in every one of the 371 pairs that could be
@@ -2823,6 +2820,29 @@ and the metadata of its SRVD.
 - **The Gateway error log is not written.** The logged-on user's feed held the same single entry
   (from before both runs) on every read: before and after each run, around roughly 750 detail
   reads in all.
+
+### Service bindings with several versions: `published` is per version — MEASURED 2026-11-09
+
+The owner saw version 2 of three customer OData V2 UI bindings in `/IWFND/MAINT_SERVICE`. That
+transaction publishes RAP V2 bindings as well as Gateway (SEGW) services. All three were read
+with the coverage probe.
+
+- **Nesting.** One `srvb:services` holds one `srvb:content` per version (`0001`, `0002`). Each
+  content has its own `releaseState` and its own `srvb:serviceDefinition`. In all three bindings
+  the two versions point to **different** SRVDs.
+- **`published` is per version, and the root is not.** On one binding, version `0001` is
+  unpublished and `0002` is published, while the root `srvb:published` reads `"true"`. The root
+  flag is therefore not a statement about every version. The detail of each version is the only
+  per-version answer. (The 376 single-version bindings could not show this: on them the root and
+  the detail always agreed.)
+- **The detail is asked once per version**, with `serviceversion=<nnnn>` and that version's SRVD.
+  Each version answers its own row:
+  - `serviceUrl` for version 1 is `/sap/opu/odata/sap/<SERVICE>`, and for version 2
+    `/sap/opu/odata/sap/<SERVICE>;v=2`, the matrix parameter the Gateway uses for a version;
+  - `annotationUrl` carries `Version='0002'`;
+  - `serviceInformation` lists that version's entity sets, which can differ from version to
+    version.
+- No row was written to the Gateway error log.
 
 ### ATC check variants: `/atc/checkvariants` — MEASURED 2026-11-09
 
