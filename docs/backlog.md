@@ -153,6 +153,30 @@ to protect the account?
 
 ---
 
+## 8. Endpoints the IDE reads that this server has never measured
+
+**What is missing.** An Eclipse ADT communication log shows reads this server does not know:
+- `GET /sap/bc/adt/businessservices/bindings/<srvb>`: the Service Binding document;
+- `GET /sap/bc/adt/businessservices/odatav4/<service>?servicename=&serviceversion=&srvdname=`:
+  the binding's OData V4 detail;
+- `GET /sap/bc/adt/atc/checkvariants/<chkv>`, `…/schema` and
+  `…/formtemplate?chkvName=&version=active`: the configuration of an ATC check variant (the form
+  template is about 300 KB);
+- `GET /sap/bc/adt/repository/informationsystem/releasestates`: the list of release states;
+- `POST /sap/bc/adt/repository/informationsystem/virtualfolders/contents`: the IDE's project tree.
+  It is a POST that only reads.
+
+**Where it would help.** Bindings and `odatav4` would let `adt_contract_check` and
+`adt_object_info` describe a `SRVB` (kind, version, published state). Check variants would explain
+an `adt_atc_run` finding. Release states could check the Clean Core catalogue's assumptions.
+Virtual folders are an alternative to `adt_package_tree`.
+
+**What to measure.** Run the probes `business-services`, `atc-checkvariants`, `release-states`
+and `virtual-folders` (the last one with `--allow-post`). Each POST route still needs its own
+`docs/security.md` decision, even when it only reads. `checkruns` stays out (see `security.md`).
+
+---
+
 ## Accepted limit (not work): a per-target gap cannot retire itself
 
 Recorded so it does not come back as a defect.
