@@ -115,6 +115,14 @@ test('parseWorklist reports an element or a finding attribute outside the measur
   assert.deepEqual(empty.byPriority, { 1: 0, 2: 0, 3: 0 });
 });
 
+test('parseWorklist reads noExemption (measured 2026-11-09) as read, not as drift; absent stays null', () => {
+  const w = parseWorklist(WORKLIST(' atcfinding:noExemption="true"'));
+  assert.deepEqual(w.drift, []);
+  assert.equal(w.findings[0].noExemption, null, 'the finding without the attribute');
+  assert.equal(w.findings[1].noExemption, true);
+  assert.equal(parseWorklist(WORKLIST(' atcfinding:noExemption="false"')).findings[1].noExemption, false);
+});
+
 test('parseWorklist tolerates a finding with the bare minimum, a reversed documentation link and every XML escape', () => {
   const minimal =
     '<atcworklist:worklist xmlns:atcworklist="x"><atcworklist:objects><atcobject:object adtcore:name="ZCL_MIN">' +

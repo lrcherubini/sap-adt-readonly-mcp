@@ -67,7 +67,8 @@ export function atcTool(cfg, session, journal) {
         'POST a worklist for the variant, POST the run with the object, GET the worklist ' +
         '(measured: 3.7-5 s per run, findings in the reply). Each run leaves an ATC ' +
         'result worklist on the server and nothing else -- no lock, no transport, no object ' +
-        `changed. maxFindings 1..${MAX_VERDICTS} (default ${DEFAULT_VERDICTS}); includeExempted ` +
+        `changed. maxFindings 1..${MAX_VERDICTS} (default ${DEFAULT_VERDICTS}) caps the findings ` +
+        'listed, most severe first; count and byPriority always cover them all. includeExempted ' +
         'adds findings under an approved exemption. A class/interface enhancement (ENHO/XH) is ' +
         'refused (its URI dumps the server). ABAP Unit is NOT run here.',
       inputSchema: {
@@ -206,18 +207,25 @@ export function atcTool(cfg, session, journal) {
         fallback: 'compare with the ATC Result Browser in Eclipse ADT; re-measure (docs/adt-api-reference.md)',
       });
     }
+    // The server ignores maximumVerdicts (measured 2026-11-09): the worklist holds every finding,
+    // so the cap is applied here, most severe first. `count` is what the worklist holds; the run
+    // stats are the server's own total, and a worklist holding fewer is cut too.
+    const stats = runReply.byPriority;
+    const statsTotal = stats ? stats[1] + stats[2] + stats[3] : 0;
+    const shown = [...parsed.findings].sort((a, b) => (a.priority ?? 9) - (b.priority ?? 9)).slice(0, body.maxVerdicts);
     return {
       variant: v,
       variantWhy: ATC_VARIANTS.get(v),
       worklistId,
       timestamp: runReply.timestamp,
       runMs: run.ms,
-      runStats: runReply.byPriority,
+      runStats: stats,
       count: parsed.findings.length,
+      shown: shown.length,
       byPriority: parsed.byPriority,
-      truncated: parsed.findings.length >= body.maxVerdicts ? 'possible' : false,
+      truncated: shown.length < Math.max(parsed.findings.length, statsTotal),
       objectSetIsComplete: parsed.objectSetIsComplete,
-      findings: parsed.findings,
+      findings: shown,
       rule:
         'a run leaves a result worklist on the server and nothing else; the findings above are the ' +
         `verdict of variant ${v} on this one object, read from that worklist (measured)`,

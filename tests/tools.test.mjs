@@ -1129,6 +1129,22 @@ test('adt_atc_run sends the two POSTs and the GET, answers the findings, and aud
   }
 });
 
+test('adt_atc_run caps the findings it lists itself, most severe first, because the server ignores maximumVerdicts', async () => {
+  // Measured 2026-11-09: maximumVerdicts=5 still answered every finding. The worklist fixture
+  // holds a priority-1 and a priority-2 finding; the run stats say 2 in total.
+  const tool = byName(buildTools(cfgWith([]), sessionForAtc(fakeApi({ searchObject: () => CLASS_HITS }))), 'adt_atc_run');
+  const one = jsonOf(await tool.handler({ objectName: 'ZCL_T', variant: 'DEFAULT', maxFindings: 1 }));
+  assert.equal(one.count, 2, 'count is what the worklist holds');
+  assert.equal(one.shown, 1);
+  assert.equal(one.findings.length, 1);
+  assert.equal(one.findings[0].priority, 1, 'the most severe finding survives the cap');
+  assert.deepEqual(one.byPriority, { 1: 1, 2: 1, 3: 0 }, 'the counts cover every finding, listed or not');
+  assert.equal(one.truncated, true);
+  const all = jsonOf(await tool.handler({ objectName: 'ZCL_T', variant: 'DEFAULT', maxFindings: 2 }));
+  assert.equal(all.shown, 2);
+  assert.equal(all.truncated, false, 'exactly at the cap is complete, not "possible"');
+});
+
 test('adt_atc_run refuses a variant outside the set, a bad count and an ENHO/XH before any request, and needs a raw client', async () => {
   const sent = [];
   const tools = buildTools(cfgWith([]), sessionForAtc(fakeApi({ searchObject: () => CLASS_HITS }), sent));

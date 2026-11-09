@@ -2215,6 +2215,24 @@ Consumer: `adt_atc_run` (`lib/atc.mjs`: closed variant set, branded body, `parse
 a declared element/attribute set and `drift`; route `atcWorklist`; route `atcCustomizing` for
 the variant of the system).
 
+### The ATC worklist re-measured: the cap is the client's, `noExemption` is new — MEASURED 2026-11-09
+
+A probe on a second system (S/4HANA, logon language German): four Z objects (a class, two reports,
+a CDS view) × two variants (`DEFAULT` and the installation's governance variant), each worklist
+read twice (plain and `includeExemptedFindings=true`), plus one capped run.
+
+| Read | Answer |
+|---|---|
+| `GET /sap/bc/adt/atc/customizing` | 200, 2,155 bytes: `ciCheckFlavour`, `systemCheckVariant`, `isCCSTunnelEnabled = false`, **`isTransportableExemptionTypeUsed = false`** (new property), validities `U`/`S`/`D`, `scaAttributes`, **no exemption reasons**. `systemCheckVariant` named a variant **other** than the one the installation had configured as "the system check variant": the store can be stale against the system |
+| worklist + run, both variants | 200, ids as before; run 2.9-6.3 s, 515-516 bytes, `FINDING_STATS` equal to the worklist count every time (0 to 49) |
+| run with `maximumVerdicts="5"` on the object with 49 findings | **`FINDING_STATS 0,0,49` and 49 findings in the worklist, 56,706 bytes** -- the same as with `100`. **The server ignores `maximumVerdicts`.** The client caps what it lists, most severe first, and `truncated` is a boolean (shown < findings held, or < the run stats) |
+| `GET /sap/bc/adt/atc/worklists/<id>` | 200, 698 bytes to 56 KB. Head as measured (`usedObjectSet` = 32 nines, the `LAST_RUN` set; `objectSetIsComplete = true`); `objectSet` titles in the logon language. Every finding carries **`atcfinding:noExemption="true"`** (53 of 53, `exemptionKind` and `exemptionApproval` empty). **`atcfinding:checkClass` is absent** and **no `atcfinding:tags` element exists** on any finding: both are optional |
+| the same GET with `includeExemptedFindings=true` | 200, same findings and attributes; the body differs at most in `atcworklist:timestamp` (one second) |
+| a zero-finding run | two shapes: `atcworklist:objects` empty (`DEFAULT` on the CDS view), or one `atcobject:object` with an empty `atcobject:findings` (the governance variant on all four objects). What the difference means is **not measured** (see backlog) |
+
+What `noExemption` means on an exempted finding is not measured: no finding here had an
+exemption. The parser passes it through as read (`noExemption: true|false|null`).
+
 ### A 500 is a dump: what the client does with it — 2026-09-14
 
 Every HTTP 500 the ADT has answered this client so far was an ABAP runtime error on the
