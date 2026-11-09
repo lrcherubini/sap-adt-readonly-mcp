@@ -153,28 +153,6 @@ to protect the account?
 
 ---
 
-## 8. An ATC variant that answers zero everywhere may not be checking anything
-
-**What is missing.** Proof that a zero-finding run of an installed variant is a verdict and not
-an empty run. The server hands a worklist id to **any** variant name (measured 2026-09-14), and the
-store's `why` for a variant is typed once and never compared with the system.
-
-**Where it bit.** 2026-11-09: the installation's governance variant answered 0 findings on all
-five objects tried, while `DEFAULT` found up to 49 on the same objects, and
-`/sap/bc/adt/atc/customizing` named a **different** `systemCheckVariant` from the one the store
-describes as "the system check variant". Its zero runs also have a shape of their own (one
-`atcobject:object` with empty findings, where `DEFAULT`'s zero on a CDS view has no object at all).
-
-**What to measure, then decide.**
-1. The worklist of a run with a variant name that does not exist, on an object with known
-   findings: identical to the governance variant's zero? (A probe; the tool's fence refuses the name.)
-2. If it is identical, a zero cannot tell "clean" from "variant missing". Options: compare the
-   installed default with `systemCheckVariant` at start and say so in the tool description, or
-   report a zero from a non-system variant as `complete: false`. **The owner's decision**, plus a
-   `docs/security.md` line if a new read is added at start.
-
----
-
 ## Accepted limit (not work): a per-target gap cannot retire itself
 
 Recorded so it does not come back as a defect.

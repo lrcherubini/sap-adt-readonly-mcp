@@ -2228,10 +2228,30 @@ read twice (plain and `includeExemptedFindings=true`), plus one capped run.
 | run with `maximumVerdicts="5"` on the object with 49 findings | **`FINDING_STATS 0,0,49` and 49 findings in the worklist, 56,706 bytes** -- the same as with `100`. **The server ignores `maximumVerdicts`.** The client caps what it lists, most severe first, and `truncated` is a boolean (shown < findings held, or < the run stats) |
 | `GET /sap/bc/adt/atc/worklists/<id>` | 200, 698 bytes to 56 KB. Head as measured (`usedObjectSet` = 32 nines, the `LAST_RUN` set; `objectSetIsComplete = true`); `objectSet` titles in the logon language. Every finding carries **`atcfinding:noExemption="true"`** (53 of 53, `exemptionKind` and `exemptionApproval` empty). **`atcfinding:checkClass` is absent** and **no `atcfinding:tags` element exists** on any finding: both are optional |
 | the same GET with `includeExemptedFindings=true` | 200, same findings and attributes; the body differs at most in `atcworklist:timestamp` (one second) |
-| a zero-finding run | two shapes: `atcworklist:objects` empty (`DEFAULT` on the CDS view), or one `atcobject:object` with an empty `atcobject:findings` (the governance variant on all four objects). What the difference means is **not measured** (see backlog) |
+| a zero-finding run | two shapes: `atcworklist:objects` empty (`DEFAULT` on the CDS view), or one `atcobject:object` with an empty `atcobject:findings` (the governance variant on all four objects) |
 
 What `noExemption` means on an exempted finding is not measured: no finding here had an
 exemption. The parser passes it through as read (`noExemption: true|false|null`).
+
+### An unknown check variant runs `DEFAULT`, silently — MEASURED 2026-11-09
+
+Same system, two Z objects (a report with 49 `DEFAULT` findings, a class with 1), four variant
+names each: `DEFAULT`, the installation's governance variant, the `systemCheckVariant` read from
+`/sap/bc/adt/atc/customizing` at that moment, and `ZZZ_NOPE_17`, which does not exist. The worklists
+were compared byte for byte after removing ids, timestamps and finding indexes.
+
+| Read | Answer |
+|---|---|
+| worklist POST with `checkVariant=ZZZ_NOPE_17` | 200, a 32-hex id (as in 2026-09-14) |
+| its run and its worklist | 200, **`FINDING_STATS` and worklist identical to `DEFAULT`'s** on both objects (49 and 1 findings, same check ids). No info, no message, no status says the variant is unknown |
+| the governance variant and the `systemCheckVariant` | 0 findings on both objects, worklists **identical to each other** and different from `DEFAULT`'s: both names exist and ran |
+| `GET /sap/bc/adt/atc/variants` (published in discovery as `{?maxItemCount,data}`), with no query and with `maxItemCount=50&data=*` | 200, `application/vnd.sap.adt.nameditems.v1+xml`, 194 bytes, `totalItemCount = 0`: it does not list variants for these parameters |
+| `GET /sap/bc/adt/atc/checkvariants` | 400 (no resource at the collection itself); `…/checkvariants/validation` 405 for GET |
+
+So **a zero is a verdict of a real variant, and a wrong name is not a zero: it is `DEFAULT`'s
+verdict under another label.** Nothing in the reply tells the two apart. The client's closed set
+of variant names is what keeps a typo from reaching the server; a name in that set that no longer
+exists on the system would still be answered with `DEFAULT`'s findings.
 
 ### A 500 is a dump: what the client does with it — 2026-09-14
 
