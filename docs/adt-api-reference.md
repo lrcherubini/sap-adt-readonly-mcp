@@ -2696,6 +2696,12 @@ GET only, on nine bindings:
 - three SAP-standard bindings: `UI_ACCRUALS_MANAGE`, `UI_APJ_JOB_USER_O2` and `API_ABOPRUN`
   (V4 Web API).
 
+⚠️ **Coverage.** This round read only **one published binding** (a V2 UI binding with
+navigations). It read no published V4 binding, no published Web API, no published binding
+without navigations, no binding holding several versions, and no SRVD whose source type is not
+`S`. Every statement below that depends on publication rests on that one case. A follow-up
+round fills in the missing combinations (see `docs/backlog.md`).
+
 **Discovery templates.** The server publishes these templates itself:
 - the detail is `…/odatav4|odatav2/{objectname}{?servicename,serviceversion,srvdname}`, where
   `objectname` is the **binding** (as the IDE sends it). The probe sent the service name in that
@@ -2728,13 +2734,15 @@ GET only, on nine bindings:
 
 **The detail of the declared kind** (one read per binding, with the IDE's Accept list
 `…odatavN.v1+xml, v2, v3`; the server answers `odatav2.v2` and `odatav4.v1`):
-- On the **published** V2 binding, the `odatav2:services` row carries:
+- On the one **published** V2 binding, the `odatav2:services` row carries:
   - `published="true"` and `created="true"`;
   - `serviceUrl` (`/sap/opu/odata/<ns>/<service>`, the root that `odataMetadata` reads);
   - `annotationUrl` (the catalogue service's `Annotations(TechnicalName='…_VAN',Version='0001')/$value/`);
   - a filled `serviceInfo:serviceInformation` with one `serviceInfo:collection` per entity set
     (`name`, `isLeading`, `isRoot`) and `serviceInfo:navigation` (`name`, `target`).
-  This is the binding-side list of entity sets, read without calling the service.
+  On that one binding, this was the binding-side list of entity sets, read without calling the
+  service. Whether a published V4 binding fills `serviceInformation` the same way has not been
+  measured.
 - On every **unpublished** binding, `published="false"`, `serviceUrl=""`, `annotationUrl=""` and
   an **empty** `serviceInformation`. `created` is `true` when the service was generated and
   `false` otherwise.
@@ -2744,7 +2752,8 @@ GET only, on nine bindings:
   binding. The reply echoes `0099` with `created="false"` and `published="false"`. A 200 proves
   nothing; only `created`/`published` in the row do.
 
-**The Gateway error log is not written by these reads.** The probe read the logged-on user's
+**The Gateway error log was not written by these nine reads** (eight unpublished, one
+published V2). The probe read the logged-on user's
 `/sap/bc/adt/gw/errorlog` before the run, after each binding and after the edges. The feed held
 one entry from before the run (a "No service found" client error) and gained **none**. That
 includes the very triple (V2 service name with a shared V4 SRVD) that the earlier row named. That

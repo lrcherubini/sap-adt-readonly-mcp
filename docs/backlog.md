@@ -137,6 +137,15 @@ Service Bindings and their `odatav4` detail, ATC check variants, release states 
 folders. The shapes are in the reference (the sections dated 2026-11-09).
 
 **What to decide** (each one needs a `docs/security.md` entry before it can be built):
+- **Bindings: measure the missing combinations first.** The broad probe of 2026-11-09 read one
+  published binding (V2 UI, with navigations). Still unread:
+  - a published V4 binding, UI and Web API;
+  - a published V2 Web API;
+  - a published binding without navigations;
+  - a binding holding several versions;
+  - an SRVD whose source type is not `S`.
+  Until those are read, nothing about the detail's content may be generalised. Only `created`
+  and `published` in the row are trusted, because a wrong version also answers 200.
 - **Bindings.** The best fit, because `adt_object_info` / `adt_contract_check` could state a
   `SRVB`'s kind, contract and published state. Read the kind from `srvb:binding`: the `odatav2`/`odatav4`
   detail answers 200 for either kind.
