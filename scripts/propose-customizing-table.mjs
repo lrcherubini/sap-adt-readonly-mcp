@@ -67,7 +67,7 @@ const names = argv
 if (!names.length) {
   console.error('Usage: npm run propose:table -- <TABLE> [<TABLE> ...]   (up to 25 per run)\n');
   console.error('Prints the DDIC header, the delivery class and the field list of each table,');
-  console.error('plus the line to paste into CUSTOMIZING_TABLES. It adds nothing by itself.\n');
+  console.error('plus the entry to add to data/defaults/customizing-tables.json. It adds nothing by itself.\n');
   console.error('  --depth N      follow includes at most N levels deep');
   console.error('  --out <file>   write the whole report to <file>; the terminal gets one line per table');
   process.exit(2);
