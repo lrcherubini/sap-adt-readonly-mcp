@@ -2702,7 +2702,8 @@ where the two differ, the coverage round is the measurement.
 **Discovery templates.** The server publishes these templates itself:
 - the detail is `…/odatav4|odatav2/{objectname}{?servicename,serviceversion,srvdname}`, where
   `objectname` is the **binding** (as the IDE sends it). The probe sent the service name in that
-  position and the server still answered 200, so the parameters are what the server reads;
+  position and the server still answered 200. ⚠️ That 200 was the not-found row: the path **is**
+  read, in upper case (see *The detail path is read, and its case matters*);
 - `…/odatav2/publishjobs|unpublishjobs{?servicename,serviceversion}`: actions, never followed;
 - `…/bindings/validation`, `uiconfig/{bindtype}` and `schema/{bindtype}`;
 - `…/businessservices/release{?objectname,bindtype,bindtypeversion,repositoryid,servicename,serviceversion}`
@@ -2741,10 +2742,11 @@ where the two differ, the coverage round is the measurement.
   service. Whether a published V4 binding fills `serviceInformation` the same way has not been
   measured.
 - On every **unpublished** binding, `published="false"`, `serviceUrl=""`, `annotationUrl=""` and
-  an **empty** `serviceInformation`. `created` is `true` when the service was generated and
-  `false` otherwise.
-- A V4 `serviceUrlPrefix` is filled only when the group was created
-  (`/sap/opu/odata4/sap/<binding>/srvd/`); otherwise it is `""`.
+  an **empty** `serviceInformation`. ⚠️ The `created="false"` rows of this round came from reads
+  whose path named the service instead of the binding: they are the not-found row, not "not
+  generated" (see *The detail path is read, and its case matters*).
+- A V4 `serviceUrlPrefix` was filled (`/sap/opu/odata4/sap/<binding>/srvd/`) on the read whose
+  path named the binding, and `""` on the reads whose path did not.
 - ⚠️ A version the binding does not hold (`serviceversion=0099`) answers **200** on every
   binding. The reply echoes `0099` with `created="false"` and `published="false"`. A 200 proves
   nothing; only `created`/`published` in the row do.
@@ -2805,7 +2807,7 @@ and the metadata of its SRVD.
   - 153 unpublished: `created="true"`, empty `serviceUrl`, empty `serviceInformation`;
   - 217 published: `serviceUrl` filled and `serviceInformation` listing the entity sets;
   - 1 published with `serviceUrl` filled and **no** collection.
-  The broad round also saw unpublished services with `created="false"` (not generated).
+  Every unpublished version read with the right path said `created="true"`.
 - **Published V4** fills `serviceInformation` the same way V2 does, with collections and, where
   they exist, navigations:
   - 14 or more V4 bindings with navigations and 30 or more without;
@@ -2843,6 +2845,32 @@ with the coverage probe.
   - `serviceInformation` lists that version's entity sets, which can differ from version to
     version.
 - No row was written to the Gateway error log.
+
+### The detail path is read, and its case matters — MEASURED 2026-11-09
+
+The first build of the binding route sent the binding name in **lower case** in the detail path
+(`…/odatav2/<binding lower>?…`), the way the binding document is addressed. A metadata probe
+read ten versions of seven bindings that way and, side by side, with the name in **upper case**,
+as the IDE sends it:
+
+- **Lower case:** every version answered **200** with the not-found row: `published="false"`,
+  `created="false"`, an empty `serviceUrl` and an empty `serviceInformation`. That included nine
+  versions that are published.
+- **Upper case:** the true state: nine versions published with their URLs, one (`0001` of a
+  two-version binding) unpublished with `created="true"`.
+
+Conclusions:
+- The path is read and is case-sensitive. The parameters alone do not decide the answer. A
+  namespace travels as `%2F` (`encodeURIComponent` of `/NS/NAME`, the form measured on the `/DMO/`
+  bindings).
+- **`created="false"` is the not-found row.** It answered:
+  - a wrong path;
+  - a version the binding does not hold;
+  - a non-OData binding asked for an OData detail.
+  It was never the state of a real version: every correctly read unpublished version said
+  `created="true"`. A reader treats the row as "not read", never as "unpublished".
+- A 200 from this resource proves nothing by itself. Only a row with `created="true"` for the
+  version that was asked describes that version.
 
 ### ATC check variants: `/atc/checkvariants` — MEASURED 2026-11-09
 

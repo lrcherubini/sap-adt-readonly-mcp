@@ -774,7 +774,10 @@ versions.
 What keeps these routes narrow:
 - **The detail is asked only for the kind the binding declares, once per version.** The name,
   version and SRVD sent are the ones the binding document names, never derived from the binding
-  name. The detail answers 200 for either kind and for a version the binding does not hold (both
+  name. The binding goes in the path in upper case: lower case answers the not-found row
+  (`created="false"`) even for a published version (measured), so a row with `created="false"`
+  is reported as not read (`BINDING_NOT_READ`), never as unpublished. The detail answers 200 for
+  either kind and for a version the binding does not hold (both
   measured), so a 200 is not trusted. Only the row the detail returns for the version that was
   asked is used.
 - **`published` is reported per version.** The binding's root flag read "true" while one of two

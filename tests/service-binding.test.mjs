@@ -103,8 +103,12 @@ test('reading a two-version binding asks each version once, with that version an
   );
   assert.equal(out.note, undefined);
   assert.deepEqual(sent.map((r) => r.method), ['GET', 'GET', 'GET']);
-  assert.match(sent[1].url, /\/odatav2\/zdemo_ui_flight_o2\?servicename=ZDEMO_UI_FLIGHT_O2&serviceversion=0001&srvdname=ZDEMO_FLIGHT_A$/);
-  assert.match(sent[2].url, /serviceversion=0002&srvdname=ZDEMO_FLIGHT_B$/);
+  // The exact URLs: the binding document in lower case, the detail in UPPER case (both measured).
+  assert.deepEqual(sent.map((r) => r.url), [
+    '/sap/bc/adt/businessservices/bindings/zdemo_ui_flight_o2',
+    '/sap/bc/adt/businessservices/odatav2/ZDEMO_UI_FLIGHT_O2?servicename=ZDEMO_UI_FLIGHT_O2&serviceversion=0001&srvdname=ZDEMO_FLIGHT_A',
+    '/sap/bc/adt/businessservices/odatav2/ZDEMO_UI_FLIGHT_O2?servicename=ZDEMO_UI_FLIGHT_O2&serviceversion=0002&srvdname=ZDEMO_FLIGHT_B',
+  ]);
   const [v1, v2] = out.binding.versions;
   // The root says true; the versions disagree with each other -- both are reported as read.
   assert.equal(out.binding.rootPublished, true);
@@ -119,7 +123,7 @@ test('a V4 binding maps its published version to the odataMetadataV4 route', asy
   const out = await readServiceBinding(
     transportOf([
       [/\/bindings\/zdemo_ui_clsf_o4$/, fixture('binding-v4-published.xml')],
-      [/\/odatav4\/zdemo_ui_clsf_o4\?/, fixture('detail-v4-published.xml')],
+      [/\/odatav4\/ZDEMO_UI_CLSF_O4\?/, fixture('detail-v4-published.xml')],
     ]),
     'ZDEMO_UI_CLSF_O4'
   );
@@ -158,6 +162,28 @@ test('a failed read files BINDING_NOT_READ and never reads as unpublished', asyn
   assert.equal(v2.published, true, 'the other version still stands');
   assert.equal(gaps.length, 1);
   assert.match(gaps[0].detail, /version 0001/);
+});
+
+test('the not-found row (created="false") is unknown, never "unpublished"', async () => {
+  // Measured: a lower-case path and a wrong version both answer 200 with this row.
+  const notFound = fixture('detail-v2-0002-published.xml')
+    .replace('odatav2:published="true"', 'odatav2:published="false"')
+    .replace('odatav2:created="true"', 'odatav2:created="false"');
+  const gaps = [];
+  const out = await readServiceBinding(
+    transportOf([
+      [/\/bindings\//, fixture('binding-v2-two-versions.xml')],
+      [/serviceversion=0001/, fixture('detail-v2-0001-unpublished.xml')],
+      [/serviceversion=0002/, notFound],
+    ]),
+    'ZDEMO_UI_FLIGHT_O2',
+    { gap: (g) => gaps.push(g) }
+  );
+  const [v1, v2] = out.binding.versions;
+  assert.equal(v1.published, false, 'created="true" + published="false" is a real unpublished version');
+  assert.equal(v2.published, null);
+  assert.match(v2.detailNote, /not-found row/);
+  assert.deepEqual(gaps.map((g) => g.code), ['BINDING_NOT_READ']);
 });
 
 test('a name the route cannot address is refused before any request', async () => {
