@@ -152,7 +152,7 @@ reopens**.
 (`lib/data-preview.mjs`: one table, allow-listed fields, `WHERE` from `=`/`<>`/`IN` on identifiers, a row cap of 200), for a table in the closed list `CUSTOMIZING_TABLES` -- the tables
 such a report reads plus `TVCPA`/`TVCPF`/`TVCPL`/`TFRM`/`TFRMT` and, for the launchpad
 (2026-10-02, fields read with `propose:table`), `/UI2/SEMOBJC`/`/UI2/SEMOBJCT`/`/UI2/SEMOBJ` and, for package deletion (2026-10-13, fields read with
-`adt_object_info`: object key, package, flags, dates, `AUTHOR` as a user id), `TADIR`, and since then, each admitted the same way -- a named consumer, the fields read with `propose:table`, the delivery class and appends checked, no person data: CDS header annotations (`DDHEADANNO`), payment terms and STVARV parameters (`T052`/`T052U`/`TVARVC` -- `TVARVC` holds free text, query it by `NAME`), partner determination (`TPAER`), the material master screen map (`T133A`/`T133B`/`T133C`, `D020S`/`D020T`/`D021T`, `DDFTX`, `TSDIR`, `DYNPSOURCE`, `TSTC`/`TSTCP`, `T130M`/`T133K`/`T133S`/`T133T`), MRP areas and their parameters (`MDLV`/`MDLG`, `T460A`/`T460T`, `T438A`/`T438T`, `T439A`; `MDMA`, material master per MRP area, was **refused** -- class A), material status (`T141`/`T141T`, `TVMS`/`TVMST`), the factory calendar (`TFACD`/`TFACT`/`TFAIN`/`TFACS`/`THOC`/`THOCI`/`THOL`/`THOLT`, `FHC_CONFIG`/`FHC_C_FCAL`) and the organizational units (`T001`/`T001K`/`T001L`/`T001W`/`T001B`/`T001Z`; `T001S`, accounting clerks with names and contact, was left out on purpose) and the Switch Framework assignments (`SFW_PACKAGE`/`SFW_SW_BF`/`SFW_ACTIVE_BFUNC`/`SFW_SWITCHT`/`SFW_BFT`, 2026-11-09, *Switch Framework tables* below). The standard list lives in `data/defaults/customizing-tables.json`; an installation adds its OWN tables (customer `Z*`/`Y*`) with `npm run config -- table add`, validated by the same grammar and the same checks -- see *The list has two layers* below. A table outside the list is refused
+`adt_object_info`: object key, package, flags, dates, `AUTHOR` as a user id), `TADIR`, and since then, each admitted the same way -- a named consumer, the fields read with `propose:table`, the delivery class and appends checked, no person data: CDS header annotations (`DDHEADANNO`), payment terms and STVARV parameters (`T052`/`T052U`/`TVARVC` -- `TVARVC` holds free text, query it by `NAME`), partner determination (`TPAER`), the material master screen map (`T133A`/`T133B`/`T133C`, `D020S`/`D020T`/`D021T`, `DDFTX`, `TSDIR`, `DYNPSOURCE`, `TSTC`/`TSTCP`, `T130M`/`T133K`/`T133S`/`T133T`), MRP areas and their parameters (`MDLV`/`MDLG`, `T460A`/`T460T`, `T438A`/`T438T`, `T439A`; `MDMA`, material master per MRP area, was **refused** -- class A), material status (`T141`/`T141T`, `TVMS`/`TVMST`), the factory calendar (`TFACD`/`TFACT`/`TFAIN`/`TFACS`/`THOC`/`THOCI`/`THOL`/`THOLT`, `FHC_CONFIG`/`FHC_C_FCAL`) and the organizational units (`T001`/`T001K`/`T001L`/`T001W`/`T001B`/`T001Z`; `T001S`, accounting clerks with names and contact, was left out on purpose) and the Switch Framework assignments (`SFW_PACKAGE`/`SFW_SW_BF`/`SFW_ACTIVE_BFUNC`/`SFW_SWITCHT`/`SFW_BFT`, and `SFW_SWITCH_STATE` by exception, 2026-11-09, *Switch Framework tables* below). The standard list lives in `data/defaults/customizing-tables.json`; an installation adds its OWN tables (customer `Z*`/`Y*`) with `npm run config -- table add`, validated by the same grammar and the same checks -- see *The list has two layers* below. A table outside the list is refused
 by the client before any socket opens; free SQL never reaches the route. The tool is
 `adt_customizing`, and it is **built only after** the resource is measured live (measurement,
 step 6: status, shape, lock/`SM12` before and after, timing) -- the route rule of this
@@ -272,7 +272,7 @@ from reading as complete. It adds nothing itself; it makes the commit cheap. The
 and `lib/guard.mjs` is untouched. `tests/table-meta.test.mjs` holds the counter-example in place:
 if `TFRM` ever reads as class `C`, that test is the one that says so.
 
-#### Switch Framework tables: admitted, five of them -- 2026-11-09
+#### Switch Framework tables: admitted, six of them -- 2026-11-09
 
 **The consumer.** `propose:table` marks an append whose fields are missing from the active table
 `NOT IN THE ACTIVE TABLE`, and stops there: on `KNA1`, four industry-solution appends. "This field
@@ -287,9 +287,19 @@ standby) → `SFW_ACTIVE_BFUNC` (business functions active in this client), plus
 append, and not one field that holds a person. Every column is configuration or a text, so no
 field allowlist is needed.
 
-**What is not.** `SFW_SWITCH_STATE` is class **L** and has `USERNAME` in its key, so it is refused
-on both counts. `SFW_SWITCH` and `SFW_BF` carry `AUTHOR`/`CHANGEDBY` and add nothing the chain
-needs, so they are left out.
+**What is not.** `SFW_SWITCH` and `SFW_BF` carry `AUTHOR`/`CHANGEDBY` and add nothing the chain
+needs, so they are left out. `SFW_SWITCH_STATE` was refused the same day, then admitted by
+exception (next paragraph).
+
+**`SFW_SWITCH_STATE`, by exception -- the owner's decision, 2026-11-09.** The business-function
+chain turned out unable to tell on from off on this S/4HANA system: no classic business function is
+active, yet objects behind those switches are in use, and the ADT lists enhancement
+implementations whatever their switch says (reference, *The enhancement listing ignores the Switch
+Framework*). The stored state of a switch (`STATE`: `T` on, `S` stand-by, `F` off) is only in
+this table. It is class **L** and carries `USERNAME` in its key, so it is admitted the way
+`SCICHKV_HD` was (*Legacy objects* below): the field allowlist is `SWITCH_ID`, `CLIENT`, `VERSION`
+and `STATE`, and `USERNAME` is filter-only, so it can select the system setting (blank) and is
+never returned. The class-L rule stays for every other table.
 
 **What it does not license.** Admitting the rows is not reading the cause. On `KNA1` the chain is
 consistent with the one absent append, and it shows that a switch belonging to no business

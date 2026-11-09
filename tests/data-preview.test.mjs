@@ -167,6 +167,22 @@ test('a field allowlist: the columns a table admits, `*` meaning only those, fil
   assert.equal(CUSTOMIZING_TABLES.get('SCICHKV_TX').fields.includes('CIUSER'), false);
 });
 
+test('SFW_SWITCH_STATE: the state of a switch is read, the user a setting belongs to never is', () => {
+  // Class L with USERNAME in the key, admitted by exception on 2026-11-09 (docs/security.md): the
+  // only place a switch's state is stored. USERNAME filters (blank = the system setting) and is
+  // never selected.
+  const spec = CUSTOMIZING_TABLES.get('SFW_SWITCH_STATE');
+  assert.deepEqual(spec.fields, ['SWITCH_ID', 'CLIENT', 'VERSION', 'STATE']);
+  assert.deepEqual(spec.filterOnly, ['USERNAME']);
+  assert.equal(
+    buildSelect({ table: 'SFW_SWITCH_STATE', where: [{ field: 'SWITCH_ID', op: 'IN', value: ['ZDEMO_SW_A', 'ZDEMO_SW_B'] }, { field: 'USERNAME', op: '=', value: '' }] }).sql,
+    "SELECT SWITCH_ID, CLIENT, VERSION, STATE FROM SFW_SWITCH_STATE WHERE SWITCH_ID IN ('ZDEMO_SW_A', 'ZDEMO_SW_B') AND USERNAME = ''"
+  );
+  for (const fields of [['USERNAME'], ['SWITCH_ID', 'USERNAME']]) {
+    assert.throws(() => buildSelect({ table: 'SFW_SWITCH_STATE', fields }), /may be read only for/, fields.join());
+  }
+});
+
 test('previewPost re-checks the allowlist on the statement: a hand-built SELECT cannot read a user field', async () => {
   const sent = [];
   const raw = { httpClient: { request: async (url, c) => (sent.push({ url, ...c }), { status: 200, body: '', headers: {} }) } };
@@ -179,7 +195,7 @@ test('previewPost re-checks the allowlist on the statement: a hand-built SELECT 
 test('the allow-list is closed and every entry says why', () => {
   assert.deepEqual(
     [...CUSTOMIZING_TABLES.keys()],
-    ['T683S', 'T683U', 'T683T', 'T685', 'T685A', 'T685T', 'T682I', 'T681', 'TMC1T', 'TVCPA', 'TVCPF', 'TVCPL', 'TFRM', 'TFRMT', '/UI2/SEMOBJC', '/UI2/SEMOBJCT', '/UI2/SEMOBJ', 'BALOBJ', 'BALOBJT', 'SCICHKV_HD', 'SCICHKV_TX', 'TADIR', 'DDHEADANNO', 'T052', 'T052U', 'TVARVC', 'TPAER', 'T133A', 'T133B', 'T133C', 'D020S', 'D020T', 'D021T', 'DDFTX', 'TSDIR', 'DYNPSOURCE', 'T130M', 'T133K', 'T133S', 'T133T', 'TSTC', 'TSTCP', 'MDLV', 'MDLG', 'T460A', 'T460T', 'T438A', 'T438T', 'T439A', 'T141', 'T141T', 'TVMS', 'TVMST', 'TFACD', 'TFACT', 'TFAIN', 'TFACS', 'THOC', 'THOCI', 'THOL', 'THOLT', 'FHC_CONFIG', 'FHC_C_FCAL', 'T001', 'T001K', 'T001L', 'T001W', 'T001B', 'T001Z', 'SFW_PACKAGE', 'SFW_SW_BF', 'SFW_ACTIVE_BFUNC', 'SFW_SWITCHT', 'SFW_BFT']
+    ['T683S', 'T683U', 'T683T', 'T685', 'T685A', 'T685T', 'T682I', 'T681', 'TMC1T', 'TVCPA', 'TVCPF', 'TVCPL', 'TFRM', 'TFRMT', '/UI2/SEMOBJC', '/UI2/SEMOBJCT', '/UI2/SEMOBJ', 'BALOBJ', 'BALOBJT', 'SCICHKV_HD', 'SCICHKV_TX', 'TADIR', 'DDHEADANNO', 'T052', 'T052U', 'TVARVC', 'TPAER', 'T133A', 'T133B', 'T133C', 'D020S', 'D020T', 'D021T', 'DDFTX', 'TSDIR', 'DYNPSOURCE', 'T130M', 'T133K', 'T133S', 'T133T', 'TSTC', 'TSTCP', 'MDLV', 'MDLG', 'T460A', 'T460T', 'T438A', 'T438T', 'T439A', 'T141', 'T141T', 'TVMS', 'TVMST', 'TFACD', 'TFACT', 'TFAIN', 'TFACS', 'THOC', 'THOCI', 'THOL', 'THOLT', 'FHC_CONFIG', 'FHC_C_FCAL', 'T001', 'T001K', 'T001L', 'T001W', 'T001B', 'T001Z', 'SFW_PACKAGE', 'SFW_SW_BF', 'SFW_ACTIVE_BFUNC', 'SFW_SWITCHT', 'SFW_BFT', 'SFW_SWITCH_STATE']
   );
   for (const [t, spec] of CUSTOMIZING_TABLES) assert.ok(spec.why.length > 10, `${t} has no reason`);
   assert.ok(![...CUSTOMIZING_TABLES.keys()].some((t) => /^[ZY]/.test(t)), 'the standard list carries no customer table');

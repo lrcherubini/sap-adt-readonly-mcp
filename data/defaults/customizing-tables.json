@@ -74,6 +74,7 @@
     {"name":"SFW_SW_BF","why":"Switch Framework: which business function a switch belongs to, and as activation (A) or standby (E) switch","routineColumns":{},"keyColumns":["BFUNCTION","VERSION","SWITCH_ID"]},
     {"name":"SFW_ACTIVE_BFUNC","why":"Switch Framework: the business functions active in this client (per client, class C)","routineColumns":{},"keyColumns":["VERSION","BFUNCTION"]},
     {"name":"SFW_SWITCHT","why":"Switch Framework: switch texts","routineColumns":{},"keyColumns":["SWITCH_ID","SPRAS"]},
-    {"name":"SFW_BFT","why":"Switch Framework: business function texts","routineColumns":{},"keyColumns":["BFUNCTION","SPRAS"]}
+    {"name":"SFW_BFT","why":"Switch Framework: business function texts","routineColumns":{},"keyColumns":["BFUNCTION","SPRAS"]},
+    {"name":"SFW_SWITCH_STATE","why":"Switch Framework: the stored state of a switch (T on, S stand-by, F off). Class L, admitted by exception with a field allowlist: USERNAME is filter-only, never read (docs/security.md)","routineColumns":{},"keyColumns":["SWITCH_ID","CLIENT","VERSION"],"fields":["SWITCH_ID","CLIENT","VERSION","STATE"],"filterOnly":["USERNAME"]}
   ]
 }

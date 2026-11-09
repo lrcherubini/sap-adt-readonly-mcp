@@ -27,13 +27,10 @@ cannot be followed by "and it runs", or "it does not", and the DDIC chain printe
 - `KNA1`: three appends of a switch with no business function are active, and one append of a
   switch whose business functions are inactive is not.
 
-**What to decide** (the owner's). The state lives in `SFW_SWITCH_STATE`: `STATE` is `T` on,
-`S` stand-by, `F` off. It was refused in `docs/security.md` (class L, `USERNAME` in the key).
-`SCICHKV_HD` is the precedent: class L, admitted by exception with a field allowlist, and its user
-column `filterOnly`, never returned. The same form would read `SWITCH_ID`, `CLIENT`,
-`VERSION` and `STATE`, with `USERNAME` only as a filter (blank = the system setting).
+**Decided** (2026-11-09, `docs/security.md`): `SFW_SWITCH_STATE` is admitted by exception, with
+`STATE` (`T` on, `S` stand-by, `F` off) readable and `USERNAME` filter-only.
 
-**Then measure.** The state of `OI0_COMMON_2` (expected on: its appends are active),
+**Measure.** The state of `OI0_COMMON_2` (expected on: its appends are active),
 `OI0_COMMON_DS` (expected off: `OILKNA1` is absent), and the switches of the four
 `SAPMV45A` implementations. If the table reproduces both known `KNA1` facts, it replaces the
 business-function step in `lib/switch-chain.mjs`, and the enhancement footer can say per
