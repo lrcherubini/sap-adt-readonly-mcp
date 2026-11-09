@@ -36,6 +36,7 @@ import {
 import { CUSTOMIZING_TABLES } from '../lib/data-preview.mjs';
 import { namedGet, transportFor } from '../lib/adt-get.mjs';
 import { parseEnhancementElements, enhancementRouteFor, segmentFor } from '../lib/enhancement-elements.mjs';
+import { switchChain, describeChain } from '../lib/switch-chain.mjs';
 
 const RULE = '='.repeat(88);
 
@@ -151,7 +152,12 @@ try {
    * resource types every one of them `TABL/DS`).
    */
   const readStructures = async (names) =>
-    new Map((await readBatch(names, 'TABL/DS')).items.map((i) => [i.name, { source: i.source || null, error: i.error ?? null }]));
+    new Map((await readBatch(names, 'TABL/DS')).items.map((i) => [i.name, { source: i.source || null, error: i.error ?? null, package: i.package ?? null }]));
+
+  // The Switch Framework rows, through the SAME tool the server serves: the closed table list and
+  // the generated grammar of adt_customizing apply here as there (lib/switch-chain.mjs).
+  const customizing = tools.find((t) => t.definition.name === 'adt_customizing');
+  const queryCustomizing = async (q) => JSON.parse((await customizing.handler(q)).content[0].text);
 
   // The batch limit is 25 NAMES PER REQUEST, not 25 names per question -- and slicing to the first
   // 25 is how a cap turns into a silent wrong answer. KOMG names 28 appends; the three that fell
@@ -194,7 +200,7 @@ try {
   };
 
   const payload = await readBatch(toRead, 'TABL/DT');
-  worst = await report(payload, readStructures, readDdic, readEnhancements, readStructuresAll);
+  worst = await report(payload, readStructures, readDdic, readEnhancements, readStructuresAll, queryCustomizing);
 } catch (e) {
   // A crash mid-run must not swallow what was already read: the transcript IS the evidence, and a
   // partial one with the error in it is worth more than none.
@@ -234,7 +240,7 @@ function srcOf(map, name) {
   return typeof got === 'string' ? got : (got?.source ?? null);
 }
 
-async function report(payload, readStructures, readDdic, readEnhancements, readStructuresAll) {
+async function report(payload, readStructures, readDdic, readEnhancements, readStructuresAll, queryCustomizing) {
   let worstSoFar = 0;
   for (const item of payload.items ?? []) {
     say(`\n${RULE}\n${item.name}${item.package ? `  --  package ${item.package}` : ''}`);
@@ -391,8 +397,8 @@ async function report(payload, readStructures, readDdic, readEnhancements, readS
       // resource names 11 appends while the active DDIC list carries 7 `.append` blocks, and the
       // four with no block belong to an industry solution (OI*_KNA1), and none of their fields is
       // in the table. Printing OIDRC without saying so invites code written against a field that is
-      // not there. WHY they are absent is NOT read anywhere here -- a switch is the likely cause and
-      // was never verified, so the report says absent and stops.
+      // not there. WHY they are absent is not stated: the switch chain below is printed as
+      // evidence beside the absence (measured on KNA1, 4 of 4 / 3 of 3), never as its cause.
       //
       // The test is MEMBERSHIP, not position: does any field this append declares appear in the
       // active list? That is sound whatever the marker order does, which is why it is the check
@@ -423,23 +429,55 @@ async function report(payload, readStructures, readDdic, readEnhancements, readS
           return src ? parseTableMeta(src).fields.map((f) => f.name) : [];
         });
       };
+      // The membership verdict of one append, computed once and used twice: to choose which appends
+      // the switch chain is asked about, and on the NAME line, where it cannot be missed.
+      const membership = (ap) => {
+        const src = srcOf(sources, ap.name);
+        const sub = src ? parseTableMeta(src) : null;
+        let mark = '';
+        let absent = false;
+        if (sub && activeNames.size) {
+          marked = true;
+          const testable = testableFields(sub);
+          if (testable.length) {
+            const present = testable.filter((n) => activeNames.has(n)).length;
+            absent = present === 0;
+            if (absent) mark = '   ← NOT IN THE ACTIVE TABLE';
+            else if (present < testable.length) mark = `   ← only ${present}/${testable.length} of its fields are active`;
+          }
+        }
+        return { sub, mark, absent };
+      };
+      const packageOf = (name) => (sources.get(String(name).toUpperCase()) ?? sources.get(name))?.package ?? null;
+
+      // THE SWITCH CHAIN, for the absent appends only (docs/adt-api-reference.md, "The switch
+      // chain", measured 2026-11-09): package -> switch -> business function -> active here.
+      // Evidence printed beside the absence, never its stated cause. One lookup for all of them.
+      const absentApps = withAppends.flatMap((a) => a.appends).filter((ap) => membership(ap).absent);
+      let chain = null;
+      let chainNote = null;
+      if (absentApps.length) {
+        try {
+          chain = await switchChain(absentApps.map((ap) => packageOf(ap.name)), queryCustomizing);
+        } catch (e) {
+          chainNote = `switch chain not read: ${e.name ?? 'Error'}: ${e.message}`;
+        }
+      }
+
       for (const a of withAppends) {
         say(`    on ${a.node.name}${a.node.depth ? ` (include, depth ${a.node.depth})` : ''}:`);
         for (const ap of a.appends) {
-          const src = srcOf(sources, ap.name);
-          const sub = src ? parseTableMeta(src) : null;
-          // The membership verdict goes on the NAME line, where it cannot be missed.
-          let mark = '';
-          if (sub && activeNames.size) {
-            marked = true;
-            const testable = testableFields(sub);
-            if (testable.length) {
-              const present = testable.filter((n) => activeNames.has(n)).length;
-              if (present === 0) mark = '   ← NOT IN THE ACTIVE TABLE';
-              else if (present < testable.length) mark = `   ← only ${present}/${testable.length} of its fields are active`;
-            }
-          }
+          const { sub, mark, absent } = membership(ap);
           say(`      ${ap.name.padEnd(34)} ${ap.shortText ?? ''}${mark}`);
+          if (absent) {
+            const pkg = packageOf(ap.name);
+            const lines = chainNote
+              ? [chainNote]
+              : pkg
+                ? describeChain(chain?.byPackage.get(String(pkg).toUpperCase()))
+                : ['switch chain: the package of this append is unknown (the read did not name it)'];
+            for (const l of lines) say(`        ⤷ ${l}`);
+          }
           if (!sub) {
             say('        source not read -- the fields of this append are unknown, not absent');
           } else if (!sub.fields.length && sub.includes.length) {
@@ -462,9 +500,12 @@ async function report(payload, readStructures, readDdic, readEnhancements, readS
       say('    DT_COMP and ST_COMP. No name heuristic finds those; only this list does.');
       if (marked) {
         say('    NOT IN THE ACTIVE TABLE means the append exists as an object but none of its');
-        say('    fields are in the DDIC list. This says the fields are ABSENT, not why -- nothing');
-        say('    read here knows about switches, activation state or targets. Do not write code');
-        say('    against those fields, and check SE11/SFW_BROWSER before concluding a cause.');
+        say('    fields are in the DDIC list. This says the fields are ABSENT. The ⤷ lines are');
+        say('    EVIDENCE beside it: the switch its package hangs on and whether that switch\'s');
+        say('    business functions are active in this client. They are not the cause: a conflict');
+        say('    switch or an activation error is not read. Do not write code against those');
+        say('    fields, and check SE11/SFW_BROWSER before concluding a cause.');
+        if (chain?.notes.length) for (const n of chain.notes) say(`    ⚠ ${n}`);
       }
     } else if (asked.some((a) => a.ok)) {
       // This used to warn that the empty answer might be a silence rather than a finding, because

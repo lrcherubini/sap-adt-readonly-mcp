@@ -13,35 +13,23 @@ Last reviewed: 2026-11-09, against the self-contained server (every source read 
 
 ---
 
-## 1. Switch Framework: what is switched off is invisible, in the DDIC and in code
+## 1. Switch Framework in code: an enhancement behind a switch that is off
 
-**What is missing.** Nothing in this server knows whether an object sits behind a switch that is
-off. The effect is measured and the cause is not: `propose:table` marks `NOT IN THE ACTIVE TABLE`
-when no field of an append appears in the active field list, and stops there on purpose.
+**What is missing.** An `ENHO` carries `@switchSupported`, so an enhancement implementation is
+switch-dependent by design. `adt_read_source` with `enhancements: true` and the enhancement
+listings report every implementation they find, whether or not its switch is on, so they overstate
+what runs.
 
-**Where it bit.**
-- **DDIC.** On `KNA1`, `enhancement/elements` named 11 appends while `ddicElement` had 7 blocks; the
-  four without a block were industry-solution appends whose fields are not in the table. Without a
-  route to the cause, "this field does not exist here" and "this field exists and is switched off"
-  look the same, and the second changes the decision (switching on a business function is a
-  project option).
-- **Code.** An `ENHO` carries `@switchSupported`, so an enhancement implementation is
-  switch-dependent by design. A where-used or an enhancement listing that ignores the switch
-  overstates what runs.
+**What exists.** The DDIC half is built: `propose:table` prints the switch chain beside an append
+`NOT IN THE ACTIVE TABLE` (`lib/switch-chain.mjs`). The chain goes package → `SFW_PACKAGE` →
+`SFW_SW_BF` → `SFW_ACTIVE_BFUNC`, all admitted tables, and is measured on `KNA1` (reference,
+*The switch chain*).
 
-**What remains.** The tables of the chain package → `SFW_PACKAGE` → `SFW_SW_BF` →
-`SFW_ACTIVE_BFUNC` are admitted (`docs/security.md`, *Switch Framework tables*, 2026-11-09).
-`VERSION` is A/I/P (active, inactive, pending after import) and `SWITCHTYPE` is A/E (activation,
-standby), both read from their domains. The chain is measured on the known `KNA1` case: it
-separates 4 of 4 absent appends from 3 of 3 present ones (reference, *The switch chain*). Still to
-do:
-1. `propose:table` prints, for each append `NOT IN THE ACTIVE TABLE`, the switch its package hangs
-   on, that switch's business functions, and whether they are active in the logon client. That is
-   evidence next to the absence, never the stated cause.
-2. The code half (`ENHO` behind a switch) is not started.
-
-Until measured, nothing may **assert** a switch as the cause. Reports state absence and point to
-`SE11`/`SFW_BROWSER`.
+**What to measure.** Whether an enhancement implementation is switched through its package, like
+the appends, or through its own name: `SFW_PACKAGE` and `SFW_SW_BF` both carry `ENHNAME`, empty
+on every row read so far. One `ENHO` known to sit behind a switch is needed, with its
+`SFW_PACKAGE`/`SFW_SW_BF` rows read through `adt_customizing`. Until then nothing may **assert**
+that an enhancement does not run.
 
 ---
 
