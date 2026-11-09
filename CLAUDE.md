@@ -15,17 +15,26 @@ used. This file covers how to change it without breaking what it promises.
   system, need a TTY and a typed password, and a failed logon can lock the user. Ask the owner to
   run them and paste the result.
 
-## How work is done: PDCA
+## How work is done: PDCA cycles
 
-Every task follows Plan, Do, Check, Act, scaled to its size. A one-line fix is one pass through
-the four steps. A new tool or route gets a written plan.
+Work moves in PDCA cycles. A cycle is the smallest change that can be checked green and
+committed on its own. A one-line fix is one cycle. A larger task gets a plan that splits it into
+cycles; the plan is not itself a PDCA.
+
+- A plan lists its cycles in order. Each one names its goal, the files it touches and its Check.
+- A cycle that needs a measurement on the SAP system ends at "ask the owner"; the next cycle
+  starts from the measured result.
+- Finish a cycle (Check green, commit) before starting the next. If a cycle shows the plan is
+  wrong, stop and revise the remaining cycles instead of pushing on.
+
+Each cycle:
 
 1. **Plan.**
    - State the problem and the check that will prove it solved.
    - Find what already exists before writing anything new: helpers in `lib/`, the route table in
      `lib/adt-get.mjs`, codes in `lib/journal-codes.mjs`, the measured shape in
      `docs/adt-api-reference.md`, the decision in `docs/security.md`.
-   - Non-trivial work goes through plan mode, and the plan names its Check.
+   - Non-trivial work goes through plan mode; the plan lists cycles.
    - A behaviour of the SAP system that has not been measured is an open question. It is not a
      design input: the plan says "measure first" (see Gotchas).
 2. **Do.**
