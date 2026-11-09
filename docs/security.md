@@ -768,6 +768,25 @@ What `$metadata` carries: entity sets, types, property names, operations and the
 annotations. No row and no field value. It is the document every Fiori app downloads on start-up,
 for every user it has.
 
+### ATC check variants: the checks of the variant that ran -- 2026-11-09
+
+The owner asked `adt_atc_run` to say what a variant checks, not only what it found. One GET route,
+`atcCheckVariant` (`/sap/bc/adt/atc/checkvariants/<name>`, lower case), reads the variant once
+after its run. It reads only a variant the tool just ran, so it is always a name from the closed
+set. It was measured on 20 variants.
+
+- **Two kinds of variant, as SAP documents them.** A variant created in the ADT is a repository
+  object (`CHKV`): the route returns its checks and their parameter values. A variant created in
+  transaction SCI "cannot be displayed or edited in ADT" (ADT user guide, *Editing ATC Check
+  Variants*), and the route answers 404. `DEFAULT` and this system's check variant are of that
+  kind. The ATC had just run the variant, so it exists, and the 404 is therefore reported as the
+  documented limit (`variantKind: SCI`) and not filed as a gap. Any other failure files
+  `ATC_VARIANT_NOT_READ`, and the findings of the run stand.
+- **Only the variant.** The `formtemplate` (306 KB, the catalogue of every available check, the
+  same for active and inactive) and the `schema` are not routes.
+- **Not merged.** A variant that names a `referencedVariant` says so; no variant with a reference
+  was measured, so nothing is merged from it.
+
 ### Service bindings: the document and the detail of each version -- 2026-11-09
 
 The owner asked for what the IDE shows about a service binding (`SRVB/SVB`). Before this,

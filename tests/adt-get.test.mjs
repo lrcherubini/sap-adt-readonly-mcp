@@ -52,6 +52,7 @@ function spyTransport(reply = {}) {
 test('the route table is closed, and these are the routes in it', () => {
   assert.deepEqual(routeNames(), [
     'annotationChain',
+    'atcCheckVariant',
     'atcCustomizing',
     'atcVerdicts',
     'atcWorklist',
@@ -936,4 +937,12 @@ test('the full service paths a binding publishes: a V2 namespace or version, a V
   }
   // Only $metadata: nothing below the two roots is under any authority.
   for (const p of ['/sap/opu/odata/DMO/UI_DEMO_V2', '/sap/opu/odata/DMO', '/sap/opu/odata4/dmo/x']) assert.equal(routeAuthority(p), null, p);
+});
+
+test('the check-variant route reads one variant created in the ADT, never its 300 KB form template', () => {
+  assert.equal(buildUrl('atcCheckVariant', { name: 'abap_cloud_readiness' }), '/sap/bc/adt/atc/checkvariants/abap_cloud_readiness');
+  assert.equal(TEMPLATES.get('atcCheckVariant').accept, 'application/vnd.sap.adt.chkvv4+xml');
+  for (const name of ['formtemplate?chkvName=x', 'schema/x', '../customizing', 'ABAP_CLOUD', '']) {
+    assert.throws(() => buildUrl('atcCheckVariant', { name }), /Blocked/, name);
+  }
 });

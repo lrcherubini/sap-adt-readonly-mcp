@@ -92,6 +92,15 @@ test('English only: no Portuguese or German text is stored in the repository', (
   assert.deepEqual(offenders(PORTUGUESE_ASCII, (w, f) => f === 'tests/public-repo.test.mjs'), []);
 });
 
+test('no control character is stored: an escape a shell ate is a broken regex, not text', () => {
+  // A `\b` that passed through an inline shell script once reached a parser as a backspace
+  // (U+0008): the code still parsed, and the regex matched nothing. Tab, CR and LF are text.
+  assert.deepEqual(
+    offenders(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g).map((o) => o.replace(/[\u0000-\u001F\u007F]/g, (c) => `U+${c.charCodeAt(0).toString(16).padStart(4, '0')}`)),
+    []
+  );
+});
+
 test('no transport number of a real system is stored -- only DEVK900nnn placeholders', () => {
   assert.deepEqual(offenders(/\b[A-Z][A-Z0-9]{2}K\d{6}\b/g, (t) => /^DEVK900\d{3}$/.test(t)), []);
 });

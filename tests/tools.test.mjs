@@ -1072,7 +1072,10 @@ test('adt_customizing refuses rows the server selected with another statement, a
 
 const ATC_ID = '0123456789ABCDEF0123456789ABCDEF';
 
-/** A session whose raw client plays the three ATC calls: worklist POST, run POST, worklist GET. */
+/** The check variant read after a run: an SAP variant measured 2026-11-09 (8 checks). */
+const CHECK_VARIANT = () => fs.readFileSync(new URL('./fixtures/atc-checkvariant-measured.xml', import.meta.url), 'utf8');
+
+/** A session whose raw client plays the ATC calls: worklist POST, run POST, worklist GET, variant GET. */
 function sessionForAtc(api, sent = [], fail = {}) {
   return {
     api,
@@ -1081,10 +1084,11 @@ function sessionForAtc(api, sent = [], fail = {}) {
       httpClient: {
         request: async (url, cfg = {}) => {
           sent.push({ url, ...cfg });
-          const step = cfg.method === 'POST' ? (url.includes('/worklists?') ? 'worklist' : 'run') : 'read';
+          const step = cfg.method === 'POST' ? (url.includes('/worklists?') ? 'worklist' : 'run') : url.includes('/atc/checkvariants/') ? 'variant' : 'read';
           if (fail[step]) throw Object.assign(new Error('server said no'), { err: fail[step] });
           if (step === 'worklist') return { status: 200, body: ATC_ID, headers: { 'content-type': 'text/plain' } };
           if (step === 'run') return { status: 200, body: ATC_RUN_REPLY, headers: { 'content-type': 'application/xml' } };
+          if (step === 'variant') return { status: 200, body: CHECK_VARIANT(), headers: { 'content-type': 'application/vnd.sap.adt.chkvv4+xml' } };
           return { status: 200, body: ATC_WORKLIST(fail.aged ? ' atcfinding:severity="9"' : ''), headers: { 'content-type': 'application/atc.worklist.v1+xml' } };
         },
       },
@@ -1100,14 +1104,20 @@ test('adt_atc_run sends the two POSTs and the GET, answers the findings, and aud
   const sent = [];
   const api = fakeApi({ searchObject: () => CLASS_HITS });
   const out = jsonOf(await byName(buildTools(cfgWith(log), sessionForAtc(api, sent)), 'adt_atc_run').handler({ objectName: 'zcl_t', maxFindings: 10 }));
-  assert.equal(sent.length, 3);
-  assert.deepEqual(sent.map((c) => c.method ?? 'GET'), ['POST', 'POST', 'GET']);
+  assert.equal(sent.length, 4);
+  assert.deepEqual(sent.map((c) => c.method ?? 'GET'), ['POST', 'POST', 'GET', 'GET']);
   assert.equal(sent[0].url, '/sap/bc/adt/atc/worklists?checkVariant=ZDEMO_CLEAN_CORE');
   assert.equal(sent[1].url, `/sap/bc/adt/atc/runs?worklistId=${ATC_ID}`);
   assert.match(sent[1].body, /maximumVerdicts="10"/);
   assert.match(sent[1].body, /adtcore:uri="\/sap\/bc\/adt\/oo\/classes\/zcl_t"/);
   assert.equal(sent[2].url, `/sap/bc/adt/atc/worklists/${ATC_ID}`);
   assert.equal(sent[2].headers.Accept, 'application/atc.worklist.v1+xml');
+  // The variant that ran, read once after the run (a CHKV variant: its checks and parameters).
+  assert.equal(sent[3].url, '/sap/bc/adt/atc/checkvariants/zdemo_clean_core');
+  assert.equal(sent[3].headers.Accept, 'application/vnd.sap.adt.chkvv4+xml');
+  assert.equal(out.variantKind, 'CHKV');
+  assert.equal(out.variantChecks.length, 8);
+  assert.deepEqual(out.variantChecks[1].parameters, [{ name: 'ABAPLanguageVersion', value: '1' }]);
   assert.equal(out.variant, 'ZDEMO_CLEAN_CORE');
   assert.equal(out.worklistId, ATC_ID);
   assert.equal(out.object.name, 'ZCL_T');
@@ -1119,16 +1129,32 @@ test('adt_atc_run sends the two POSTs and the GET, answers the findings, and aud
   assert.equal(out.truncated, false);
   assert.equal(out.drift, undefined);
   const mine = log.filter((l) => l.tool === 'adt_atc_run');
-  assert.equal(mine.length, 3);
+  assert.equal(mine.length, 4);
   assert.equal(mine[0].target, 'ZDEMO_CLEAN_CORE CLAS/OC ZCL_T#worklist');
   assert.equal(mine[1].target, `${ATC_ID}#run`);
   assert.equal(mine[2].target, `${ATC_ID}#worklist`);
+  assert.equal(mine[3].target, 'ZDEMO_CLEAN_CORE#variant');
   const auditText = JSON.stringify(mine);
   assert.ok(!auditText.includes('NOAPI') && !auditText.includes('non-released'), 'no finding reaches the audit line');
   assert.equal(journalLines.filter((l) => /^ATC_/.test(l.code)).length, 0);
   } finally {
     installAtcVariants([]);
   }
+});
+
+test('adt_atc_run: an SCI variant (404) is said, not filed; any other failure is filed and the findings stand', async () => {
+  const api = fakeApi({ searchObject: () => CLASS_HITS });
+  const sci = jsonOf(await byName(buildTools(cfgWith([]), sessionForAtc(api, [], { variant: 404 })), 'adt_atc_run').handler({ objectName: 'zcl_t' }));
+  assert.equal(sci.variantKind, 'SCI');
+  assert.match(sci.variantNote, /transaction SCI/);
+  assert.equal(sci.count, 2, 'the findings of the run stand');
+  assert.equal(journalLines.filter((l) => l.code === 'ATC_VARIANT_NOT_READ').length, 0, 'documented behaviour, not a gap');
+
+  const broken = jsonOf(await byName(buildTools(cfgWith([]), sessionForAtc(api, [], { variant: 500 })), 'adt_atc_run').handler({ objectName: 'zcl_t' }));
+  assert.equal(broken.variantKind, undefined);
+  assert.match(broken.variantNote, /check list not read/);
+  assert.equal(broken.count, 2);
+  assert.equal(journalLines.filter((l) => l.code === 'ATC_VARIANT_NOT_READ').length, 1);
 });
 
 test('loadSystemVariant reads atc/customizing once at start: the variant joins the tool schema and is its default', async () => {
@@ -1239,7 +1265,7 @@ test('adt_atc_run runs up to three variants on the same object, one worklist eac
       { _meta: { progressToken: 'p' }, sendNotification: async (n) => progress.push(n.params.progress) }
     ));
     assert.deepEqual(out.variants, ['ZDEMO_CLEAN_CORE', 'ZDEMO_DEV_PRACTICE'], 'a repeated variant runs once');
-    assert.equal(sent.length, 6, 'three calls per variant');
+    assert.equal(sent.length, 8, 'three calls per variant, plus the read of each variant');
     assert.equal(sent.filter((c) => /checkVariant=ZDEMO_DEV_PRACTICE/.test(c.url)).length, 1);
     assert.deepEqual(out.runs.map((r) => r.variant), ['ZDEMO_CLEAN_CORE', 'ZDEMO_DEV_PRACTICE']);
     assert.equal(out.summary.length, 2);

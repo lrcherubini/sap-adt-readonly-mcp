@@ -137,8 +137,6 @@ Service Bindings and their `odatav4` detail, ATC check variants, release states 
 folders. The shapes are in the reference (the sections dated 2026-11-09).
 
 **What to decide** (each one needs a `docs/security.md` entry before it can be built):
-- **Check variants.** The variant itself is small; the 300 KB form template is the check
-  catalogue and is probably not worth a route.
 - **Release states.** A 20-row SAP-standard list: a candidate for `data/defaults/` rather than a
   route. A capped reply reports the capped count as `totalItemCount`.
 - **Virtual folders.** The only POST. Decide whether a POST that reads may enter the guard at all.

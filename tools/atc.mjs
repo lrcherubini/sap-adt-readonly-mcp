@@ -36,6 +36,8 @@ import {
   parseWorklist,
   parseCustomizing,
   installSystemVariant,
+  parseCheckVariant,
+  SCI_VARIANT_NOTE,
 } from '../lib/atc.mjs';
 
 /**
@@ -174,6 +176,50 @@ export function atcTool(cfg, session, journal) {
     },
   };
 
+  /**
+   * What the variant that just ran contains, read once after its run and never in its way: a
+   * failure here leaves the findings standing. A 404 is the documented answer for a variant
+   * created in transaction SCI (the ATC just ran it, so it exists): said, not filed as a gap.
+   */
+  async function describeVariant(v) {
+    let out;
+    try {
+      out = await namedGet(transportFor(session.raw), 'atcCheckVariant', { name: String(v).toLowerCase() });
+    } catch (e) {
+      if (e?.status === 404) return { variantKind: 'SCI', variantNote: SCI_VARIANT_NOTE };
+      journal?.gap?.({
+        code: 'ATC_VARIANT_NOT_READ',
+        subject: `check variant ${v}`,
+        detail: `HTTP ${e?.status ?? '?'}: ${e?.message}`,
+        impact: 'the run and its findings stand; which checks the variant contains could not be read',
+        fallback: 'open the variant in Eclipse ADT (search type:chkv) or in transaction SCI',
+      });
+      return { variantNote: `check list not read: ${e?.name ?? 'Error'}: ${e?.message}` };
+    } finally {
+      record(cfg, 'adt_atc_run', `${v}#variant`, out?.bytes ?? 0);
+    }
+    const parsed = parseCheckVariant(out.body);
+    if (parsed.drift.length && journal?.enabled) {
+      journal.gap({
+        code: DRIFT_CODE,
+        subject: `check variant ${v}`,
+        detail: parsed.drift.map((d) => `<${d.node}> x${d.count}`).join('; '),
+        impact: 'the checks listed stand; the measured shape of the check variant has aged',
+        fallback: 're-measure (docs/adt-api-reference.md, "Check variants, broad round")',
+      });
+    }
+    const notes = [];
+    if (parsed.referencedVariant) {
+      notes.push(`references ${parsed.referencedVariant}: its checks are not merged here (no variant with a reference was measured)`);
+    }
+    if (!parsed.checks.length) notes.push('the variant lists no check');
+    return {
+      variantKind: 'CHKV',
+      variantChecks: parsed.checks,
+      ...(notes.length ? { variantNote: notes.join('; ') } : {}),
+    };
+  }
+
   /** One variant on one object: worklist, run, result. Throws (after journaling) on a failed step. */
   async function runVariant(v, { subject, body, includeExempted }) {
     // 1. the worklist for the variant
@@ -245,6 +291,7 @@ export function atcTool(cfg, session, journal) {
     // The server ignores maximumVerdicts (measured 2026-11-09): the worklist holds every finding,
     // so the cap is applied here, most severe first. `count` is what the worklist holds; the run
     // stats are the server's own total, and a worklist holding fewer is cut too.
+    const definition = await describeVariant(v);
     const stats = runReply.byPriority;
     const statsTotal = stats ? stats[1] + stats[2] + stats[3] : 0;
     const shown = [...parsed.findings].sort((a, b) => (a.priority ?? 9) - (b.priority ?? 9)).slice(0, body.maxVerdicts);
@@ -261,6 +308,7 @@ export function atcTool(cfg, session, journal) {
       truncated: shown.length < Math.max(parsed.findings.length, statsTotal),
       objectSetIsComplete: parsed.objectSetIsComplete,
       findings: shown,
+      ...definition,
       rule:
         'a run leaves a result worklist on the server and nothing else; the findings above are the ' +
         `verdict of variant ${v} on this one object, read from that worklist (measured)`,
