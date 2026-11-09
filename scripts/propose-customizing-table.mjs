@@ -20,12 +20,12 @@
 
 import { writeFileSync } from 'node:fs';
 import { loadConfig } from '../lib/config.mjs';
-import { connect, disconnect } from '../lib/session.mjs';
+import { connectOrExit, disconnect } from '../lib/session.mjs';
 import { buildTools } from '../tools/index.mjs';
 import {
   parseTableMeta,
   verdictOf,
-  mapEntryLine,
+  listEntryLine,
   expandIncludes,
   completeness,
   foldDdicElement,
@@ -125,7 +125,7 @@ if (transcript) {
   );
 }
 
-const session = await connect(cfg);
+const session = await connectOrExit(cfg);
 let worst = 0;
 try {
   const tools = buildTools(cfg, session);
@@ -485,8 +485,8 @@ async function report(payload, readStructures, readDdic, readEnhancements, readS
     say(`\n  VERDICT: ${v.verdict}`);
     say(`    ${v.why}`);
     if (v.verdict === 'REVIEW') {
-      say('\n  Paste into CUSTOMIZING_TABLES (lib/data-preview.mjs) and fill in `why`:');
-      say(mapEntryLine(item.name));
+      say('\n  Add to data/defaults/customizing-tables.json (the "tables" array) and fill in `why`:');
+      say(listEntryLine(item.name, meta.fields));
       // The list is pinned by a test on purpose: it cannot grow without a deliberate edit that
       // shows up in the diff. Pasting only the Map line leaves `npm test` red, which reads as a
       // broken tool rather than as the guard it is.

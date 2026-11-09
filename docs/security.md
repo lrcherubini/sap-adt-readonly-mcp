@@ -223,7 +223,7 @@ exists to prevent, and no amount of narrowing the class set repairs it.
 for a review instead of a gate: `npm run propose:table -- <TABLE>` (`scripts/propose-customizing-table.mjs`,
 `lib/table-meta.mjs`) prints the package, the class, the maintenance flag and the field list
 **with its includes followed to the end** (they nest: `KNA1` -> `SI_KNA1` -> `KNA1BRAZIL`),
-refuses classes `A` and `L` outright, and emits the line to paste into `CUSTOMIZING_TABLES`.
+refuses classes `A` and `L` outright, and emits the entry to add to `data/defaults/customizing-tables.json`.
 It also states, for every table, what a table source does NOT contain -- **append structures and
 fields added from outside it**. Measured: an append (`ZDEMO_APKOMKCV` on `KOMKCV`) appears
 nowhere in the base table source, not even by name, and a field added through the Custom Fields

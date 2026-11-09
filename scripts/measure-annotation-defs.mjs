@@ -39,7 +39,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig, newMeasurementDir } from '../lib/config.mjs';
-import { connect, disconnect } from '../lib/session.mjs';
+import { connectOrExit, disconnect } from '../lib/session.mjs';
 import { fromDdla } from '../lib/annotation-defs.mjs';
 
 const args = process.argv.slice(2);
@@ -60,7 +60,7 @@ const cfg = loadConfig();
 console.log(`Measuring the DDLA of ${cfg.host}:${cfg.port} client ${cfg.client}.`);
 console.log('This is ONE read. It changes nothing in the SAP system.\n');
 
-const session = await connect(cfg);
+const session = await connectOrExit(cfg);
 let text;
 try {
   // Through the guard, not the raw client: this must stay inside the allowlist, and

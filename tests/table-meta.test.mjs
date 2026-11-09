@@ -8,8 +8,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { parseTableMeta, verdictOf, mapEntryLine, expandIncludes, appendRisk, completeness, readInChunks, DELIVERY_CLASSES, NOT_IN_SOURCE } from '../lib/table-meta.mjs';
-import { CUSTOMIZING_TABLES, buildSelect, SelectViolation } from '../lib/data-preview.mjs';
+import { parseTableMeta, verdictOf, listEntryLine, expandIncludes, appendRisk, completeness, readInChunks, DELIVERY_CLASSES, NOT_IN_SOURCE } from '../lib/table-meta.mjs';
+import { CUSTOMIZING_TABLES, buildSelect, SelectViolation, validateCustomizingTable } from '../lib/data-preview.mjs';
 
 const fixture = (name) => fs.readFileSync(path.join(import.meta.dirname, 'fixtures', name), 'utf8');
 const T683S = fixture('table-t683s.ddic.txt');
@@ -100,19 +100,24 @@ test('the verdict never promotes a customizing class past REVIEW', () => {
 test('the generated line, once pasted, is an entry buildSelect accepts', () => {
   // T681A is a foreign-key target of T683S and is deliberately NOT in the list, so the
   // "before" half of this test is a real refusal and not an accident of the fixture.
-  const line = mapEntryLine('t681a');
-  const m = /^ {2}\['([A-Z0-9_/]+)', \{ why: '([^']*)', routineColumns: \{\} \}\],$/.exec(line);
-  assert.ok(m, `the generated line does not match the shape of the Map: ${line}`);
-  assert.equal(m[1], 'T681A');
+  // The list lives in data/defaults/customizing-tables.json, one JSON object per line; the line
+  // used to be a Map literal for lib/data-preview.mjs, which holds no list any more.
+  const fields = [{ name: 'MANDT', isKey: true }, { name: 'KVEWE', isKey: true }, { name: 'KOTABNR', isKey: true }, { name: 'KAPPL', isKey: false }];
+  const line = listEntryLine('t681a', fields);
+  assert.match(line, /^ {4}\{/, 'indented like the entries of the file');
+  const entry = JSON.parse(line);
+  assert.equal(entry.name, 'T681A');
+  assert.deepEqual(entry.keyColumns, ['KVEWE', 'KOTABNR'], 'the key from the source, without the client');
+  const [name, spec] = validateCustomizingTable(entry, { origin: 'test' });
 
-  // Pasting is what a reviewer does next, so prove the result works -- then put the module
+  // Adding it is what a reviewer does next, so prove the result works -- then put the module
   // back the way it was, because every other test reads the same Map.
   assert.throws(() => buildSelect({ table: 'T681A' }), SelectViolation);
-  CUSTOMIZING_TABLES.set(m[1], { why: m[2], routineColumns: {} });
+  CUSTOMIZING_TABLES.set(name, spec);
   try {
     assert.equal(buildSelect({ table: 'T681A', rows: 5 }).sql, 'SELECT * FROM T681A');
   } finally {
-    CUSTOMIZING_TABLES.delete(m[1]);
+    CUSTOMIZING_TABLES.delete(name);
   }
   assert.throws(() => buildSelect({ table: 'T681A' }), SelectViolation);
 });

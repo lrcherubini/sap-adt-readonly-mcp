@@ -12,7 +12,7 @@
 import http from 'node:http';
 import path from 'node:path';
 import { loadConfig, loopbackToken, stateDir } from './lib/config.mjs';
-import { connect, disconnect } from './lib/session.mjs';
+import { connectOrExit, disconnect } from './lib/session.mjs';
 import { recordStart, recordStop, readsSoFar } from './lib/audit.mjs';
 import { buildTools } from './tools/index.mjs';
 import { loadSystemVariant } from './tools/atc.mjs';
@@ -79,15 +79,7 @@ if (await portInUse(cfg.mcpPort)) {
   process.exit(1);
 }
 
-let session;
-try {
-  session = await connect(cfg);
-} catch (e) {
-  // The message is written to be read by a person -- the 401 one especially, since it says
-  // why this server refuses to try again. A stack on top of it helps nobody.
-  console.error(`\n${e?.message ?? e}`);
-  process.exit(1);
-}
+const session = await connectOrExit(cfg);
 console.log(`logged on as ${session.user}; session is stateless, so no lock can be taken.`);
 recordStart(cfg, {});
 

@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { record, recordStart, recordStop, recordLogonRefused, resetBudget } from '../lib/audit.mjs';
-import { logonWith } from '../lib/session.mjs';
+import { logonWith, connectOrExit } from '../lib/session.mjs';
 import { runsFromAudit, renderRuns, refusedSinceLastStart } from '../lib/audit-runs.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -258,4 +258,17 @@ test('the refusals before the prompt count since the last successful start of th
     { count: 0, since: null },
     'no trail: no warning, and no failure before the prompt'
   );
+});
+
+test('a failed logon prints its message and exits 1 -- no stack trace over the 401 sentence', async () => {
+  const said = [];
+  const exits = [];
+  const refused = async () => { throw new Error('SAP rejected the credentials (401). NOT retrying.'); };
+  await connectOrExit({}, { connectWith: refused, log: (m) => said.push(m), exit: (c) => exits.push(c) });
+  assert.deepEqual(exits, [1]);
+  assert.equal(said.length, 1);
+  assert.match(said[0], /NOT retrying/);
+  assert.equal(/\n\s+at /.test(said[0]), false, 'no stack frames');
+  const session = { user: 'DEVUSER1' };
+  assert.equal(await connectOrExit({}, { connectWith: async () => session, exit: () => assert.fail('a logon that worked does not exit') }), session);
 });
