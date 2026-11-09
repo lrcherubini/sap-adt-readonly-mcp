@@ -2696,11 +2696,8 @@ GET only, on nine bindings:
 - three SAP-standard bindings: `UI_ACCRUALS_MANAGE`, `UI_APJ_JOB_USER_O2` and `API_ABOPRUN`
   (V4 Web API).
 
-⚠️ **Coverage.** This round read only **one published binding** (a V2 UI binding with
-navigations). It read no published V4 binding, no published Web API, no published binding
-without navigations, no binding holding several versions, and no SRVD whose source type is not
-`S`. Every statement below that depends on publication rests on that one case. A follow-up
-round fills in the missing combinations (see `docs/backlog.md`).
+Coverage: this round read one published binding. The coverage round below read 376 bindings;
+where the two differ, the coverage round is the measurement.
 
 **Discovery templates.** The server publishes these templates itself:
 - the detail is `…/odatav4|odatav2/{objectname}{?servicename,serviceversion,srvdname}`, where
@@ -2780,6 +2777,52 @@ The error-log entry shape, which was unmeasured until now (`entriesMeasured: fal
 
 **Absent names.** `bindings/<absent>` and `srvd/sources/<absent>` both answer **404** with an ADT
 message in the logon language.
+
+### Service bindings, coverage round: 376 bindings — MEASURED 2026-11-09
+
+Two runs of a coverage probe, GET only. The candidates came from the server's own quick search
+(`API_*`, `UI_*`, `C_*`, `/DMO/*`, `Z*`, `Y*`, then `*_O4`, `*_O2` and `*_API`), mostly
+SAP-standard. 376 distinct bindings were read, each followed by the detail of its declared kind
+and the metadata of its SRVD.
+
+| Kind | Category | Published | Bindings |
+|---|---|---|---|
+| OData V2 | 0 (UI) | true | 137 |
+| OData V2 | 0 (UI) | false | 66 |
+| OData V2 | 1 (Web API) | true | 5 |
+| OData V2 | 1 (Web API) | false | 2 |
+| OData V4 | 0 (UI) | true | 59 |
+| OData V4 | 0 (UI) | false | 27 |
+| OData V4 | 1 (Web API) | true | 16 |
+| OData V4 | 1 (Web API) | false | 64 |
+
+- **One service and one version in every binding.** All 376 held exactly one `srvb:services` with
+  one `srvb:content`, and every detail held one `services` row. A binding with several versions
+  (the owner reports them as common in SAP-standard content) was **not found in this sample**.
+  Whether `published`/`releaseState` belong to the binding or to each version is therefore
+  still unmeasured. Absence from 376 is not proof that none exist.
+- **`releaseState` values:** `NOT_RELEASED` (356), `RELEASED` (11) and
+  `NOT_TO_BE_RELEASED_STABLE` (9).
+- **The binding and the detail agree on `published`** in every one of the 371 pairs that could be
+  matched (the five others were not paired by file name, not compared):
+  - 153 unpublished: `created="true"`, empty `serviceUrl`, empty `serviceInformation`;
+  - 217 published: `serviceUrl` filled and `serviceInformation` listing the entity sets;
+  - 1 published with `serviceUrl` filled and **no** collection.
+  The broad round also saw unpublished services with `created="false"` (not generated).
+- **Published V4** fills `serviceInformation` the same way V2 does, with collections and, where
+  they exist, navigations:
+  - 14 or more V4 bindings with navigations and 30 or more without;
+  - 20 or more V2 bindings with navigations and 18 or more without.
+  - `serviceUrl` is the full V4 service path,
+    `/sap/opu/odata4/sap/<binding>/srvd/sap/<srvd>/<nnnn>/`: the form that `odataMetadataV4`
+    admits (`V4_SERVICE_PATH`).
+  - `annotationUrl` is `""` on V4. On V2 it points to the catalogue service's annotation.
+- **SRVD source type:** `S` ("Definition") on all 375 SRVDs read. No other type appeared.
+- **SQL bindings:** none among these candidates. The one SQL binding measured is in the broad
+  round.
+- **The Gateway error log is not written.** The logged-on user's feed held the same single entry
+  (from before both runs) on every read: before and after each run, around roughly 750 detail
+  reads in all.
 
 ### ATC check variants: `/atc/checkvariants` — MEASURED 2026-11-09
 
