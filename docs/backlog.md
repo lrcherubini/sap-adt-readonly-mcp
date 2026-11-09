@@ -29,15 +29,14 @@ when no field of an append appears in the active field list, and stops there on 
   switch-dependent by design. A where-used or an enhancement listing that ignores the switch
   overstates what runs.
 
-**What to measure, in order** (the first answer may close the rest):
-1. Does `/sap/bc/adt/discovery` publish a switch / business-function collection? If so, it is a
-   candidate route and follows the usual rite: probe, measured shape, entry in the closed table.
-2. If not, the answer lives only in table rows (`SFW_SWITCH`, `SFW_BF` and the switch → package /
+**What remains** (discovery publishes no switch or business-function collection, only feature
+toggles; see the reference, *Discovery has no switch or business-function collection*):
+1. The answer lives only in table rows (`SFW_SWITCH`, `SFW_BF` and the switch → package /
    object assignments). That hits the boundary this server defends: `runQuery`/`tableContents` are
    denied and the customizing list is closed. The options are proposing the `SFW_*` tables through
    `npm run propose:table`, with the evidence the process requires, or accepting that the cause
    lives in the IDE. **The owner's decision.**
-3. What `SFW_BROWSER` shows that the tables do not: one manual pass before building anything.
+2. What `SFW_BROWSER` shows that the tables do not: one manual pass before building anything.
 
 Until measured, nothing may **assert** a switch as the cause. Reports state absence and point to
 `SE11`/`SFW_BROWSER`.
@@ -99,7 +98,8 @@ The function-module list stays correct. What is lost is the classification of ev
 the group: includes, screens, screen fields, local types, enhancement spots.
 
 **What to measure.** One `objectstructure` of a large group (a sales group returned 235 `FUGR/PT`
-alone), the whole reply kept, the shape added to the reference. Until then no tool may treat "element
+alone; two small groups measured 2026-11-09 held only `FUGR/F`, `FUGR/FF`, `FUGR/I`, `PROG/I` and
+`FUGR/PX`, which proves nothing about the others), the whole reply kept, the shape added to the reference. Until then no tool may treat "element
 not classified" as "element does not exist".
 
 ---
@@ -153,27 +153,21 @@ to protect the account?
 
 ---
 
-## 8. Endpoints the IDE reads that this server has never measured
+## 8. IDE endpoints, now measured: which become routes
 
-**What is missing.** An Eclipse ADT communication log shows reads this server does not know:
-- `GET /sap/bc/adt/businessservices/bindings/<srvb>`: the Service Binding document;
-- `GET /sap/bc/adt/businessservices/odatav4/<service>?servicename=&serviceversion=&srvdname=`:
-  the binding's OData V4 detail;
-- `GET /sap/bc/adt/atc/checkvariants/<chkv>`, `…/schema` and
-  `…/formtemplate?chkvName=&version=active`: the configuration of an ATC check variant (the form
-  template is about 300 KB);
-- `GET /sap/bc/adt/repository/informationsystem/releasestates`: the list of release states;
-- `POST /sap/bc/adt/repository/informationsystem/virtualfolders/contents`: the IDE's project tree.
-  It is a POST that only reads.
+**What is missing.** A route decision for each family measured from an Eclipse communication log:
+Service Bindings and their `odatav4` detail, ATC check variants, release states and virtual
+folders. The shapes are in the reference (the sections dated 2026-11-09).
 
-**Where it would help.** Bindings and `odatav4` would let `adt_contract_check` and
-`adt_object_info` describe a `SRVB` (kind, version, published state). Check variants would explain
-an `adt_atc_run` finding. Release states could check the Clean Core catalogue's assumptions.
-Virtual folders are an alternative to `adt_package_tree`.
-
-**What to measure.** Run the probes `business-services`, `atc-checkvariants`, `release-states`
-and `virtual-folders` (the last one with `--allow-post`). Each POST route still needs its own
-`docs/security.md` decision, even when it only reads. `checkruns` stays out (see `security.md`).
+**What to decide** (each one needs a `docs/security.md` entry before it can be built):
+- **Bindings.** The best fit, because `adt_object_info` / `adt_contract_check` could state a
+  `SRVB`'s kind, contract and published state. Read the kind from `srvb:binding`: the `odatav2`/`odatav4`
+  detail answers 200 for either kind.
+- **Check variants.** The variant itself is small; the 300 KB form template is the check
+  catalogue and is probably not worth a route.
+- **Release states.** A 20-row SAP-standard list: a candidate for `data/defaults/` rather than a
+  route. A capped reply reports the capped count as `totalItemCount`.
+- **Virtual folders.** The only POST. Decide whether a POST that reads may enter the guard at all.
 
 ---
 

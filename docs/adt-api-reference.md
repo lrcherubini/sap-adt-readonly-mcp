@@ -2622,3 +2622,106 @@ either measured on this system or left out.
   in the typings. ⚠️ The typings are **not** a runtime limit: `xmlNodeAttr`
   (`build/utilities.js:136-142`) returns every non-`xmlns` attribute, so the five fields
   `TransportObject` declares are what the client *documents*, not what it hands back.
+
+### Service Bindings: `/businessservices/bindings` and the `odatav4`/`odatav2` detail — MEASURED 2026-11-09
+
+These probes ran on the development system with three bindings: one OData V4 UI binding, one SQL
+binding, and one name that does not exist. They used GET only. No route has been decided yet.
+
+**Discovery.** 42 collections under `/sap/bc/adt/businessservices`.
+
+**The binding.** `GET …/businessservices/bindings/<srvb lower case>`
+- returns **200** `application/vnd.sap.adt.businessservices.servicebinding.v2+xml`, about 2.9 KB;
+- returns the same body under `*/*` and under the Accept that discovery advertises.
+
+The root `srvb:serviceBinding` carries:
+- `srvb:contract` (`C1` on the V4 binding, `C2` on the SQL one), `srvb:releaseSupported`,
+  `srvb:published`, `srvb:bindingCreated`;
+- the usual `adtcore:*` header, with responsible, `changedBy` and so on;
+- `adtcore:packageRef`;
+- `srvb:services srvb:name=…`, holding one `srvb:content` with `srvb:version` (`0001`), the
+  minor, patch and build versions, and `srvb:releaseState` (`NOT_RELEASED`);
+- inside that, `srvb:serviceDefinition` with the uri, type `SRVD/SRV` and name of the SRVD;
+- `srvb:binding`, which says what kind of binding it is:
+  - `srvb:type="ODATA" srvb:version="V4" srvb:category="0"` (UI) on the V4 binding;
+  - `srvb:type="SQL" srvb:category="1"` with **no** `version` on the SQL binding;
+- links, among them `rel=…/categories/odatav4` → `/businessservices/odatav4/<SERVICE>`.
+
+A name that does not exist answers **404** with an ADT message in the logon language.
+
+**The detail.** `GET …/businessservices/odatav4/<SERVICE>?servicename=&serviceversion=&srvdname=`
+- returns 200 `application/vnd.sap.adt.businessservices.odatav4.v1+xml`, about 1 KB;
+- `odatav4:serviceGroup` carries `odatav4:published` and `odatav4:serviceUrlPrefix`
+  (`/sap/opu/odata4/sap/<group>/srvd/`, the root that `odataMetadataV4` reads);
+- one `odatav4:services` row carries `serviceId`, `serviceVersion`, `repositoryId="SRVD"` and
+  `created`;
+- links to `odatav4/publishjobs` and `unpublishjobs`. Those are **write** actions and are never
+  followed.
+
+⚠️ **The detail is not a validator.** The other kind's path on the same service
+(`odatav2/<V4 service>`) also answers **200**, as a plausible `odatav2:serviceList` with
+`created="true"`. For the SQL binding, `odatav2/<name>` answers 200 with `created="false"` and
+`repositoryId=""`. The kind of a binding is read from `srvb:binding` in the binding document,
+never from which detail path answers.
+
+### ATC check variants: `/atc/checkvariants` — MEASURED 2026-11-09
+
+One customer variant, GET only.
+- `GET …/atc/checkvariants/<name>` returns **200** `application/vnd.sap.adt.chkvv4+xml`, about
+  13.6 KB. The name is case-insensitive: lower and upper case give the same body.
+  - Root `chkv:checkvariant`: the `adtcore:*` header and `adtcore:packageRef`.
+  - `chkv:content` holds `chkv:name`, `chkv:remoteEnabled` and `chkv:referencedVariant`, then one
+    `chkvcheck:check` per check. Each check is a `chko:checkObject adtcore:name=<CHKO>` plus
+    `chkvcheck:parameterValueXml`, whose text is **JSON**.
+- `…/schema` returns 200 `application/vnd.sap.adt.chkvcheck.v1+json`: the JSON Schema of one
+  check entry (`checkName` typed `CHKO`, and `parameters[]` with `name`, `type`, `value`,
+  `valueList` and `valueRangeList` of sign/option/low/high).
+- `…/formtemplate?chkvName=<name>&version=active` returns 200 `application/xml`, **306,621
+  bytes**. It contains 26 `availableCheckCategory` entries, each with a `chkc:checkCategoryObject`.
+  `version=inactive` returns the same body byte for byte, so this is the catalogue of available
+  checks, not the variant. Whether it differs between variants has not been measured.
+- A name that does not exist answers **404** with an ADT message in the logon language.
+
+### Release states: `/informationsystem/releasestates` — MEASURED 2026-11-09
+
+- `GET …/repository/informationsystem/releasestates?maxItemCount=999&name=*` returns **200**
+  `application/vnd.sap.adt.nameditems.v1+xml`, about 12 KB. With no parameters the body is the
+  same.
+- `nameditem:totalItemCount` is 20, with one `nameditem:namedItem` per state:
+  - `name`, for example `RELEASED`, `DEPRECATED`, `USE_IN_CLOUD_DEVELOPMENT`,
+    `USE_IN_KEY_USER_APPS`, `EXTEND_IN_KEY_USER_APPS`, `USE_AS_REMOTE_API`, `USE_IN_AMDP`, the
+    `DEPRECATED_FOR_*` family and the `HAS_*_SUCCESSOR` pair;
+  - an empty `description`;
+  - `data`, a string of the form `type=CHAR8B@@##@@longtext=<English text that names the
+    contract C0/C1/…>`.
+- `name=DEPRECATED*` is filtered **on the server** and returns 9 items.
+- `maxItemCount=2` returns 2 items **and `totalItemCount` 2**: the count is the count after the
+  cap, not the total. A capped reply cannot tell you that it was capped.
+
+### Virtual folders: `POST /informationsystem/virtualfolders/contents` — MEASURED 2026-11-09
+
+This is the IDE's project tree. It is a POST that reads. Discovery publishes three collections:
+- `…/virtualfolders`, with Accept `…virtualfolders.result.v1+xml`;
+- `…/virtualfolders/contents`, with the same Accept;
+- `…/virtualfolders/facets`, with no Accept.
+
+Request: `Content-Type: application/vnd.sap.adt.repository.virtualfolders.request.v1+xml`. The
+body is `vfs:virtualFoldersRequest` (namespace `http://www.sap.com/adt/ris/virtualFolders`) with
+`objectSearchPattern="*"`, `vfs:preselection facet=… / vfs:value` and a `vfs:facetorder`. A body
+written by hand in that form was accepted. With a package preselected, the reply is **200**,
+about 3 KB:
+- `vfs:virtualFoldersResult objectCount=<n>` and `vfs:preselectionInfo facet="PACKAGE"`;
+- one `vfs:virtualFolder` per child, with `facet`, `name`, `displayName`, `text` (the
+  description), `counter` (objects below it), `uri` and `hasChildrenOfSameFacet`;
+- the package's own objects come back as a folder named `..<PACKAGE>`;
+- each folder has a `…/virtualfolders?selection=<facet>%3a<value>` link.
+
+`Accept: */*` returns the same body. Adding a `type` preselection (`CLAS`) narrows the reply.
+
+### Discovery has no switch or business-function collection — MEASURED 2026-11-09
+
+The full discovery document has 676 collections. The only ones that match
+`switch|sfw|business function` are the eight under `/sap/bc/adt/sfw/featuretoggles`
+(*Switch-Based Feature Toggle*, with its formatter, `$schema`, `$configuration`, attribute value
+helps, togglable object types and name validation). Those are feature toggles, not Switch
+Framework switches or business functions. Nothing over the ADT says whether an `SFW_SWITCH` is on.
