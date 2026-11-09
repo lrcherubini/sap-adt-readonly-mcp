@@ -317,9 +317,9 @@ query, no fragment) and a `maximumVerdicts` from 1 to 100; then the named GET ro
 `atcWorklist` reads the findings under `Accept: application/atc.worklist.v1+xml`. The variant
 is the fence that matters: **the server hands a worklist id to any name** (measured: a
 made-up variant got an id like the real one), so `ATC_VARIANTS` is a closed set -- SAP's `DEFAULT`
-(`data/defaults/atc-variants.json`) plus the variants the installation lists, typically the
-system's own `systemCheckVariant` read from `atc/customizing` (`npm run config -- atc add`) --
-and nothing else reaches the socket. The body
+(`data/defaults/atc-variants.json`), the variants the installation lists (`npm run config -- atc
+add`) and, since 2026-11-09, the system's own `systemCheckVariant` read at start (below) -- and
+nothing else reaches the socket. The body
 is branded when built, so a hand-written body, even one carrying a valid URI, is refused
 (`tests/guard.test.mjs`, "the ATC run is the second POST"). The tool is `adt_atc_run`, built
 after the resource was measured live (measurement, steps 4-5: status, shape, timing, what stays
@@ -348,6 +348,30 @@ themselves are the tool's answer, as the ST22 entries are `adt_runtime_errors`'s
 "p1,p2,p3"; worklist GET 8-20 KB, the 406 names only `application/atc.worklist.v1+xml`.
 Three objects, three variants' worth of counts (12, 8 and 6 findings) -- the counts in the run
 reply and in the worklist agreed every time.
+
+### ATC: the system check variant is read from the system, not typed -- 2026-11-09
+
+**What changed, and why.** The governance variant used to reach the fence only by hand
+(`atc add`, with a `why` the operator typed). Measured on 2026-11-09, that hand-kept entry had
+gone stale: the store called one variant "the system check variant" while `atc/customizing`
+named another. The same measurement showed that **a variant name the system does not have is
+answered with `DEFAULT`'s findings**, silently (`docs/adt-api-reference.md`, *An unknown check
+variant runs `DEFAULT`, silently*), so a stale or mistyped name in the fence is not a harmless
+label: it puts `DEFAULT`'s verdict under a governance name. The owner's rule: the system's
+default is the default, and it needs no configuration.
+
+**What it admits.** At start, after the logon and before the tools are built, the server reads
+`/sap/bc/adt/atc/customizing` once through the named route `atcCustomizing` (in the table since
+2026-09-14, GET, one audit line) and admits its `systemCheckVariant` into `ATC_VARIANTS` under the
+same name rule as any store entry (`A-Z 0-9 _ /`, 1-30 characters). It becomes the default variant
+unless the store sets `atc.defaultVariant`. **One name, read from the system the session is logged
+on to, is the only thing that widens the fence**; the POSTs, the body and the routes do not change.
+
+**What it refuses.** A name outside the rule, an unreadable customizing or a session without a
+raw client: the server starts with `DEFAULT` and the store's variants only, and files
+`ATC_SYSTEM_VARIANT_NOT_READ`. It never guesses a name. A system with no `systemCheckVariant`
+changes nothing. Tests: `atc` (`installSystemVariant`, `parseCustomizing`), `tools`
+(`loadSystemVariant`).
 
 ### Transport requests: both halves admitted, 2026-09-09 -- and the reason is measured
 

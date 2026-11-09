@@ -34,7 +34,42 @@ import {
   atcPost,
   parseRunReply,
   parseWorklist,
+  parseCustomizing,
+  installSystemVariant,
 } from '../lib/atc.mjs';
+
+/**
+ * Read the system check variant once, at start, BEFORE the tools are built: the variant joins
+ * the closed set and the tool's schema. One GET on the `atcCustomizing` route, one audit line.
+ * A failed read starts the server without it -- DEFAULT and the store's variants only -- and
+ * files ATC_SYSTEM_VARIANT_NOT_READ; it never guesses a name.
+ */
+export async function loadSystemVariant(cfg, session, journal) {
+  const fail = (detail) => {
+    journal?.gap?.({
+      code: 'ATC_SYSTEM_VARIANT_NOT_READ',
+      subject: 'atc/customizing',
+      detail,
+      impact: 'adt_atc_run offers DEFAULT and the store\'s variants only; the system check variant is not among them for this run',
+      fallback: 'restart the server; or name the variant with `npm run config -- atc add`',
+    });
+    return { read: false, installed: null, defaultVariant: DEFAULT_VARIANT, detail };
+  };
+  if (!session?.raw) return fail('this session has no raw client: atc/customizing cannot be read');
+  let out;
+  try {
+    out = await namedGet(transportFor(session.raw), 'atcCustomizing', {});
+  } catch (e) {
+    return fail(`HTTP ${e?.status ?? '?'}: ${e?.message}`);
+  } finally {
+    record(cfg, 'adt_atc_run', 'atc/customizing#systemCheckVariant', out?.bytes ?? 0);
+  }
+  try {
+    return { read: true, ...installSystemVariant(parseCustomizing(out.body).systemCheckVariant) };
+  } catch (e) {
+    return fail(`${e.name}: ${e.message}`);
+  }
+}
 
 const asText = (value) => ({
   content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],

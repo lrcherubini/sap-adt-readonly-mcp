@@ -14,8 +14,19 @@ import {
   buildRunBody,
   parseRunReply,
   parseWorklist,
+  parseCustomizing,
+  installAtcVariants,
+  installSystemVariant,
+  SYSTEM_VARIANT_WHY,
   AtcViolation,
 } from '../lib/atc.mjs';
+
+export const CUSTOMIZING = (variant = 'ZDEMO_SYSTEM_CC') =>
+  '<?xml version="1.0" encoding="utf-8"?><atc:customizing xmlns:atc="http://www.sap.com/adt/atc"><properties>' +
+  '<property name="ciCheckFlavour" value="true"/>' +
+  `<property name="systemCheckVariant" value="${variant}"/>` +
+  '<property name="isCCSTunnelEnabled" value="false"/>' +
+  '</properties><exemption><validities><validity id="U" value="No restriction"/></validities></exemption></atc:customizing>';
 
 export const RUN_REPLY =
   '<?xml version="1.0" encoding="utf-8"?><atcworklist:worklistRun xmlns:atcworklist="http://www.sap.com/abapxml/atc/worklist">' +
@@ -50,6 +61,49 @@ test('the variant fence is a closed set, case-folded, and the default is a liste
   assert.ok(ATC_VARIANTS.has(DEFAULT_VARIANT));
   assert.throws(() => assertVariant('ZZZ_NOPE_17'), AtcViolation);
   assert.throws(() => assertVariant('DEFAULT&x=1'), AtcViolation);
+});
+
+test('parseCustomizing reads every property and the system check variant, upper-cased; none is null', () => {
+  const c = parseCustomizing(CUSTOMIZING('zdemo_system_cc'));
+  assert.equal(c.systemCheckVariant, 'ZDEMO_SYSTEM_CC');
+  assert.equal(c.properties.ciCheckFlavour, 'true');
+  assert.equal(c.properties.isCCSTunnelEnabled, 'false');
+  assert.equal(parseCustomizing(CUSTOMIZING('')).systemCheckVariant, null);
+  assert.equal(parseCustomizing('<x/>').systemCheckVariant, null);
+  assert.equal(parseCustomizing(undefined).systemCheckVariant, null);
+});
+
+test('installSystemVariant admits the system variant and makes it the default, unless the store named one', () => {
+  try {
+    installAtcVariants([]);
+    let r = installSystemVariant('zdemo_system_cc');
+    assert.deepEqual(r, { installed: 'ZDEMO_SYSTEM_CC', defaultVariant: 'ZDEMO_SYSTEM_CC', explicitDefault: false });
+    assert.equal(ATC_VARIANTS.get('ZDEMO_SYSTEM_CC'), SYSTEM_VARIANT_WHY);
+    assert.equal(assertVariant(undefined), 'ZDEMO_SYSTEM_CC', 'the default of a call that names none');
+
+    // The store's explicit default wins; a variant the store lists keeps its purpose, and says it is also the system's.
+    installAtcVariants([{ name: 'ZDEMO_DEV', why: 'development practices' }, { name: 'ZDEMO_SYSTEM_CC', why: 'Clean Core governance' }], 'ZDEMO_DEV');
+    r = installSystemVariant('ZDEMO_SYSTEM_CC');
+    assert.equal(r.defaultVariant, 'ZDEMO_DEV');
+    assert.equal(r.explicitDefault, true);
+    assert.equal(ATC_VARIANTS.get('ZDEMO_SYSTEM_CC'), `Clean Core governance -- also ${SYSTEM_VARIANT_WHY}`);
+
+    // No system variant changes nothing; DEFAULT as the system variant keeps its own description.
+    installAtcVariants([]);
+    assert.deepEqual(installSystemVariant(null), { installed: null, defaultVariant: 'DEFAULT', explicitDefault: false });
+    const standardWhy = ATC_VARIANTS.get('DEFAULT');
+    assert.equal(installSystemVariant('DEFAULT').defaultVariant, 'DEFAULT');
+    assert.equal(ATC_VARIANTS.get('DEFAULT'), standardWhy);
+
+    // A name outside the rule is refused, and reinstalling the store drops the system variant.
+    assert.throws(() => installSystemVariant('BAD&NAME'), AtcViolation);
+    installSystemVariant('ZDEMO_SYSTEM_CC');
+    installAtcVariants([]);
+    assert.equal(ATC_VARIANTS.has('ZDEMO_SYSTEM_CC'), false);
+    assert.equal(DEFAULT_VARIANT, 'DEFAULT');
+  } finally {
+    installAtcVariants([]);
+  }
 });
 
 test('buildRunBody interpolates only a validated URI and a bounded count, and freezes the result', () => {

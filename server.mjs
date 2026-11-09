@@ -15,6 +15,8 @@ import { loadConfig, loopbackToken, stateDir } from './lib/config.mjs';
 import { connect, disconnect } from './lib/session.mjs';
 import { recordStart, recordStop, readsSoFar } from './lib/audit.mjs';
 import { buildTools } from './tools/index.mjs';
+import { loadSystemVariant } from './tools/atc.mjs';
+import { openJournal } from './lib/journal.mjs';
 import { allowedMethods } from './lib/guard.mjs';
 import { createRequestHandler } from './lib/mcp-server.mjs';
 import { catalogStatus } from './lib/catalog.mjs';
@@ -89,7 +91,18 @@ try {
 console.log(`logged on as ${session.user}; session is stateless, so no lock can be taken.`);
 recordStart(cfg, {});
 
-const tools = buildTools(cfg, session);
+// The system check variant joins the ATC fence before the tools (and their schemas) are built.
+const journal = openJournal(cfg);
+const atc = await loadSystemVariant(cfg, session, journal);
+console.log(
+  atc.installed
+    ? `ATC: system check variant ${atc.installed} admitted; default variant ${atc.defaultVariant}${atc.explicitDefault ? ' (atc.defaultVariant)' : ''}.`
+    : atc.read
+      ? `ATC: the system names no check variant; default variant ${atc.defaultVariant}.`
+      : `ATC: system check variant NOT read (${atc.detail}); default variant ${atc.defaultVariant}.`
+);
+
+const tools = buildTools(cfg, session, journal);
 
 let inFlight = 0;
 

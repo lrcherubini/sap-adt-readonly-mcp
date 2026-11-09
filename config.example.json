@@ -14,14 +14,7 @@
   "catalog": {
     "release": "PCE2023_0"
   },
-  "atc": {
-    "defaultVariant": "ZDEMO_CLEAN_CORE"
-  },
   "atcVariants": [
-    {
-      "name": "ZDEMO_CLEAN_CORE",
-      "why": "the system check variant (atc/customizing systemCheckVariant): the Clean Core governance run"
-    },
     {
       "name": "ZDEMO_DEV_PRACTICE",
       "why": "development practices: naming, performance, robustness checks run next to the Clean Core one"

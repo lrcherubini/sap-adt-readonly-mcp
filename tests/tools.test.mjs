@@ -15,8 +15,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { buildTools, argumentErrors } from '../tools/index.mjs';
 import { resetBudget } from '../lib/audit.mjs';
-import { installAtcVariants } from '../lib/atc.mjs';
-import { RUN_REPLY as ATC_RUN_REPLY, WORKLIST as ATC_WORKLIST } from './atc.test.mjs';
+import { installAtcVariants, ATC_VARIANTS as ATC_VARIANTS_LIVE } from '../lib/atc.mjs';
+import { loadSystemVariant } from '../tools/atc.mjs';
+import { openJournal } from '../lib/journal.mjs';
+import { RUN_REPLY as ATC_RUN_REPLY, WORKLIST as ATC_WORKLIST, CUSTOMIZING as ATC_CUSTOMIZING } from './atc.test.mjs';
 
 /** cfg with the audit sink diverted away from disk (see lib/audit.mjs). */
 /** Journal lines the handler wrapper produces, per test. */
@@ -1124,6 +1126,62 @@ test('adt_atc_run sends the two POSTs and the GET, answers the findings, and aud
   const auditText = JSON.stringify(mine);
   assert.ok(!auditText.includes('NOAPI') && !auditText.includes('non-released'), 'no finding reaches the audit line');
   assert.equal(journalLines.filter((l) => /^ATC_/.test(l.code)).length, 0);
+  } finally {
+    installAtcVariants([]);
+  }
+});
+
+test('loadSystemVariant reads atc/customizing once at start: the variant joins the tool schema and is its default', async () => {
+  try {
+    installAtcVariants([]);
+    const sent = [];
+    const log = [];
+    const session = {
+      api: fakeApi({ searchObject: () => CLASS_HITS }),
+      raw: { httpClient: { request: async (url, c = {}) => (sent.push({ url, ...c }), { status: 200, body: ATC_CUSTOMIZING(), headers: { 'content-type': 'application/vnd.sap.atc.customizing-v1+xml' } }) } },
+    };
+    const r = await loadSystemVariant(cfgWith(log), session, null);
+    assert.deepEqual(r, { read: true, installed: 'ZDEMO_SYSTEM_CC', defaultVariant: 'ZDEMO_SYSTEM_CC', explicitDefault: false });
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].url, '/sap/bc/adt/atc/customizing');
+    assert.equal(sent[0].method, 'GET');
+    assert.equal(log.at(-1).target, 'atc/customizing#systemCheckVariant', 'one audit line');
+    const def = byName(buildTools(cfgWith([]), sessionForAtc(session.api)), 'adt_atc_run').definition;
+    assert.ok(def.inputSchema.properties.variant.enum.includes('ZDEMO_SYSTEM_CC'));
+    assert.match(def.description, /Default ZDEMO_SYSTEM_CC/);
+    assert.match(def.description, /ZDEMO_SYSTEM_CC \(the system check variant/);
+  } finally {
+    installAtcVariants([]);
+  }
+});
+
+test('loadSystemVariant that cannot read starts with DEFAULT and the store only, and files ATC_SYSTEM_VARIANT_NOT_READ', async () => {
+  try {
+    installAtcVariants([]);
+    journalLines.length = 0;
+    const cfg = cfgWith([]);
+    const journal = openJournal(cfg);
+    const failing = { raw: { httpClient: { request: async () => { throw Object.assign(new Error('server said no'), { err: 500 }); } } } };
+    let r = await loadSystemVariant(cfg, failing, journal);
+    assert.equal(r.read, false);
+    assert.equal(r.installed, null);
+    assert.equal(r.defaultVariant, 'DEFAULT');
+    assert.deepEqual([...ATC_VARIANTS_LIVE.keys()], ['DEFAULT']);
+    let gap = journalLines.find((l) => l.code === 'ATC_SYSTEM_VARIANT_NOT_READ');
+    assert.match(gap.detail, /HTTP 500/);
+    assert.match(gap.impact, /DEFAULT and the store's variants only/);
+
+    journalLines.length = 0;
+    const odd = { raw: { httpClient: { request: async () => ({ status: 200, body: ATC_CUSTOMIZING('BAD&amp;NAME'), headers: {} }) } } };
+    r = await loadSystemVariant(cfg, odd, journal);
+    assert.equal(r.read, false);
+    gap = journalLines.find((l) => l.code === 'ATC_SYSTEM_VARIANT_NOT_READ');
+    assert.match(gap.detail, /not a check variant name/);
+
+    journalLines.length = 0;
+    r = await loadSystemVariant(cfg, {}, journal);
+    assert.match(r.detail, /no raw client/);
+    assert.ok(journalLines.some((l) => l.code === 'ATC_SYSTEM_VARIANT_NOT_READ'));
   } finally {
     installAtcVariants([]);
   }

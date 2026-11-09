@@ -121,8 +121,10 @@ test('the file format nests settings by their prefix and keeps the two tables ap
 test('installing an environment moves every fence, and an empty one restores the standard lists', () => {
   installEnvironment(validateEnvironment(fromFileFormat(EXAMPLE)));
   assert.ok(CUSTOMIZING_TABLES.has('ZDEMO_REGION'));
-  assert.ok(ATC_VARIANTS.has('ZDEMO_CLEAN_CORE'));
-  assert.equal(atc.DEFAULT_VARIANT, 'ZDEMO_CLEAN_CORE', 'the live binding follows the install');
+  assert.ok(ATC_VARIANTS.has('ZDEMO_DEV_PRACTICE'));
+  assert.equal(atc.DEFAULT_VARIANT, 'DEFAULT', 'the example sets no default: the system check variant takes it at start');
+  installEnvironment(validateEnvironment({ ...fromFileFormat(EXAMPLE), settings: { ...fromFileFormat(EXAMPLE).settings, 'atc.defaultVariant': 'ZDEMO_DEV_PRACTICE' } }));
+  assert.equal(atc.DEFAULT_VARIANT, 'ZDEMO_DEV_PRACTICE', 'the live binding follows the install');
   installEnvironment(emptyEnvironment());
   assert.equal(CUSTOMIZING_TABLES.size, STANDARD_CUSTOMIZING_TABLES.size);
   assert.deepEqual([...ATC_VARIANTS.keys()], ['DEFAULT']);

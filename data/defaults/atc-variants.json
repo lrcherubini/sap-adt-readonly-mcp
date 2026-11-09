@@ -1,5 +1,5 @@
 {
-  "$comment": "ATC check variants adt_atc_run may name. The server hands a worklist id to ANY name, so this closed list is the fence (docs/security.md). DEFAULT is SAP's own variant; a system's governance variant (atc/customizing systemCheckVariant) is added per installation with `npm run config -- atc add <NAME> <why>` and made the default with `npm run config -- set atc.defaultVariant <NAME>`.",
+  "$comment": "ATC check variants adt_atc_run may name. The server hands a worklist id to ANY name, so this closed list is the fence (docs/security.md). DEFAULT is SAP's own variant; the system's own check variant (atc/customizing systemCheckVariant) is read and admitted at start and is the default unless atc.defaultVariant is set; further variants are added per installation with `npm run config -- atc add <NAME> <why>`.",
   "variants": [
     { "name": "DEFAULT", "why": "the SAP default variant: classic syntax/performance/usability checks" }
   ],
