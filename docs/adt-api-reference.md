@@ -708,8 +708,8 @@ Three things follow, and the first was a wrong hypothesis on record:
   same day). So the whole-facet request is a **second ask** after the library's, never a
   replacement for it: the route `quickSearch` in `lib/adt-get.mjs` sends the facet whole,
   `lib/resolve.mjs` asks it only when the library's search answered nothing and a facet was
-  given, and the hit comes back with `description: null` and `foundBy: "facet"`, filing
-  `FOUND_BY_FACET`.
+  given, and the hit comes back with `description: null` and `foundBy: "facet"`. No journal row
+  is filed for it: the read succeeded, and the answer is where the route is recorded.
 - `lib/resolve.mjs` keeps refusing `FUGR/I` with the measured reason (`UNSEARCHABLE_TYPES`),
   asks `FUGR/FF` straight through the route (`FACET_ONLY_TYPES`, the library is not called for
   it), and `SEARCHABLE_TYPES_MEASURED` locks the ten that filter so neither list can grow by

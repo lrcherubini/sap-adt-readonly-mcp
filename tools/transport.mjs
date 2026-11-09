@@ -62,7 +62,7 @@ export function transportTool(cfg, session, journal) {
     const type = spec?.type ? String(spec.type).trim().toUpperCase() : undefined;
     if (!name) throw new Error('adt_transport `object` needs a `name`.');
 
-    const resolved = await resolveObject(session.api, name, type, 'metadata', { journal });
+    const resolved = await resolveObject(session.api, name, type, 'metadata');
     const { hit, foundBy } = resolved;
     const objectUri = hit['adtcore:uri'];
     const subjectOf = `${hit['adtcore:type']} ${hit['adtcore:name']}`;

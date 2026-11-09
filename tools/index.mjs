@@ -190,7 +190,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         return parseObjectReferences(out.body);
       }
     : undefined;
-  const resolveOpts = { journal, facetSearch };
+  const resolveOpts = { facetSearch };
 
   // adt_read_source, one object. Shared by the single and the batch form so a batch
   // item is exactly what the single call would answer -- the only difference is that
@@ -406,20 +406,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         // with the facet whole. The reply then carries no description, and the answer says so.
         if (!hits.length && facet?.includes('/') && facetSearch && /^[A-Z0-9_/]{1,40}\*?$/i.test(String(query))) {
           hits = await facetSearch(query, facet, limit);
+          // The answer says foundBy: 'facet' and why the descriptions are missing; no journal
+          // row, because nothing failed (it is the measured route for FUGR/FF).
           byFacet = hits.length > 0;
-          if (byFacet) {
-            journal?.gap?.({
-              code: 'FOUND_BY_FACET',
-              subject: `${facet} ${query}`,
-              detail:
-                (FACET_ONLY_TYPES.has(facet)
-                  ? `${facet} is measured empty through the library`
-                  : `the library's search (facet stripped) answered nothing`) +
-                `; the quick search with the whole facet answered ${hits.length}`,
-              impact: 'the hits carry no description on this path (the facet-filtered reply has none)',
-              fallback: 'adt_object_info on a hit for its metadata',
-            });
-          }
         }
         // A reply of EXACTLY the limit is indistinguishable from "there were exactly that
         // many": the quick search has no paging and no total. Measured: ENHO/XHH

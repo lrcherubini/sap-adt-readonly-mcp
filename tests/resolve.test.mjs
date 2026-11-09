@@ -144,9 +144,8 @@ test('an empty search is a question: the derivable URI answers, and the answer s
   assert.equal(r.hit['adtcore:packageName'], null, 'the package is not on this path, and is not invented');
   assert.ok(r.structure, 'the structure read on the way is handed over');
   assert.match(r.searchSaid, /not found/);
-  assert.equal(gaps.length, 1);
-  assert.equal(gaps[0].code, 'FOUND_BY_URI');
-  assert.match(gaps[0].detail, /after 3 that did not/);
+  // The route is in the answer (foundBy), and a read that succeeded files no journal row.
+  assert.equal(gaps.length, 0);
   // Found by search: the same field says so, so a caller never has to guess.
   const bySearch = await resolveObject(fakeApi([hit('X', 'PROG/P', 'P', '/sap/bc/adt/programs/programs/x')]), 'X');
   assert.equal(bySearch.foundBy, 'search');
@@ -239,9 +238,7 @@ test('a function module is asked with the facet whole, never through the library
   assert.equal(out.hit['adtcore:name'], 'Z_DEMO_FM');
   assert.equal(out.hit['adtcore:uri'], '/sap/bc/adt/functions/groups/zdemo/fmodules/z_demo_fm');
   assert.equal(out.hit['adtcore:description'], null, 'absent, reported as null and never as an empty text');
-  assert.equal(gaps.length, 1);
-  assert.equal(gaps[0].code, 'FOUND_BY_FACET');
-  assert.match(gaps[0].detail, /measured empty through the library/);
+  assert.equal(gaps.length, 0, 'the measured route for FUGR/FF is not a gap');
 });
 
 test('the second ask happens only after an empty first one, only with a facet, and a miss is still a miss', async () => {

@@ -135,7 +135,7 @@ export function atcTool(cfg, session, journal) {
       if (!name) throw new AtcViolation('adt_atc_run needs an objectName.');
       const type = objectType ? String(objectType).trim().toUpperCase() : undefined;
 
-      const resolved = await resolveObject(session.api, name, type, 'metadata', { journal });
+      const resolved = await resolveObject(session.api, name, type, 'metadata');
       const { hit, foundBy } = resolved;
       const objectUri = hit['adtcore:uri'];
       const subject = `${hit['adtcore:type']} ${hit['adtcore:name']}`;

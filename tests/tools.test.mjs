@@ -236,7 +236,6 @@ test('a function module is found by the whole facet, the answer says so and says
   const urls = [];
   const api = fakeApi({ searchObject: () => assert.fail('FUGR/FF is measured empty through the library: never asked') });
   const tools = buildTools(cfgWith(log), sessionWithRaw(api, FACET_REPLY, urls));
-  const before = journalLines.filter((l) => l.code === 'FOUND_BY_FACET').length;
   const out = jsonOf(await byName(tools, 'adt_search').handler({ query: 'Z_DEMO_FM', objectType: 'FUGR/FF' }));
   assert.equal(api.count('searchObject'), 0);
   assert.deepEqual(urls, [
@@ -247,7 +246,7 @@ test('a function module is found by the whole facet, the answer says so and says
   assert.equal(out.count, 1);
   assert.equal(out.hits[0].name, 'Z_DEMO_FM');
   assert.equal(out.hits[0].description, null, 'no description on this path, and not an empty string either');
-  assert.equal(journalLines.filter((l) => l.code === 'FOUND_BY_FACET').length, before + 1);
+  assert.equal(journalLines.filter((l) => l.stream === 'gaps').length, 0, 'the measured route files no gap');
   // One audit line for the route, naming the object and the facet, never a description.
   const line = log.find((l) => l.target === 'Z_DEMO_FM (FUGR/FF, whole facet)');
   assert.ok(line, 'the whole-facet call is audited like every other route');
@@ -488,9 +487,9 @@ test('a name the search cannot see is still read when its URI is derivable, and 
   assert.match(text, /FORM frm_kondi_wert_953/);
   // Read once on the way in, not again: the resolver hands the structure over.
   assert.equal(api.count('objectStructure'), 4, 'three 404s and the one that answered');
-  const gap = journalLines.find((l) => l.stream === 'gaps' && l.code === 'FOUND_BY_URI');
-  assert.ok(gap, 'the case is on the record, not cured in silence');
-  assert.equal(gap.subject, 'PROG/I RV64A953');
+  // The case is not cured in silence: the answer says FOUND BY URI (above). A read that
+  // succeeded files no gap row.
+  assert.equal(journalLines.filter((l) => l.stream === 'gaps').length, 0);
 });
 
 // --- adt_object_info ---------------------------------------------------------

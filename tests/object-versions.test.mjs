@@ -350,7 +350,7 @@ test('an object the search cannot see is still read when its URI is derivable, a
   const out = await outOf(h, { object: { name: 'ZDEMO_REPORT', type: 'PROG/P' } });
   assert.equal(out.object.foundBy, 'uri');
   assert.equal(out.transports.length, 2);
-  assert.ok(h.journalLines.some((l) => l.code === 'FOUND_BY_URI'));
+  assert.equal(h.journalLines.some((l) => /^FOUND_BY/.test(String(l.code))), false, 'a read that succeeded is no gap');
 });
 
 test('a link the structure publishes outside the object is refused before any read', async () => {

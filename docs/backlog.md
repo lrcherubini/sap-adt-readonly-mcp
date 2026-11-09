@@ -59,20 +59,6 @@ measurement.
 
 ---
 
-## 5. Success traces in the failure stream: `FOUND_BY_FACET`, `FOUND_BY_URI`
-
-**What is missing.** Decide whether a successful-resolution trace belongs in the gap stream.
-
-**Where it bit.** In both cases **the object was found and read**; the record only says by which
-route, because the primary one did not answer. The information produced two measurements in the
-reference, but it lands in the list of "where this server did not reach", and it did reach.
-
-**What to decide.** Move both to a diagnostic stream (which does not exist today), or let the gap
-stream carry two kinds of row and have `report` separate them. The prior question: does anyone read
-these rows after the measurement that produced them? If not, stop writing them daily.
-
----
-
 ## 6. `EXPOSURE_INCONCLUSIVE`: a code that says it is not a defect can flood the stream
 
 **Status changed 2026-11-08.** The flood came from the removed offline `scan:contract`: one row per
@@ -82,7 +68,7 @@ not read yet, so today the code fires only when a service definition really cann
 
 **Why it stays.** When the Fiori consumers arrive (UI5 repository route, pending a measurement), one
 call may again cover many apps. Decide **before** that lands: one row per app, or one summary row
-("N apps whose service could not be read"). Same question as item 5: does anyone act on each row?
+("N apps whose service could not be read"). Does anyone act on each row?
 
 ---
 
