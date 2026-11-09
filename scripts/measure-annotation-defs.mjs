@@ -38,7 +38,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadConfig, stateDir } from '../lib/config.mjs';
+import { loadConfig, newMeasurementDir } from '../lib/config.mjs';
 import { connect, disconnect } from '../lib/session.mjs';
 import { fromDdla } from '../lib/annotation-defs.mjs';
 
@@ -87,10 +87,9 @@ const defs = fromDdla(text);
 const parsedKeys = defs.keys();
 const roots = new Set(parsedKeys.map((k) => String(k).toLowerCase().split('.')[0]));
 
-const dir = path.join(stateDir(), 'measurements');
-fs.mkdirSync(dir, { recursive: true });
-const out = path.join(dir, `annotation-definitions-${new Date().toISOString().slice(0, 10)}.ddla`);
-fs.writeFileSync(out, text, 'utf8');
+// One folder per run (lib/config.mjs, newMeasurementDir): a second run never overwrites the first.
+const out = path.join(newMeasurementDir('annotation-definitions'), 'annotation-definitions.ddla');
+fs.writeFileSync(out, text, { encoding: 'utf8', flag: 'wx' });
 
 const lines = text.split('\n');
 console.log(`\n--- measured ---`);

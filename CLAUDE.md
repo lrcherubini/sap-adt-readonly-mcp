@@ -121,7 +121,8 @@ grows with time, already has a home above, and goes stale here. Personal notes g
 - An empty answer from the ADT is not proof of absence, and an HTTP 500 is usually a server dump.
   Read the relevant section of `docs/adt-api-reference.md` before trusting or adding a route.
 - Measuring a new route follows a fixed sequence, run by the owner:
-  1. Write a temporary probe in `scripts/probes/`, which is git-ignored.
+  1. Write a temporary probe in `scripts/probes/`, which is git-ignored. It writes its output
+     through `newMeasurementDir` (`lib/config.mjs`), so no run overwrites another.
   2. Transcribe the measured shape into the reference.
   3. Delete the probe.
   4. Build the route.

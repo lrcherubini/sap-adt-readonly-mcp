@@ -839,7 +839,7 @@ path resolves inside a git work tree:
 | `catalog/` (and `catalog.prev/`) | SAP's Clean Core catalogue -- one release file, `objectClassifications_SAP.json`, `PROVENANCE.json` -- written only by `npm run sync:catalog` | public SAP data (Apache-2.0); no system data |
 | `token` | 32 random bytes, hex, mode 0600 | guards the local MCP port; **not** a SAP credential |
 | `audit.log` | one JSON line per call: timestamp, run id, tool, target object, result size — plus one `start`/`stop` pair per process (pid, host, client, user, machine, and how it stopped) | no payload, ever |
-| `measurements/<topic>-<day>/` | transcripts of the probes and measuring scripts (`scripts/measure-*.mjs`, `scripts/probes/*.mjs`): raw ADT replies, whole bodies, so a truncated terminal never loses a reading | **SAP data** — DDLA definitions, version feeds, transport documents; may name third parties. Never inside a git work tree, by construction (`stateDir()`) |
+| `measurements/<name>-<UTC stamp>/` | transcripts of the probes and measuring scripts (`scripts/measure-*.mjs`, `scripts/probes/*.mjs`): raw ADT replies, whole bodies, so a truncated terminal never loses a reading | **SAP data** — DDLA definitions, version feeds, transport documents; may name third parties. Never inside a git work tree, by construction (`stateDir()`) |
 
 **There is no response cache, and that is a property rather than an omission.** An earlier
 version of this table listed a `cache/` directory — "responses keyed by URI + etag, may contain
@@ -932,6 +932,11 @@ credential** (`npm run probe`), and `scripts/measure-*.mjs`, which are repeatabl
 measurements with a fixed output and their own tests. A probe carries no secret — the
 password is prompted by `loadConfig`/`connect` like everywhere else — but it is still
 measurement, not code, and does not belong in the history.
+
+Every run writes into a folder of its own, created by `newMeasurementDir` in `lib/config.mjs`:
+`measurements/<name>-<UTC stamp>`. The function never reuses an existing folder. This became a
+rule on 2026-11-09, when two runs of one probe on the same day shared a dated folder and the
+second overwrote the first run's summary. `tests/measurement-dir.test.mjs` holds the rule.
 
 ## The MCP port
 
