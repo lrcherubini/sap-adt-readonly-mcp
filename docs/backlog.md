@@ -59,19 +59,6 @@ measurement.
 
 ---
 
-## 6. `EXPOSURE_INCONCLUSIVE`: a code that says it is not a defect can flood the stream
-
-**Status changed 2026-11-08.** The flood came from the removed offline `scan:contract`: one row per
-consumer file in a local checkout whose service had no `.srvd` on disk (it was 99.7% of the
-stream). `adt_contract_check` now reads the service definition from the system, and consumers are
-not read yet, so today the code fires only when a service definition really cannot be read.
-
-**Why it stays.** When the Fiori consumers arrive (UI5 repository route, pending a measurement), one
-call may again cover many apps. Decide **before** that lands: one row per app, or one summary row
-("N apps whose service could not be read"). Does anyone act on each row?
-
----
-
 ## 7. A refused logon leaves no trace, and the risk it carries is locking the SAP user
 
 **What is missing.** Decide whether the trail records a failed logon attempt. `recordStart` runs
@@ -101,7 +88,7 @@ Recorded so it does not come back as a defect.
 `report` retires a row when a later **census** did not file it again: a sweeping tool
 (`adt_clean_core_scan`, `adt_annotation_scan`) on the same package, unnarrowed and complete. That
 covers what is a census by nature. It cannot cover gaps filed **per target**
-(`ENHANCEMENTS_NOT_READ`, `BATCH_ITEM_NOT_READ`, `SHAPE_DRIFT`, `EXPOSURE_INCONCLUSIVE`): no sequence
+(`ENHANCEMENTS_NOT_READ`, `BATCH_ITEM_NOT_READ`, `SHAPE_DRIFT`, `UI5_APP_NOT_READ`): no sequence
 of calls proves one of them went away. Those rows stay `unknown`, and `unknown` counts as open:
 **nobody looked is not the same as resolved.** To close one: re-read that target, or
 `npm run logs:prune -- --code <CODE> --apply`, an explicit act with its own command.

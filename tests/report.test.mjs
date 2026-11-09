@@ -169,8 +169,8 @@ test('a report groups findings by repository and counts the high ones', () => {
       finding('CC_DEPRECATED', 'x', 'zdemo_001/x.ddls.asddls', '2026-09-08T08:00:00Z', 'c'),
     ],
     gaps: [
-      { ts: '2026-09-08T08:00:00Z', code: 'EXPOSURE_INCONCLUSIVE', subject: 'ZC_X', fingerprint: 'g1' },
-      { ts: '2026-09-08T09:00:00Z', code: 'EXPOSURE_INCONCLUSIVE', subject: 'ZC_X', fingerprint: 'g1' },
+      { ts: '2026-09-08T08:00:00Z', code: 'UI5_APP_NOT_READ', subject: 'ZC_X', fingerprint: 'g1' },
+      { ts: '2026-09-08T09:00:00Z', code: 'UI5_APP_NOT_READ', subject: 'ZC_X', fingerprint: 'g1' },
     ],
   });
   assert.equal(report.totals.findings, 3);
@@ -221,7 +221,7 @@ test('what the journal writes is what the report reads', () => {
     file: 'abap-zdemo_assort/x.srvd.srvdsrv',
     context: { aliases: 'AssortStorageLocation, AssortStrLoc' },
   });
-  journal.gap({ code: 'EXPOSURE_INCONCLUSIVE', subject: 'ZC_Y', detail: 'no service definition' });
+  journal.gap({ code: 'UI5_APP_NOT_READ', subject: 'UI5 ZDEMO_APP', detail: 'manifest.json: 404' });
 
   const report = reportFromDisk(dir);
   assert.equal(report.quality.offlineShare, 100);
@@ -391,7 +391,7 @@ test("a row whose fingerprint was written '<redacted>' is named by the one the r
     JSON.stringify({ ts: '2026-09-24T00:00:00Z', run: 'aaa', code, subject, fingerprint: '<redacted>' });
   fs.writeFileSync(
     path.join(dir, 'gaps', '2026-09-24.jsonl'),
-    `${masked('DDIC_FIELDS_NOT_READ', 'ZDEMO_FREIGHT_TRACK')}\n${masked('EXPOSURE_INCONCLUSIVE', 'x/y')}\n`
+    `${masked('DDIC_FIELDS_NOT_READ', 'ZDEMO_FREIGHT_TRACK')}\n${masked('UI5_APP_NOT_READ', 'x/y')}\n`
   );
   const printed = fingerprintOf(['DDIC_FIELDS_NOT_READ', '', 'ZDEMO_FREIGHT_TRACK']);
   assert.equal(selectivePrunePlan(dir, { fingerprint: printed }).drop, 1, 'only that one row');

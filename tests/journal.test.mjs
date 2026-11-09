@@ -144,8 +144,8 @@ test('every registered code has a severity and a meaning, and the two families a
 
 test('call() keeps only registered codes in its codes array', () => {
   const { j, lines } = captured();
-  j.call({ tool: 'adt_value_help', codes: ['EXPOSURE_INCONCLUSIVE', 'MADE_UP', ''] });
-  assert.deepEqual(lines[0].record.codes, ['EXPOSURE_INCONCLUSIVE']);
+  j.call({ tool: 'adt_value_help', codes: ['CATALOG_MISS', 'MADE_UP', ''] });
+  assert.deepEqual(lines[0].record.codes, ['CATALOG_MISS']);
 });
 
 // --- the fingerprint, which is what makes the stream a backlog ---------------------
@@ -170,7 +170,7 @@ test('digest counts occurrences and keeps first, last and the latest record', ()
   const rows = [
     { ts: '2026-09-01T10:00:00Z', code: 'ALIAS_DRIFT', fingerprint: 'aaa', subject: 'one' },
     { ts: '2026-09-03T10:00:00Z', code: 'ALIAS_DRIFT', fingerprint: 'aaa', subject: 'one-newer' },
-    { ts: '2026-09-02T10:00:00Z', code: 'EDMX_STALE', fingerprint: 'bbb', subject: 'two' },
+    { ts: '2026-09-02T10:00:00Z', code: 'CC_LEVEL_B', fingerprint: 'bbb', subject: 'two' },
   ];
   const out = digest(rows).sort((x, y) => y.times - x.times);
   assert.equal(out[0].times, 2);
@@ -185,7 +185,7 @@ test('digest counts occurrences and keeps first, last and the latest record', ()
 // (Synthetic subjects, chosen by searching for an all-digit hash.)
 const NUMERIC = [
   { code: 'DDIC_FIELDS_NOT_READ', subject: 'ZDEMO_TRACK_7' },
-  { code: 'EXPOSURE_INCONCLUSIVE', subject: 'cpi-demo_flow/Flow_50' },
+  { code: 'UI5_APP_NOT_READ', subject: 'UI5 ZDEMO_APP_505' },
 ];
 
 test('a fingerprint that comes out all digits is kept, not redacted as a CPF', () => {
@@ -277,7 +277,7 @@ test('readStream filters by day and survives a half-written line', () => {
     fs.mkdirSync(path.join(dir, 'findings'), { recursive: true });
     fs.writeFileSync(
       path.join(dir, 'findings', '2026-09-01.jsonl'),
-      `${JSON.stringify({ ts: '2026-09-01T00:00:00Z', code: 'EDMX_STALE' })}\n`
+      `${JSON.stringify({ ts: '2026-09-01T00:00:00Z', code: 'CC_LEVEL_B' })}\n`
     );
     fs.writeFileSync(
       path.join(dir, 'findings', '2026-09-08.jsonl'),

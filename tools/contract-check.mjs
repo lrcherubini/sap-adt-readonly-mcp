@@ -180,7 +180,7 @@ export async function runContractCheck(cfg, api, args = {}, journal = null, tran
     throw new Error(`the service definition ${service} was not read: ${e?.message ?? e}`);
   }
 
-  const out = checkContract({ services: [{ file: `${service.toLowerCase()}.srvd`, source }], metadata: [], consumers: [] });
+  const out = checkContract({ services: [{ file: `${service.toLowerCase()}.srvd`, source }] });
   const findings = [...out.findings];
 
   // --- the named apps -------------------------------------------------------------------
@@ -220,6 +220,9 @@ export async function runContractCheck(cfg, api, args = {}, journal = null, tran
       const list = citedBy.get(row.entitySet);
       if (!list.some((x) => x.file === c.file && x.as === name)) list.push({ app: r.app, file: c.file, line: c.line, as: name });
     }
+    // ONE row per app, whatever it could not read (the detail names up to six parts): a call
+    // names at most MAX_APPS apps, so the stream grows by at most that many rows per call --
+    // the bound the removed offline scan lacked (one row per consumer file, 99.7% of a stream).
     if (r.notRead.length) {
       journal?.gap?.({
         code: 'UI5_APP_NOT_READ',
