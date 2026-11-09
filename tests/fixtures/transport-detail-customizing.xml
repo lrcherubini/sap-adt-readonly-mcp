@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  REBUILT, not pasted. Same discipline as annotation-chain-measured.xml: the structure,
+  the attribute set and the values that CARRY MEANING are the ones measured on DEV/001 on
+  2026-09-09; the descriptions and the object names are replaced, because a fixture is not
+  a place to version what a developer wrote about a change.
+
+  This is the shape of DEVK900117 and it is the case the parser exists for: a CUSTOMIZING
+  request (tm:type="W") that is still MODIFIABLE, whose OWN object list is EMPTY, and
+  whose four objects are all sitting inside a task that has not been released. A reader
+  that stops at tm:request answers "this request is empty" about a request that is not.
+
+  tm:attributes is absent here because it is stamped at EXPORT: the three released
+  requests measured carried 97 SAPCOMPONENT rows each, the modifiable ones zero.
+-->
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" xmlns:adtcore="http://www.sap.com/adt/core"
+  xmlns:atom="http://www.w3.org/2005/Atom" adtcore:name="DEVK900117" adtcore:type="RQRQ"
+  tm:object_type="R" adtcore:changedAt="2026-09-08T18:30:12Z" adtcore:changedBy="DEVUSER1"
+  adtcore:createdBy="DEVUSER1">
+  <atom:link href="/sap/bc/adt/cts/transportrequests/DEVK900117" rel="self" type="application/vnd.sap.adt.transportorganizer.v1+xml"/>
+  <tm:request tm:number="DEVK900117" tm:parent="" tm:owner="DEVUSER1"
+    tm:desc="Sample customizing" tm:type="W" tm:status="D" tm:status_text="Modifiable"
+    tm:target="" tm:target_desc="" tm:cts_project="" tm:cts_project_desc="" tm:source_client="001"
+    tm:lastchanged_timestamp="20260908183012"
+    tm:uri="/sap/bc/adt/cts/transportrequests/DEVK900117">
+    <tm:long_desc/>
+    <atom:link href="/sap/bc/adt/cts/transportrequests/DEVK900117" rel="self" type="application/vnd.sap.adt.transportorganizer.v1+xml"/>
+    <tm:all_objects>
+      <tm:abap_object tm:pgmid="R3TR" tm:type="CDAT" tm:name="ZDEMO_VC_A" tm:position="000001"
+        tm:obj_func="K" tm:obj_info="View cluster maintenance: data" tm:lock_status=""
+        tm:img_activity=""
+        tm:dummy_uri="/sap/bc/adt/cts/transportrequests/reference?obj_name=ZDEMO_VC_A&amp;obj_wbtype=CDAT&amp;pgmid=R3TR"/>
+      <tm:abap_object tm:pgmid="R3TR" tm:type="VDAT" tm:name="ZDEMO_V_B" tm:position="000002"
+        tm:obj_func="K" tm:obj_info="View maintenance: data" tm:lock_status="" tm:img_activity=""
+        tm:dummy_uri="/sap/bc/adt/cts/transportrequests/reference?obj_name=ZDEMO_V_B&amp;obj_wbtype=VDAT&amp;pgmid=R3TR"/>
+      <tm:abap_object tm:pgmid="R3TR" tm:type="TABU" tm:name="ZDEMO_TAB_C" tm:position="000003"
+        tm:obj_func="K" tm:obj_info="Table contents" tm:lock_status="" tm:img_activity=""
+        tm:dummy_uri="/sap/bc/adt/cts/transportrequests/reference?obj_name=ZDEMO_TAB_C&amp;obj_wbtype=TABU&amp;pgmid=R3TR"/>
+      <tm:abap_object tm:pgmid="R3TR" tm:type="TDAT" tm:name="ZDEMO_TAB_D" tm:position="000004"
+        tm:obj_func="K" tm:obj_info="Table contents" tm:lock_status="" tm:img_activity=""
+        tm:dummy_uri="/sap/bc/adt/cts/transportrequests/reference?obj_name=ZDEMO_TAB_D&amp;obj_wbtype=TDAT&amp;pgmid=R3TR"/>
+    </tm:all_objects>
+    <tm:task tm:number="DEVK900118" tm:parent="DEVK900117" tm:owner="DEVUSER1"
+      tm:desc="Sample customizing" tm:type="Customizing Task" tm:status="D"
+      tm:status_text="Modifiable" tm:target="" tm:target_desc="" tm:cts_project=""
+      tm:cts_project_desc="" tm:source_client="001" tm:lastchanged_timestamp="20260908183012"
+      tm:uri="/sap/bc/adt/cts/transportrequests/DEVK900118">
+      <tm:long_desc/>
+      <atom:link href="/sap/bc/adt/cts/transportrequests/DEVK900118" rel="self" type="application/vnd.sap.adt.transportorganizer.v1+xml"/>
+      <tm:abap_object tm:pgmid="R3TR" tm:type="CDAT" tm:name="ZDEMO_VC_A" tm:position="000001"
+        tm:obj_func="K" tm:obj_info="View cluster maintenance: data" tm:lock_status=""
+        tm:img_activity=""
+        tm:dummy_uri="/sap/bc/adt/cts/transportrequests/reference?obj_name=ZDEMO_VC_A&amp;obj_wbtype=CDAT&amp;pgmid=R3TR"/>
+      <tm:abap_object tm:pgmid="R3TR" tm:type="VDAT" tm:name="ZDEMO_V_B" tm:position="000002"
+        tm:obj_func="K" tm:obj_info="View maintenance: data" tm:lock_status="" tm:img_activity=""
+        tm:dummy_uri="/sap/bc/adt/cts/transportrequests/reference?obj_name=ZDEMO_V_B&amp;obj_wbtype=VDAT&amp;pgmid=R3TR"/>
+      <tm:abap_object tm:pgmid="R3TR" tm:type="TABU" tm:name="ZDEMO_TAB_C" tm:position="000003"
+        tm:obj_func="K" tm:obj_info="Table contents" tm:lock_status="" tm:img_activity=""
+        tm:dummy_uri="/sap/bc/adt/cts/transportrequests/reference?obj_name=ZDEMO_TAB_C&amp;obj_wbtype=TABU&amp;pgmid=R3TR"/>
+      <tm:abap_object tm:pgmid="R3TR" tm:type="TDAT" tm:name="ZDEMO_TAB_D" tm:position="000004"
+        tm:obj_func="K" tm:obj_info="Table contents" tm:lock_status="" tm:img_activity=""
+        tm:dummy_uri="/sap/bc/adt/cts/transportrequests/reference?obj_name=ZDEMO_TAB_D&amp;obj_wbtype=TDAT&amp;pgmid=R3TR"/>
+    </tm:task>
+  </tm:request>
+</tm:root>

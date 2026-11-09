@@ -1,0 +1,9 @@
+{
+  "$comment": "The OData V2 services a route may live under (authority `gateway`): SAP-standard /UI2 services of the Fiori launchpad. Each one was read in the Gateway catalogue before it was listed, and the route table in lib/adt-get.mjs still names each entity set.",
+  "odataRoots": [
+    "/sap/opu/odata/UI2/PAGE_BUILDER_CONF",
+    "/sap/opu/odata/UI2/PAGE_BUILDER_CUST",
+    "/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV",
+    "/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV"
+  ]
+}

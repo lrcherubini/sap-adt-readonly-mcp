@@ -1,0 +1,77 @@
+* T683S (TABL/DT) -- package VF_PRC_CUSTOMIZING
+* measured on DEV/001, 2026-09-22 (the provenance line with the host is stripped on purpose)
+
+@EndUserText.label : 'Pricing Procedure: Data'
+@AbapCatalog.enhancement.category : #EXTENSIBLE_CHARACTER
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #C
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table t683s {
+
+  @AbapCatalog.foreignKey.keyType : #KEY
+  @AbapCatalog.foreignKey.screenCheck : true
+  key mandt                    : mandt not null
+    with foreign key [0..*,1] t000
+      where mandt = t683s.mandt;
+  @AbapCatalog.foreignKey.keyType : #KEY
+  @AbapCatalog.foreignKey.screenCheck : true
+  key kvewe                    : kvewe not null
+    with foreign key [1,1] t681v
+      where kvewe = t683s.kvewe;
+  @AbapCatalog.foreignKey.keyType : #KEY
+  @AbapCatalog.foreignKey.screenCheck : true
+  key kappl                    : kappl not null
+    with foreign key [1,1] t681a
+      where kappl = t683s.kappl;
+  @AbapCatalog.foreignKey.keyType : #KEY
+  @AbapCatalog.foreignKey.screenCheck : true
+  key kalsm                    : kalsm_d not null
+    with foreign key [1,1] t683
+      where mandt = t683s.mandt
+        and kvewe = t683s.kvewe
+        and kappl = t683s.kappl
+        and kalsm = t683s.kalsm;
+  key stunr                    : stunr not null;
+  key zaehk                    : dzaehk not null;
+  @AbapCatalog.foreignKey.keyType : #KEY
+  @AbapCatalog.foreignKey.screenCheck : true
+  kschl                        : kschl not null
+    with foreign key [1,1] t685
+      where mandt = t683s.mandt
+        and kvewe = t683s.kvewe
+        and kappl = t683s.kappl
+        and kschl = t683s.kschl;
+  stunb                        : stunb not null;
+  stun2                        : stun2 not null;
+  kauto                        : kauto not null;
+  kobed                        : kobed not null;
+  kzwiw                        : kzwiw not null;
+  kstat                        : kstat not null;
+  kofrm                        : kofrm not null;
+  kofra                        : kofra not null;
+  @AbapCatalog.foreignKey.keyType : #NON_KEY
+  @AbapCatalog.foreignKey.screenCheck : true
+  kvsl1                        : kvsl1 not null
+    with foreign key [0..*,0..1] t687
+      where mandt = t683s.mandt
+        and kappl = t683s.kappl
+        and kvsl1 = t683s.kvsl1;
+  @AbapCatalog.foreignKey.keyType : #NON_KEY
+  @AbapCatalog.foreignKey.screenCheck : true
+  kvsl2                        : kvsl2 not null
+    with foreign key [0..*,0..1] t687
+      where mandt = t683s.mandt
+        and kappl = t683s.kappl
+        and kvsl1 = t683s.kvsl2;
+  drukz                        : drukz not null;
+  kobli                        : kobli not null;
+  is_acct_detn_relevant        : is_acct_detn_relevant;
+  @AbapCatalog.foreignKey.screenCheck : true
+  access_level                 : prcg_access_level not null
+    with foreign key prcg_acc_level
+      where client = t683s.mandt
+        and application = t683s.kappl
+        and access_level = t683s.access_level;
+  inclusionpointfromtoiscopied : vfprc_from_to_step_of_incl_pt not null;
+
+}

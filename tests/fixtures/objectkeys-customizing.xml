@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- REBUILT from the facts measured on DEV/001 on 2026-09-09, in the structure of the
+     byte-exact reply, the same discipline as annotation-chain-measured.xml. No payload
+     from the system is pasted here: the key values are recomputed from the declared
+     lengths, which is exactly what the decoder under test has to do.
+
+     This is the shape of `task DEVK900118 + CDAT BUPAFLDMOD` -> 200: four transported
+     keys over two tables, one of them maintained through a view (tk:viewName), plus a
+     THIRD table that is self-closed because it has no key fields -- the shape that once
+     cost a whole tm:task elsewhere in this repository. -->
+<tk:objectKeys xmlns:tk="http://www.sap.com/cts/adt/tm" xmlns:atom="http://www.w3.org/2005/Atom"
+    tk:objName="BUPAFLDMOD" tk:objType="CDAT" tk:objPgmId="R3TR"
+    tk:objDesc="Customizing de campos do Business Partner">
+  <tk:tableKeys tk:isReadOnly="false">
+    <tk:tableKey tk:tableName="TBZ3R" tk:value="001BUPAGS_KNA1                       ZZ1_DEMODELIVERY_CUS          0600" tk:position="000001"/>
+    <tk:tableKey tk:tableName="TBZ3R" tk:value="001BUPAKNA1                          ZZ1_DEMODELIVERY_CUS          0600" tk:position="000002" tk:viewName="V_TBZ3R"/>
+    <tk:tableKey tk:tableName="TBZ1C" tk:value="001BUPAGS_KNA1                       ZZ1_DEMODELIVERY_CUS          " tk:position="000003"/>
+    <tk:tableKey tk:tableName="TBZ1C" tk:value="001BUPAKNA1                          ZZ1_DEMODELIVERY_CUS          " tk:position="000004"/>
+  </tk:tableKeys>
+  <tk:tables>
+    <tk:table tk:name="TBZ3R" tk:isStringTable="false">
+      <tk:keyField tk:name="CLIENT" tk:type="C" tk:length="3" tk:offset="0" tk:postion="1" tk:label=""/>
+      <tk:keyField tk:name="OBJAP" tk:type="C" tk:length="4" tk:offset="3" tk:postion="2" tk:label=""/>
+      <tk:keyField tk:name="TABNM" tk:type="C" tk:length="30" tk:offset="7" tk:postion="3" tk:label=""/>
+      <tk:keyField tk:name="FLDNM" tk:type="C" tk:length="30" tk:offset="37" tk:postion="4" tk:label=""/>
+      <tk:keyField tk:name="FLDGR" tk:type="N" tk:length="4" tk:offset="67" tk:postion="5" tk:label=""/>
+    </tk:table>
+    <tk:table tk:name="TBZ1C" tk:isStringTable="false">
+      <tk:keyField tk:name="CLIENT" tk:type="C" tk:length="3" tk:offset="0" tk:postion="1" tk:label=""/>
+      <tk:keyField tk:name="OBJAP" tk:type="C" tk:length="4" tk:offset="3" tk:postion="2" tk:label=""/>
+      <tk:keyField tk:name="DYNPTABNM" tk:type="C" tk:length="30" tk:offset="7" tk:postion="3" tk:label=""/>
+      <tk:keyField tk:name="DYNPFLDNM" tk:type="C" tk:length="30" tk:offset="37" tk:postion="4" tk:label=""/>
+    </tk:table>
+    <tk:table tk:name="TBZ3S" tk:isStringTable="false"/>
+  </tk:tables>
+  <atom:link href="objectkeys/checkruns" rel="http://www.sap.com/cts/relations/objectkeys/checkruns" type="application/vnd.sap.adt.transportorganizer.objectkeys.checkruns.v1+xml"/>
+</tk:objectKeys>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="1.0" xmlns:edmx="http://schemas.microsoft.com/ado/2007/06/edmx">
+  <edmx:DataServices>
+    <Schema Namespace="cds_zui_demo" xml:lang="pt" xmlns="http://schemas.microsoft.com/ado/2008/09/edm">
+      <EntityType Name="SAP__CoverPage"/>
+      <EntityType Name="ItemRatingType"/>
+      <EntityType Name="ItemRatingParameters"/>
+      <EntityType Name="PackSpecType"/>
+      <EntityType Name="I_PlantType"/>
+      <EntityContainer Name="cds_zui_demo_Entities">
+        <EntitySet Name="SAP__CoverPageSet" EntityType="cds_zui_demo.SAP__CoverPage"/>
+        <EntitySet Name="ItemRatingSet" EntityType="cds_zui_demo.ItemRatingType"/>
+        <EntitySet Name="ItemRating" EntityType="cds_zui_demo.ItemRatingParameters"/>
+        <EntitySet Name="PackSpec" EntityType="cds_zui_demo.PackSpecType"/>
+        <EntitySet Name="I_Plant" EntityType="cds_zui_demo.I_PlantType"/>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

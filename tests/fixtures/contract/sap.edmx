@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="1.0" xmlns:edmx="http://schemas.microsoft.com/ado/2007/06/edmx">
+  <edmx:DataServices>
+    <Schema Namespace="API_PRODUCT_SRV" xmlns="http://schemas.microsoft.com/ado/2008/09/edm">
+      <EntityType Name="A_ProductType"/>
+      <EntityType Name="A_ProductPlantType"/>
+      <EntityContainer Name="API_PRODUCT_SRV_Entities">
+        <EntitySet Name="A_Product" EntityType="API_PRODUCT_SRV.A_ProductType"/>
+        <EntitySet Name="A_ProductPlant" EntityType="API_PRODUCT_SRV.A_ProductPlantType"/>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

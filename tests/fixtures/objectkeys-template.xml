@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- REBUILT from the facts measured on DEV/001 on 2026-09-09. This is the OTHER kind of
+     reply, and the one that makes a naive parser lie: an ACGR role answers 200 with key
+     TEMPLATES -- tk:tableKey WITHOUT tk:position -- and E071K holds zero ACGR rows. Read
+     as transported keys, these would be invented entries.
+
+     AGR_HIER_BOR is here because it carries the only integer key field measured in the
+     entire population (UNIQUE_NR, type I, declared length 2). A character offset does not
+     address it, so the decoder must REPORT it rather than slice it. -->
+<tk:objectKeys xmlns:tk="http://www.sap.com/cts/adt/tm" xmlns:atom="http://www.w3.org/2005/Atom"
+    tk:objName="ZDEMO_ROLE_SAMPLE_001" tk:objType="ACGR" tk:objPgmId="R3TR">
+  <tk:tableKeys tk:isReadOnly="true">
+    <tk:tableKey tk:tableName="AGR_1016" tk:value="001ZDEMO_ROLE_SAMPLE_001         "/>
+    <tk:tableKey tk:tableName="AGR_HIER_BOR" tk:value="001ZDEMO_ROLE_SAMPLE_001           "/>
+  </tk:tableKeys>
+  <tk:tables>
+    <tk:table tk:name="AGR_1016" tk:isStringTable="false">
+      <tk:keyField tk:name="MANDT" tk:type="C" tk:length="3" tk:offset="0" tk:postion="1" tk:label=""/>
+      <tk:keyField tk:name="AGR_NAME" tk:type="C" tk:length="30" tk:offset="3" tk:postion="2" tk:label=""/>
+    </tk:table>
+    <tk:table tk:name="AGR_HIER_BOR" tk:isStringTable="false">
+      <tk:keyField tk:name="MANDT" tk:type="C" tk:length="3" tk:offset="0" tk:postion="1" tk:label=""/>
+      <tk:keyField tk:name="AGR_NAME" tk:type="C" tk:length="30" tk:offset="3" tk:postion="2" tk:label=""/>
+      <tk:keyField tk:name="UNIQUE_NR" tk:type="I" tk:length="2" tk:offset="33" tk:postion="3" tk:label=""/>
+    </tk:table>
+  </tk:tables>
+</tk:objectKeys>

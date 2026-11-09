@@ -1,0 +1,50 @@
+{
+ "d": {
+  "results": [
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Pages('ZDEMO_STOCK')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Pages('ZDEMO_STOCK')",
+     "type": "PAGE_BUILDER_CUST.Page"
+    },
+    "id": "ZDEMO_STOCK",
+    "title": "STOCK",
+    "catalogId": "/UI2/FLPD_CATALOG",
+    "scope": "CUSTOMIZING"
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Pages('ZDEMO_INVENTORY')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Pages('ZDEMO_INVENTORY')",
+     "type": "PAGE_BUILDER_CUST.Page"
+    },
+    "id": "ZDEMO_INVENTORY",
+    "title": "Inventory (demo)",
+    "catalogId": "/UI2/FLPD_CATALOG",
+    "scope": "CUSTOMIZING"
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Pages('zdemo_sales_team')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Pages('zdemo_sales_team')",
+     "type": "PAGE_BUILDER_CUST.Page"
+    },
+    "id": "zdemo_sales_team",
+    "title": "Sales Force",
+    "catalogId": "/UI2/FLPD_CATALOG",
+    "scope": "CUSTOMIZING"
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Pages('SAP_TRAVEL_BCG_BUSINESSTRAVELL')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Pages('SAP_TRAVEL_BCG_BUSINESSTRAVELL')",
+     "type": "PAGE_BUILDER_CUST.Page"
+    },
+    "id": "SAP_TRAVEL_BCG_BUSINESSTRAVELL",
+    "title": "Traveler",
+    "catalogId": "/UI2/FLPD_CATALOG",
+    "scope": "CONFIGURATION"
+   }
+  ]
+ }
+}

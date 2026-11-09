@@ -1,0 +1,168 @@
+{
+ "d": {
+  "results": [
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('%2FUI2%2FFLPD_CATALOG')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('%2FUI2%2FFLPD_CATALOG')",
+     "type": "PAGE_BUILDER_CUST.Catalog"
+    },
+    "id": "/UI2/FLPD_CATALOG",
+    "type": "",
+    "domainId": "/UI2/FLPD_CATALOG",
+    "title": "Catalog for the Fiori Launchpad Designer",
+    "systemAlias": "",
+    "remoteId": "",
+    "isReadOnly": "",
+    "originalLanguage": "",
+    "scope": "",
+    "chipCount": "0000",
+    "outdated": ""
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3ATK11')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3ATK11')",
+     "type": "PAGE_BUILDER_CUST.Catalog"
+    },
+    "id": "X-SAP-UI2-CATALOGPAGE:TK11",
+    "type": "CATALOG_PAGE",
+    "domainId": "TK11",
+    "title": "Create Condition (Freight Costs)",
+    "systemAlias": "",
+    "remoteId": "",
+    "isReadOnly": "",
+    "originalLanguage": "pt",
+    "scope": "CUSTOMIZING",
+    "chipCount": "0002",
+    "outdated": ""
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT')",
+     "type": "PAGE_BUILDER_CUST.Catalog"
+    },
+    "id": "X-SAP-UI2-CATALOGPAGE:ZDEMO_CAT",
+    "type": "CATALOG_PAGE",
+    "domainId": "ZDEMO_CAT",
+    "title": "ZDEMO_CAT",
+    "systemAlias": "",
+    "remoteId": "",
+    "isReadOnly": "",
+    "originalLanguage": "pt",
+    "scope": "CUSTOMIZING",
+    "chipCount": "0002",
+    "outdated": ""
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3ASAP_PRC_BC_PRC_OVP')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3ASAP_PRC_BC_PRC_OVP')",
+     "type": "PAGE_BUILDER_CUST.Catalog"
+    },
+    "id": "X-SAP-UI2-CATALOGPAGE:SAP_PRC_BC_PRC_OVP",
+    "type": "CATALOG_PAGE",
+    "domainId": "SAP_PRC_BC_PRC_OVP",
+    "title": " Purchasing - Supply Overview Page",
+    "systemAlias": "",
+    "remoteId": "",
+    "isReadOnly": "",
+    "originalLanguage": "pt",
+    "scope": "CUSTOMIZING",
+    "chipCount": "0005",
+    "outdated": ""
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3ACaf%C3%A9')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3ACaf%C3%A9')",
+     "type": "PAGE_BUILDER_CUST.Catalog"
+    },
+    "id": "X-SAP-UI2-CATALOGPAGE:Café",
+    "type": "CATALOG_PAGE",
+    "domainId": "Café",
+    "title": "ZDEMO_TCODE",
+    "systemAlias": "",
+    "remoteId": "",
+    "isReadOnly": "",
+    "originalLanguage": "pt",
+    "scope": "CUSTOMIZING",
+    "chipCount": "0002",
+    "outdated": ""
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3AZDEMO_TC_CO_APPS')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3AZDEMO_TC_CO_APPS')",
+     "type": "PAGE_BUILDER_CUST.Catalog"
+    },
+    "id": "X-SAP-UI2-CATALOGPAGE:ZDEMO_TC_CO_APPS",
+    "type": "CATALOG_PAGE",
+    "domainId": "ZDEMO_TC_CO_APPS",
+    "title": "Display Line Items - Actual",
+    "systemAlias": "",
+    "remoteId": "",
+    "isReadOnly": "X",
+    "originalLanguage": "pt",
+    "scope": "CONFIGURATION",
+    "chipCount": "0002",
+    "outdated": ""
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3ASAP_SFIN_BC_AA_UPA_MDAT%E2%80%8B')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3ASAP_SFIN_BC_AA_UPA_MDAT%E2%80%8B')",
+     "type": "PAGE_BUILDER_CUST.Catalog"
+    },
+    "id": "X-SAP-UI2-CATALOGPAGE:SAP_SFIN_BC_AA_UPA_MDAT​",
+    "type": "CATALOG_PAGE",
+    "domainId": "SAP_SFIN_BC_AA_UPA_MDAT​",
+    "title": "Asset Accounting (CPU) - Master Data",
+    "systemAlias": "",
+    "remoteId": "",
+    "isReadOnly": "",
+    "originalLanguage": "en",
+    "scope": "CONFIGURATION",
+    "chipCount": "0008",
+    "outdated": ""
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3ASAP_TC_FLP_COMMON')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3ASAP_TC_FLP_COMMON')",
+     "type": "PAGE_BUILDER_CUST.Catalog"
+    },
+    "id": "X-SAP-UI2-CATALOGPAGE:SAP_TC_FLP_COMMON",
+    "type": "CATALOG_PAGE",
+    "domainId": "SAP_TC_FLP_COMMON",
+    "title": "SAP Fiori Launchpad: SAP Fiori Apps",
+    "systemAlias": "",
+    "remoteId": "",
+    "isReadOnly": "X",
+    "originalLanguage": "en",
+    "scope": "CONFIGURATION",
+    "chipCount": "0027",
+    "outdated": ""
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3ASAP_TC_WDA')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Catalogs('X-SAP-UI2-CATALOGPAGE%3ASAP_TC_WDA')",
+     "type": "PAGE_BUILDER_CUST.Catalog"
+    },
+    "id": "X-SAP-UI2-CATALOGPAGE:SAP_TC_WDA",
+    "type": "CATALOG_PAGE",
+    "domainId": "SAP_TC_WDA",
+    "title": "SAP Web Dynpro: Fiori Apps",
+    "systemAlias": "",
+    "remoteId": "",
+    "isReadOnly": "X",
+    "originalLanguage": "en",
+    "scope": "CONFIGURATION",
+    "chipCount": "0001",
+    "outdated": ""
+   }
+  ]
+ }
+}

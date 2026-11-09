@@ -1,0 +1,101 @@
+// Annotation definitions in the DDLA form the system returns (ADT annotationDefinitions()),
+// for the keys the value-help tests reason about: every Consumption.valueHelp* key and the
+// ObjectModel / Search keys the tiering depends on. Scope and API state as S/4HANA 2023
+// declares them. Annotation metadata, not program source.
+
+annotation Consumption {
+  @Scope:[#ELEMENT, #PARAMETER]
+  @API.state: [#RELEASED_FOR_KEY_USER_APPS]
+  valueHelp : ElementRef;
+  valueHelpDefault : {
+    binding : {
+      @Scope:[#ELEMENT]
+      @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+      usage : String(30) enum { FILTER; FILTER_AND_RESULT; RESULT; };
+    };
+    @Scope:[#ELEMENT]
+    @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+    display : Boolean default true;
+    @Scope:[#ENTITY]
+    @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+    fetchValues : String(30) enum { AUTOMATICALLY_WHEN_DISPLAYED; ON_EXPLICIT_REQUEST; };
+    @Scope:[#ELEMENT]
+    @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+    initialValueIsSignificant : Boolean default true;
+  };
+  valueHelpDefinition : array of {
+    additionalBinding : array of {
+      @Scope:[#ELEMENT, #PARAMETER]
+      @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+      element : String(40);
+      @Scope:[#ELEMENT, #PARAMETER]
+      @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+      localConstant : String(255);
+      @Scope:[#ELEMENT, #PARAMETER]
+      @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+      localElement : ElementRef;
+      @Scope:[#ELEMENT, #PARAMETER]
+      @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+      localParameter : ParameterRef;
+      @Scope:[#ELEMENT, #PARAMETER]
+      @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+      parameter : String(40);
+      @Scope:[#ELEMENT, #PARAMETER]
+      @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+      usage : String(30) enum { FILTER; FILTER_AND_RESULT; RESULT; };
+    };
+    @Scope:[#ELEMENT, #PARAMETER]
+    @API.state: []
+    association : AssociationRef;
+    @Scope:[#ELEMENT, #PARAMETER]
+    @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+    distinctValues : Boolean default true;
+    @Scope:[#ELEMENT, #PARAMETER]
+    @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+    enabled : ElementRef;
+    entity : {
+      @Scope:[#ELEMENT, #PARAMETER]
+      @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+      element : String(40);
+      @Scope:[#ELEMENT, #ENTITY, #PARAMETER]
+      @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+      name : EntityRef;
+    };
+    @Scope:[#ELEMENT, #PARAMETER]
+    @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+    label : String(60);
+    @Scope:[#ELEMENT, #PARAMETER]
+    @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+    presentationVariantQualifier : String(120);
+    @Scope:[#ELEMENT, #PARAMETER]
+    @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+    qualifier : String(120);
+    @Scope:[#ELEMENT, #PARAMETER]
+    @API.state: []
+    selectionVariantQualifier : String(120);
+    @Scope:[#ELEMENT, #PARAMETER]
+    @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+    useForValidation : Boolean default true;
+  };
+};
+
+annotation ObjectModel {
+  @Scope:[#ENTITY, #TABLE_FUNCTION]
+  @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+  dataCategory : String(30) enum { HIERARCHY; TEXT; VALUE_HELP; };
+  @Scope:[#ENTITY]
+  @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+  modelingPattern : String(60) enum { ANALYTICAL_CUBE; ANALYTICAL_DIMENSION; ANALYTICAL_FACT; ANALYTICAL_KPI; ANALYTICAL_PARENT_CHILD_HIERARCHY_NODE; ANALYTICAL_QUERY; COLLECTIVE_VALUE_HELP; DATA_STRUCTURE; DERIVATION_FUNCTION; ENTERPRISE_SEARCH_PROVIDER; LANGUAGE_DEPENDENT_TEXT; NONE; OUTPUT_EMAIL_DATA_PROVIDER; OUTPUT_FORM_DATA_PROVIDER; OUTPUT_PARAMETER_DETERMINATION_DATA_SOURCE; PARENT_CHILD_HIERARCHY_NODE_PROVIDER; SITUATION_ANCHOR; SITUATION_DATACONTEXT; SITUATION_TRIGGER; TRANSACTIONAL_ENTITY; TRANSACTIONAL_INTERFACE; TRANSACTIONAL_PROJECTED_ENTITY; TRANSACTIONAL_QUERY; VALUE_HELP_PROVIDER; };
+  @Scope:[#ENTITY, #TABLE_FUNCTION]
+  @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+  representativeKey : KeyElementRef;
+  @Scope:[#ENTITY]
+  @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+  supportedCapabilities : array of String(60) enum { ANALYTICAL_DIMENSION; ANALYTICAL_KPI; ANALYTICAL_PARENT_CHILD_HIERARCHY_NODE; ANALYTICAL_PROVIDER; ANALYTICAL_QUERY; CDS_MODELING_ASSOCIATION_TARGET; CDS_MODELING_DATA_SOURCE; COLLECTIVE_VALUE_HELP; DATA_STRUCTURE; DERIVATION_FUNCTION; ENTERPRISE_SEARCH_PROVIDER; EXTRACTION_DATA_SOURCE; KEY_USER_COPYING_TEMPLATE; LANGUAGE_DEPENDENT_TEXT; OUTPUT_EMAIL_DATA_PROVIDER; OUTPUT_FORM_DATA_PROVIDER; OUTPUT_PARAMETER_DETERMINATION_DATA_SOURCE; PARENT_CHILD_HIERARCHY_NODE_PROVIDER; SEARCHABLE_ENTITY; SITUATION_ANCHOR; SITUATION_DATACONTEXT; SITUATION_TRIGGER; SQL_DATA_SOURCE; TRANSACTIONAL_PROVIDER; VALUE_HELP_PROVIDER; };
+};
+
+annotation Search {
+  @Scope:[#ENTITY]
+  @API.state: [#RELEASED_FOR_KEY_USER_APPS, #RELEASED_FOR_SAP_CLOUD_PLATFORM]
+  searchable : Boolean default true;
+};

@@ -1,0 +1,19 @@
+// Synthetic. The correct case: the 4 own value helps AND the standard I_CompanyCodeVH, all aliased.
+@EndUserText.label: 'Demo Employee - Service Definition UI'
+define service ZDEMO_EMPLOYEE_UI {
+  expose ZC_DemoEmployee          as DemoEmployee;
+  expose ZI_DemoEmployeeBPCheck   as DemoBpCheck;
+  expose ZI_DemoBpBank            as DemoBpBank;
+  expose ZI_DemoBpCustomerCompany as DemoBpCustomerCompany;
+  expose ZI_DemoBpSupplierCompany as DemoBpSupplierCompany;
+  expose ZI_DemoBpRole            as DemoBpRole;
+  expose ZI_DemoBpTaxNumber       as DemoBpTaxNumber;
+  expose ZI_DemoRosterStatus       as DemoRosterStatus;
+  expose ZC_DemoRosterMonitor      as DemoRosterMonitor;
+  expose ZC_DemoRosterLog          as DemoRosterLog;
+  expose ZI_DemoRosterTaxIdVH        as DemoRosterTaxNoVH;
+  expose ZI_DemoRosterSystemVH     as DemoRosterSystemVH;
+  expose ZI_DemoRosterStatusVH     as DemoRosterStatusVH;
+  expose ZI_DemoRosterSiteVH      as DemoRosterBranchVH;
+  expose I_CompanyCodeVH         as CompanyCodeVH;
+}

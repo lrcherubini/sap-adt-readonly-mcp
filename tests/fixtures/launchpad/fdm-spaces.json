@@ -1,0 +1,39 @@
+{
+ "d": {
+  "results": [
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/spacesMasterSet('SAP_BASIS_SP_UI_FLP')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/spacesMasterSet('SAP_BASIS_SP_UI_FLP')",
+     "type": ".UI2.FDM_SPACE_REPOSITORY_SRV.SpacesMaster",
+     "etag": "W/\"datetime'2020-05-15T15%3A56%3A18'\""
+    },
+    "id": "SAP_BASIS_SP_UI_FLP",
+    "title": "SAP Fiori Launchpad",
+    "description": "SAP Fiori Launchpad"
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/spacesMasterSet('SAP_BASIS_SP_UI_MYHOME')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/spacesMasterSet('SAP_BASIS_SP_UI_MYHOME')",
+     "type": ".UI2.FDM_SPACE_REPOSITORY_SRV.SpacesMaster",
+     "etag": "W/\"datetime'2021-03-22T08%3A50%3A21'\""
+    },
+    "id": "SAP_BASIS_SP_UI_MYHOME",
+    "title": "My Home",
+    "description": "SAP Fiori Launchpad - My Home"
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/spacesMasterSet('SAP_BASIS_SP_UI_WDR')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/spacesMasterSet('SAP_BASIS_SP_UI_WDR')",
+     "type": ".UI2.FDM_SPACE_REPOSITORY_SRV.SpacesMaster",
+     "etag": "W/\"datetime'2022-03-07T14%3A00%3A27'\""
+    },
+    "id": "SAP_BASIS_SP_UI_WDR",
+    "title": "",
+    "description": ""
+   }
+  ]
+ }
+}

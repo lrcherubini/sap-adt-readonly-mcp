@@ -1,0 +1,113 @@
+{
+ "formatVersion": "2",
+ "objectReleaseInfo": [
+  {
+   "tadirObject": "TABL",
+   "tadirObjName": "MARA",
+   "objectType": "TABL",
+   "objectKey": "MARA",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "LO-MD-MM",
+   "state": "notToBeReleased",
+   "successorClassification": "multipleObjects",
+   "successors": [
+    {
+     "tadirObject": "DDLS",
+     "tadirObjName": "I_PRODUCT",
+     "objectType": "CDS_STOB",
+     "objectKey": "I_PRODUCT"
+    },
+    {
+     "tadirObject": "DDLS",
+     "tadirObjName": "I_PRODUCTQM",
+     "objectType": "CDS_STOB",
+     "objectKey": "I_PRODUCTQM"
+    },
+    {
+     "tadirObject": "DDLS",
+     "tadirObjName": "I_PRODUCTSALES",
+     "objectType": "CDS_STOB",
+     "objectKey": "I_PRODUCTSALES"
+    },
+    {
+     "tadirObject": "DDLS",
+     "tadirObjName": "I_PRODUCTSTORAGE_2",
+     "objectType": "CDS_STOB",
+     "objectKey": "I_PRODUCTSTORAGE_2"
+    },
+    {
+     "tadirObject": "DDLS",
+     "tadirObjName": "I_PRODUCTPROCUREMENT",
+     "objectType": "CDS_STOB",
+     "objectKey": "I_PRODUCTPROCUREMENT"
+    }
+   ]
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_PRODUCT",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_PRODUCT",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "LO-MD-MM",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_ADDRESS_2",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_ADDRESS_2",
+   "softwareComponent": "SAP_BASIS",
+   "applicationComponent": "BC-SRV-ADR",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "C_BILLGDOCITMPRCGELMNTBSCDEX",
+   "objectType": "CDS_STOB",
+   "objectKey": "C_BILLGDOCITMPRCGELMNTBSCDEX",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "SD-ANA",
+   "state": "deprecated",
+   "successorClassification": "oneObject",
+   "successors": [
+    {
+     "tadirObject": "DDLS",
+     "tadirObjName": "C_BILLGDOCITMPRCGELMNTBSCDEX_1",
+     "objectType": "CDS_STOB",
+     "objectKey": "C_BILLGDOCITMPRCGELMNTBSCDEX_1"
+    }
+   ]
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "ABP_BEHV_DRAFT_USER_ACCESS",
+   "objectType": "CDS_STOB",
+   "objectKey": "ABP_BEHV_DRAFT_USER_ACCESS",
+   "softwareComponent": "SAP_BASIS",
+   "applicationComponent": "BC-ABA-LA",
+   "state": "notToBeReleasedStable",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "ENHS",
+   "tadirObjName": "ES_SRF_RPG_ACTIVITY",
+   "objectType": "BADI_DEF",
+   "objectKey": "SRF_RPG_ACT_ON_CREATE",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "FI-LOC-SRF-RUN",
+   "state": "deprecated",
+   "successorClassification": "oneObject",
+   "successors": [
+    {
+     "tadirObject": "ENHS",
+     "tadirObjName": "ES_SRF_RPG_ACTIVITY",
+     "objectType": "BADI_DEF",
+     "objectKey": "SRF_RPG_ACT_ON_CREATE_V2"
+    }
+   ]
+  }
+ ]
+}

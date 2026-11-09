@@ -1,0 +1,22 @@
+// Excerpt of the SAP-standard source I_BillingDocument (an exported standard source): two standard edges, one behind a GENERATED marker and
+// both followed by a further annotation before the element. Evidence of what SAP DID,
+// never a rule.
+      BillingDocumentDate,
+      BillingDocumentIsCancelled,
+      //--[ GENERATED:012:GlBfhyJl7kY4ufKHo3jjFG
+      @Consumption.valueHelpDefinition: [ 
+        { entity:  { name:    'I_BillingDocumentStdVH',
+                     element: 'BillingDocument' }
+        }]
+      // ]--GENERATED
+      @ObjectModel.foreignKey.association: '_CancelledBillingDocument'
+      CancelledBillingDocument,
+      IncotermsLocation2,
+
+      //payment
+      @Consumption.valueHelpDefinition: [ 
+        { entity:  { name:    'I_Customer_VH',
+                     element: 'Customer' }
+        }]
+      @ObjectModel.foreignKey.association: '_PayerParty'
+      PayerParty,

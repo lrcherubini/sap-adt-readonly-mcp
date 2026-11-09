@@ -1,0 +1,274 @@
+{
+ "d": {
+  "__metadata": {
+   "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Pages('X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT')",
+   "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Pages('X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT')",
+   "type": "PAGE_BUILDER_CUST.Page"
+  },
+  "id": "X-SAP-UI2-CATALOGPAGE:ZDEMO_CAT",
+  "title": "ZDEMO_CAT",
+  "catalogId": "",
+  "layout": "",
+  "originalLanguage": "pt",
+  "isCatalogPage": "X",
+  "chipInstanceCount": "0002",
+  "isPersLocked": "",
+  "isReadOnly": "",
+  "scope": "CUSTOMIZING",
+  "updated": "/Date(1587055859000)/",
+  "outdated": "",
+  "Catalog": {
+   "__deferred": {
+    "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Pages('X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT')/Catalog"
+   }
+  },
+  "allCatalogs": {
+   "__deferred": {
+    "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Pages('X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT')/allCatalogs"
+   }
+  },
+  "PageChipInstances": {
+   "results": [
+    {
+     "__metadata": {
+      "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/PageChipInstances(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE8GXSHV827')",
+      "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/PageChipInstances(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE8GXSHV827')",
+      "type": "PAGE_BUILDER_CUST.PageChipInstance"
+     },
+     "pageId": "X-SAP-UI2-CATALOGPAGE:ZDEMO_CAT",
+     "instanceId": "006O07P9K7QK8FXE8GXSHV827",
+     "chipId": "X-SAP-UI2-CHIP:/UI2/ACTION",
+     "title": "Display Sales Quotations - VA23",
+     "configuration": "{\"tileConfiguration\":\"{\\\"semantic_object\\\":\\\"SalesQuotation\\\",\\\"semantic_action\\\":\\\"display\\\",\\\"navigation_provider\\\":\\\"TR\\\",\\\"navigation_provider_role\\\":\\\"\\\",\\\"navigation_provider_instance\\\":\\\"\\\",\\\"target_application_alias\\\":\\\"\\\",\\\"target_application_id\\\":\\\"\\\",\\\"display_info_text\\\":\\\"\\\",\\\"display_title_text\\\":\\\"Display Sales Quotations - VA23\\\",\\\"mapping_signature\\\":\\\"[]&[DynproOKCode=ENT2]&[DynproNoFirstScreen=1]&[sap-ach=SD-SLS]\\\",\\\"signature\\\":{\\\"additional_parameters\\\":\\\"ignored\\\",\\\"parameters\\\":{\\\"SalesQuotation\\\":{\\\"required\\\":false,\\\"rename_to\\\":\\\"VBAK-VBELN\\\",\\\"defaultValue\\\":{\\\"value\\\":\\\"\\\",\\\"format\\\":\\\"\\\"},\\\"filter\\\":{\\\"value\\\":\\\"\\\",\\\"format\\\":\\\"\\\"}},\\\"DynproOKCode\\\":{\\\"required\\\":false,\\\"rename_to\\\":\\\"DYNP_OKCODE\\\",\\\"defaultValue\\\":{\\\"value\\\":\\\"ENT2\\\",\\\"format\\\":\\\"plain\\\"},\\\"filter\\\":{\\\"value\\\":\\\"\\\",\\\"format\\\":\\\"\\\"}},\\\"DynproNoFirstScreen\\\":{\\\"required\\\":false,\\\"rename_to\\\":\\\"DYNP_NO1ST\\\",\\\"defaultValue\\\":{\\\"value\\\":\\\"1\\\",\\\"format\\\":\\\"plain\\\"},\\\"filter\\\":{\\\"value\\\":\\\"\\\",\\\"format\\\":\\\"\\\"}},\\\"sap-ach\\\":{\\\"required\\\":false,\\\"rename_to\\\":\\\"\\\",\\\"defaultValue\\\":{\\\"value\\\":\\\"SD-SLS\\\",\\\"format\\\":\\\"plain\\\"},\\\"filter\\\":{\\\"value\\\":\\\"\\\",\\\"format\\\":\\\"\\\"}}}},\\\"url\\\":\\\"\\\",\\\"url_template\\\":{\\\"id\\\":\\\"\\\",\\\"parameters\\\":{}},\\\"ui5_component\\\":\\\"\\\",\\\"form_factors\\\":{\\\"app_default\\\":false,\\\"manual\\\":{\\\"desktop\\\":true,\\\"tablet\\\":true,\\\"phone\\\":false}},\\\"transaction\\\":{\\\"code\\\":\\\"VA23\\\"},\\\"web_dynpro\\\":{\\\"application\\\":\\\"\\\",\\\"configuration\\\":\\\"\\\",\\\"compatibility_needs_epcm\\\":\\\"\\\"},\\\"wcf\\\":{\\\"application_id\\\":\\\"\\\"},\\\"target_system_alias\\\":\\\"S4SD\\\"}\"}",
+     "layoutData": "",
+     "remoteCatalogId": "",
+     "referencePageId": "X-SAP-UI2-ADCAT:SAP_TC_CEC_SD_BE_APPS:S4SD",
+     "referenceChipInstanceId": "FA163EDF73161ED59DEC2783E12BD309_TM",
+     "isReadOnly": "",
+     "scope": "CONFIGURATION",
+     "updated": "/Date(1643091932000)/",
+     "outdated": "",
+     "Chip": {
+      "__metadata": {
+       "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Chips('X-SAP-UI2-CHIP%3A%2FUI2%2FACTION')",
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Chips('X-SAP-UI2-CHIP%3A%2FUI2%2FACTION')",
+       "type": "PAGE_BUILDER_CUST.Chip"
+      },
+      "id": "X-SAP-UI2-CHIP:/UI2/ACTION",
+      "title": "Target Mapping",
+      "description": "Indicates the intent to launch an application",
+      "configuration": "",
+      "url": "/sap/bc/ui5_ui5/ui2/ushell/chips/action.chip.xml",
+      "baseChipId": "X-SAP-UI2-CHIP:/UI2/ACTION",
+      "catalogId": "/UI2/CATALOG_ALL",
+      "catalogPageChipInstanceId": "",
+      "referenceChipId": "",
+      "isReadOnly": "",
+      "Catalog": {
+       "__deferred": {
+        "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Chips('X-SAP-UI2-CHIP%3A%2FUI2%2FACTION')/Catalog"
+       }
+      },
+      "ReferenceChip": {
+       "__deferred": {
+        "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Chips('X-SAP-UI2-CHIP%3A%2FUI2%2FACTION')/ReferenceChip"
+       }
+      },
+      "ChipBags": {
+       "__deferred": {
+        "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Chips('X-SAP-UI2-CHIP%3A%2FUI2%2FACTION')/ChipBags"
+       }
+      },
+      "CatalogPageChipInstance": {
+       "__deferred": {
+        "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Chips('X-SAP-UI2-CHIP%3A%2FUI2%2FACTION')/CatalogPageChipInstance"
+       }
+      }
+     },
+     "ReferenceChip": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/PageChipInstances(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE8GXSHV827')/ReferenceChip"
+      }
+     },
+     "RemoteCatalog": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/PageChipInstances(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE8GXSHV827')/RemoteCatalog"
+      }
+     },
+     "ReferenceChipInstance": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/PageChipInstances(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE8GXSHV827')/ReferenceChipInstance"
+      }
+     },
+     "ChipInstanceBags": {
+      "results": [
+       {
+        "__metadata": {
+         "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/ChipInstanceBags(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE8GXSHV827',id='tileProperties')",
+         "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/ChipInstanceBags(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE8GXSHV827',id='tileProperties')",
+         "type": "PAGE_BUILDER_CUST.ChipInstanceBag"
+        },
+        "pageId": "X-SAP-UI2-CATALOGPAGE:ZDEMO_CAT",
+        "instanceId": "006O07P9K7QK8FXE8GXSHV827",
+        "id": "tileProperties",
+        "scope": "CUSTOMIZING",
+        "ChipInstanceProperties": {
+         "results": [
+          {
+           "__metadata": {
+            "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/ChipInstanceProperties(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE8GXSHV827',bagId='tileProperties',name='display_title_text')",
+            "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/ChipInstanceProperties(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE8GXSHV827',bagId='tileProperties',name='display_title_text')",
+            "type": "PAGE_BUILDER_CUST.ChipInstanceProperty"
+           },
+           "pageId": "X-SAP-UI2-CATALOGPAGE:ZDEMO_CAT",
+           "instanceId": "006O07P9K7QK8FXE8GXSHV827",
+           "bagId": "tileProperties",
+           "name": "display_title_text",
+           "value": "Display Sales Quotations - VA23",
+           "translatable": "X"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    },
+    {
+     "__metadata": {
+      "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/PageChipInstances(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE83DXV81AL')",
+      "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/PageChipInstances(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE83DXV81AL')",
+      "type": "PAGE_BUILDER_CUST.PageChipInstance"
+     },
+     "pageId": "X-SAP-UI2-CATALOGPAGE:ZDEMO_CAT",
+     "instanceId": "006O07P9K7QK8FXE83DXV81AL",
+     "chipId": "X-SAP-UI2-CHIP:/UI2/STATIC_APPLAUNCHER",
+     "title": "Display Sales Quotations",
+     "configuration": "{\"tileConfiguration\":\"{\\\"display_icon_url\\\":\\\"\\\",\\\"display_info_text\\\":\\\"\\\",\\\"display_title_text\\\":\\\"Display Sales Quotations\\\",\\\"display_subtitle_text\\\":\\\"VA23\\\",\\\"navigation_use_semantic_object\\\":true,\\\"navigation_target_url\\\":\\\"#SalesQuotation-display?sap-ui-tech-hint=GUI\\\",\\\"navigation_semantic_object\\\":\\\"SalesQuotation\\\",\\\"navigation_semantic_action\\\":\\\"display\\\",\\\"navigation_semantic_parameters\\\":\\\"sap-ui-tech-hint=GUI\\\",\\\"display_search_keywords\\\":\\\"VA23\\\",\\\"display_number_unit\\\":\\\"\\\",\\\"service_url\\\":\\\"\\\",\\\"service_refresh_interval\\\":0}\"}",
+     "layoutData": "",
+     "remoteCatalogId": "",
+     "referencePageId": "X-SAP-UI2-ADCAT:SAP_TC_CEC_SD_BE_APPS:S4SD",
+     "referenceChipInstanceId": "FA163EDF73161ED59DEC2783E12BD309_AL",
+     "isReadOnly": "",
+     "scope": "CONFIGURATION",
+     "updated": "/Date(1643091932000)/",
+     "outdated": "",
+     "Chip": {
+      "__metadata": {
+       "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Chips('X-SAP-UI2-CHIP%3A%2FUI2%2FSTATIC_APPLAUNCHER')",
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Chips('X-SAP-UI2-CHIP%3A%2FUI2%2FSTATIC_APPLAUNCHER')",
+       "type": "PAGE_BUILDER_CUST.Chip"
+      },
+      "id": "X-SAP-UI2-CHIP:/UI2/STATIC_APPLAUNCHER",
+      "title": "App Launcher - Static",
+      "description": "Displays configurable static texts and icons",
+      "configuration": "",
+      "url": "/sap/bc/ui5_ui5/ui2/ushell/chips/applauncher.chip.xml",
+      "baseChipId": "X-SAP-UI2-CHIP:/UI2/STATIC_APPLAUNCHER",
+      "catalogId": "/UI2/CATALOG_ALL",
+      "catalogPageChipInstanceId": "",
+      "referenceChipId": "",
+      "isReadOnly": "",
+      "Catalog": {
+       "__deferred": {
+        "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Chips('X-SAP-UI2-CHIP%3A%2FUI2%2FSTATIC_APPLAUNCHER')/Catalog"
+       }
+      },
+      "ReferenceChip": {
+       "__deferred": {
+        "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Chips('X-SAP-UI2-CHIP%3A%2FUI2%2FSTATIC_APPLAUNCHER')/ReferenceChip"
+       }
+      },
+      "ChipBags": {
+       "__deferred": {
+        "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Chips('X-SAP-UI2-CHIP%3A%2FUI2%2FSTATIC_APPLAUNCHER')/ChipBags"
+       }
+      },
+      "CatalogPageChipInstance": {
+       "__deferred": {
+        "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Chips('X-SAP-UI2-CHIP%3A%2FUI2%2FSTATIC_APPLAUNCHER')/CatalogPageChipInstance"
+       }
+      }
+     },
+     "ReferenceChip": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/PageChipInstances(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE83DXV81AL')/ReferenceChip"
+      }
+     },
+     "RemoteCatalog": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/PageChipInstances(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE83DXV81AL')/RemoteCatalog"
+      }
+     },
+     "ReferenceChipInstance": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/PageChipInstances(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE83DXV81AL')/ReferenceChipInstance"
+      }
+     },
+     "ChipInstanceBags": {
+      "results": [
+       {
+        "__metadata": {
+         "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/ChipInstanceBags(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE83DXV81AL',id='tileProperties')",
+         "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/ChipInstanceBags(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE83DXV81AL',id='tileProperties')",
+         "type": "PAGE_BUILDER_CUST.ChipInstanceBag"
+        },
+        "pageId": "X-SAP-UI2-CATALOGPAGE:ZDEMO_CAT",
+        "instanceId": "006O07P9K7QK8FXE83DXV81AL",
+        "id": "tileProperties",
+        "scope": "CUSTOMIZING",
+        "ChipInstanceProperties": {
+         "results": [
+          {
+           "__metadata": {
+            "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/ChipInstanceProperties(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE83DXV81AL',bagId='tileProperties',name='display_search_keywords')",
+            "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/ChipInstanceProperties(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE83DXV81AL',bagId='tileProperties',name='display_search_keywords')",
+            "type": "PAGE_BUILDER_CUST.ChipInstanceProperty"
+           },
+           "pageId": "X-SAP-UI2-CATALOGPAGE:ZDEMO_CAT",
+           "instanceId": "006O07P9K7QK8FXE83DXV81AL",
+           "bagId": "tileProperties",
+           "name": "display_search_keywords",
+           "value": "VA23",
+           "translatable": "X"
+          },
+          {
+           "__metadata": {
+            "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/ChipInstanceProperties(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE83DXV81AL',bagId='tileProperties',name='display_subtitle_text')",
+            "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/ChipInstanceProperties(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE83DXV81AL',bagId='tileProperties',name='display_subtitle_text')",
+            "type": "PAGE_BUILDER_CUST.ChipInstanceProperty"
+           },
+           "pageId": "X-SAP-UI2-CATALOGPAGE:ZDEMO_CAT",
+           "instanceId": "006O07P9K7QK8FXE83DXV81AL",
+           "bagId": "tileProperties",
+           "name": "display_subtitle_text",
+           "value": "VA23",
+           "translatable": "X"
+          },
+          {
+           "__metadata": {
+            "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/ChipInstanceProperties(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE83DXV81AL',bagId='tileProperties',name='display_title_text')",
+            "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/ChipInstanceProperties(pageId='X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT',instanceId='006O07P9K7QK8FXE83DXV81AL',bagId='tileProperties',name='display_title_text')",
+            "type": "PAGE_BUILDER_CUST.ChipInstanceProperty"
+           },
+           "pageId": "X-SAP-UI2-CATALOGPAGE:ZDEMO_CAT",
+           "instanceId": "006O07P9K7QK8FXE83DXV81AL",
+           "bagId": "tileProperties",
+           "name": "display_title_text",
+           "value": "Display Sales Quotations",
+           "translatable": "X"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ]
+  },
+  "Bags": {
+   "__deferred": {
+    "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/PAGE_BUILDER_CUST/Pages('X-SAP-UI2-CATALOGPAGE%3AZDEMO_CAT')/Bags"
+   }
+  }
+ }
+}

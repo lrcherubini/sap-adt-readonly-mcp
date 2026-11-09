@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  REBUILT, not pasted. The shape of DEVK900110 -- a RELEASED workbench request -- reduced
+  in size but not in structure, and it is the fixture that carries three facts the
+  customizing one cannot:
+
+    * CORR/RELE and CORR/MERG pseudo-entries in the request's own list. They are release
+      and merge COMMENTS, not objects, and the system's own tm:all_objects drops them:
+      measured, own 78 minus 3 CORR = 75 = tm:all_objects, with the tasks contributing
+      only duplicates. Here the same arithmetic at 7 - 2 = 5.
+    * tm:attributes, stamped at export. 97 SAPCOMPONENT rows in each released request
+      measured; two are enough to prove they are dropped.
+    * a workbench request (tm:type="K") carrying a TABU entry. The two halves are a
+      property of the REQUEST, never of its objects.
+-->
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" xmlns:adtcore="http://www.sap.com/adt/core"
+  xmlns:atom="http://www.w3.org/2005/Atom" adtcore:name="DEVK900110" adtcore:type="RQRQ"
+  tm:object_type="R" adtcore:changedAt="2026-09-02T11:04:55Z" adtcore:changedBy="DEVUSER1"
+  adtcore:createdBy="DEVUSER1">
+  <atom:link href="/sap/bc/adt/cts/transportrequests/DEVK900110" rel="self" type="application/vnd.sap.adt.transportorganizer.v1+xml"/>
+  <tm:request tm:number="DEVK900110" tm:parent="" tm:owner="DEVUSER1"
+    tm:desc="Sample delivery" tm:type="K" tm:status="R" tm:status_text="Released"
+    tm:target="QAS" tm:target_desc="Quality" tm:cts_project="" tm:cts_project_desc=""
+    tm:source_client="001" tm:lastchanged_timestamp="20260902110455"
+    tm:uri="/sap/bc/adt/cts/transportrequests/DEVK900110">
+    <tm:long_desc/>
+    <atom:link href="/sap/bc/adt/cts/transportrequests/DEVK900110" rel="self" type="application/vnd.sap.adt.transportorganizer.v1+xml"/>
+    <tm:attributes tm:attribute="SAPCOMPONENT" tm:description="Software component" tm:value="CLOUDLM,101,0027" tm:position="000001"/>
+    <tm:attributes tm:attribute="EXPORT_TIMESTAMP" tm:description="Export timestamp" tm:value="20260902110455" tm:position="000002"/>
+    <tm:abap_object tm:pgmid="R3TR" tm:type="CLAS" tm:name="ZCL_DEMO_ONE" tm:position="000001"
+      tm:wbtype="CLAS/OC" tm:obj_desc="Sample class" tm:obj_info="Class (ABAP class development)"
+      tm:lock_status="" tm:img_activity=""
+      tm:dummy_uri="/sap/bc/adt/cts/transportrequests/reference?obj_name=ZCL_DEMO_ONE&amp;obj_wbtype=CLAS&amp;pgmid=R3TR"/>
+    <tm:abap_object tm:pgmid="R3TR" tm:type="DDLS" tm:name="ZI_DEMO_VIEW" tm:position="000002"
+      tm:wbtype="DDLS/DF" tm:obj_desc="Sample view" tm:obj_info="Data definition language source"
+      tm:lock_status="" tm:img_activity=""
+      tm:dummy_uri="/sap/bc/adt/cts/transportrequests/reference?obj_name=ZI_DEMO_VIEW&amp;obj_wbtype=DDLS&amp;pgmid=R3TR"/>
+    <tm:abap_object tm:pgmid="R3TR" tm:type="DOMA" tm:name="ZDO_DEMO" tm:position="000003"
+      tm:wbtype="DOMA/DD" tm:obj_desc="Sample domain" tm:obj_func="D" tm:obj_info="Domain"
+      tm:lock_status="" tm:img_activity=""
+      tm:dummy_uri="/sap/bc/adt/cts/transportrequests/reference?obj_name=ZDO_DEMO&amp;obj_wbtype=DOMA&amp;pgmid=R3TR"/>
+    <tm:abap_object tm:pgmid="R3TR" tm:type="TABU" tm:name="ZDEMO_CUST" tm:position="000004"
+      tm:obj_func="K" tm:obj_info="Table contents" tm:lock_status="" tm:img_activity=""
+      tm:dummy_uri="/sap/bc/adt/cts/transportrequests/reference?obj_name=ZDEMO_CUST&amp;obj_wbtype=TABU&amp;pgmid=R3TR"/>
+    <tm:abap_object tm:pgmid="LIMU" tm:type="METH" tm:name="ZCL_DEMO_ONE                  RUN"
+      tm:position="000005" tm:wbtype="METH/OM" tm:obj_desc="Method" tm:obj_func="D"
+      tm:obj_info="Method" tm:lock_status="" tm:img_activity=""
+      tm:dummy_uri="/sap/bc/adt/cts/transportrequests/reference?obj_name=ZCL_DEMO_ONE&amp;obj_wbtype=METH&amp;pgmid=LIMU"/>
+    <tm:abap_object tm:pgmid="CORR" tm:type="RELE" tm:name="DEVK900110" tm:position="000006"
+      tm:obj_info="Comment entry: release completed" tm:lock_status="" tm:img_activity=""/>
+    <tm:abap_object tm:pgmid="CORR" tm:type="MERG" tm:name="DEVK900111" tm:position="000007"
+      tm:obj_info="Comment entry: object list transferred" tm:lock_status="" tm:img_activity=""/>
+    <tm:all_objects>
+      <tm:abap_object tm:pgmid="R3TR" tm:type="CLAS" tm:name="ZCL_DEMO_ONE" tm:position="000001"
+        tm:wbtype="CLAS/OC" tm:obj_desc="Sample class" tm:obj_info="Class (ABAP class development)"
+        tm:lock_status="" tm:img_activity=""/>
+      <tm:abap_object tm:pgmid="R3TR" tm:type="DDLS" tm:name="ZI_DEMO_VIEW" tm:position="000002"
+        tm:wbtype="DDLS/DF" tm:obj_desc="Sample view" tm:obj_info="Data definition language source"
+        tm:lock_status="" tm:img_activity=""/>
+      <tm:abap_object tm:pgmid="R3TR" tm:type="DOMA" tm:name="ZDO_DEMO" tm:position="000003"
+        tm:wbtype="DOMA/DD" tm:obj_desc="Sample domain" tm:obj_func="D" tm:obj_info="Domain"
+        tm:lock_status="" tm:img_activity=""/>
+      <tm:abap_object tm:pgmid="R3TR" tm:type="TABU" tm:name="ZDEMO_CUST" tm:position="000004"
+        tm:obj_func="K" tm:obj_info="Table contents" tm:lock_status="" tm:img_activity=""/>
+      <tm:abap_object tm:pgmid="LIMU" tm:type="METH" tm:name="ZCL_DEMO_ONE                  RUN"
+        tm:position="000005" tm:wbtype="METH/OM" tm:obj_desc="Method" tm:obj_func="D"
+        tm:obj_info="Method" tm:lock_status="" tm:img_activity=""/>
+    </tm:all_objects>
+    <tm:task tm:number="DEVK900111" tm:parent="DEVK900110" tm:owner="DEVUSER2"
+      tm:desc="Sample delivery" tm:type="Development/Correction" tm:status="R"
+      tm:status_text="Released" tm:target="" tm:target_desc="" tm:cts_project=""
+      tm:cts_project_desc="" tm:source_client="001" tm:lastchanged_timestamp="20260902104012"
+      tm:uri="/sap/bc/adt/cts/transportrequests/DEVK900111">
+      <tm:long_desc/>
+      <tm:abap_object tm:pgmid="R3TR" tm:type="CLAS" tm:name="ZCL_DEMO_ONE" tm:position="000001"
+        tm:wbtype="CLAS/OC" tm:obj_desc="Sample class" tm:obj_info="Class (ABAP class development)"
+        tm:lock_status="" tm:img_activity=""/>
+      <tm:abap_object tm:pgmid="LIMU" tm:type="METH" tm:name="ZCL_DEMO_ONE                  RUN"
+        tm:position="000002" tm:wbtype="METH/OM" tm:obj_desc="Method" tm:obj_func="D"
+        tm:obj_info="Method" tm:lock_status="" tm:img_activity=""/>
+    </tm:task>
+    <tm:task tm:number="DEVK900112" tm:parent="DEVK900110" tm:owner="DEVUSER1"
+      tm:desc="Sample delivery" tm:type="Repair" tm:status="R" tm:status_text="Released"
+      tm:target="" tm:target_desc="" tm:cts_project="" tm:cts_project_desc="" tm:source_client="001"
+      tm:lastchanged_timestamp="20260902105533"
+      tm:uri="/sap/bc/adt/cts/transportrequests/DEVK900112">
+      <tm:long_desc/>
+      <tm:abap_object tm:pgmid="R3TR" tm:type="DDLS" tm:name="ZI_DEMO_VIEW" tm:position="000001"
+        tm:wbtype="DDLS/DF" tm:obj_desc="Sample view" tm:obj_info="Data definition language source"
+        tm:lock_status="" tm:img_activity=""/>
+    </tm:task>
+  </tm:request>
+</tm:root>

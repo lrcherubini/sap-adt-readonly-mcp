@@ -1,0 +1,37 @@
+{
+ "d": {
+  "__count": "408",
+  "results": [
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/pagesMasterSet('SAP_BASIS_PG_UI_FLP')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/pagesMasterSet('SAP_BASIS_PG_UI_FLP')",
+     "type": ".UI2.FDM_PAGE_REPOSITORY_SRV.PagesMaster"
+    },
+    "id": "SAP_BASIS_PG_UI_FLP",
+    "title": "SAP Fiori Launchpad",
+    "description": "SAP Fiori Launchpad"
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/pagesMasterSet('SAP_BASIS_PG_UI_MYHOME')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/pagesMasterSet('SAP_BASIS_PG_UI_MYHOME')",
+     "type": ".UI2.FDM_PAGE_REPOSITORY_SRV.PagesMaster"
+    },
+    "id": "SAP_BASIS_PG_UI_MYHOME",
+    "title": "My Home",
+    "description": "SAP Fiori Launchpad - My Home"
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/pagesMasterSet('SAP_BASIS_PG_UI_WDR_ALV')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/pagesMasterSet('SAP_BASIS_PG_UI_WDR_ALV')",
+     "type": ".UI2.FDM_PAGE_REPOSITORY_SRV.PagesMaster"
+    },
+    "id": "SAP_BASIS_PG_UI_WDR_ALV",
+    "title": "",
+    "description": ""
+   }
+  ]
+ }
+}

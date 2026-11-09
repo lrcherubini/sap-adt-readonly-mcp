@@ -1,0 +1,246 @@
+// adt_annotation_chain -- which annotation reached this element, and from where.
+//
+// The question behind the tool is a real incident shape, not a curiosity: a field
+// disappears from a Fiori app with no activation error, no /IWFND/ERROR_LOG entry and
+// no clue in the source, because two `annotate entity` layers in the chain disagree and
+// the last one wins silently. The workspace rule for that case says to diagnose it, not
+// to conclude from a symptom -- and diagnosing it means asking the system which layer
+// actually contributed each annotation.
+//
+// Nothing in the working tree answers that. Neither does `ddicElement()`: its
+// `annotations` array comes back EMPTY on every node and every path shape
+// (docs/adt-api-reference.md:107). The only resource that answers it is a collection
+// with no client wrapper, reached here through the single named GET route in
+// lib/adt-get.mjs.
+//
+// MEASURED 2026-09-09. The collection was called on the system for the first time, the
+// reply is recorded verbatim in docs/adt-api-reference.md, and lib/annotation-chain.mjs
+// parses that shape -- so this tool now answers rather than handing back evidence. The
+// scaffolding for the other case stays: if the route is ever marked unmeasured again,
+// the payload comes back raw with a warning and a SHAPE_UNOBSERVED gap, because a
+// plausible answer with no evidence under it is the failure this server exists to refuse.
+//
+// What the measurement changed about the design, and would not have been guessed: the
+// property set of a contribution DEPENDS ON ITS SOURCE KIND -- a metadata extension
+// carries LAYER/LAYER_NAME, the view's own source carries neither and carries
+// STATEMENT_TYPE instead. See the header of lib/annotation-chain.mjs.
+
+import { record } from '../lib/audit.mjs';
+import { namedGet, transportFor } from '../lib/adt-get.mjs';
+import { parseAnnotationChain, renderChain, hiddenWithUiRole } from '../lib/annotation-chain.mjs';
+
+const MAX_PAYLOAD = 20000;
+
+export function annotationChainTool(cfg, session, journal) {
+  return {
+    definition: {
+      name: 'adt_annotation_chain',
+      description:
+        'Ask the SAP system which annotations reached an element of a CDS entity and which ' +
+        'layer of the chain contributed them -- the diagnosis for a field that vanishes ' +
+        'from a Fiori app with no error, where propagated annotations conflict. ' +
+        'Costs one ADT call. Reports, per annotation, the value that actually reaches ' +
+        'the app and which source contributed it, and flags any key written by more ' +
+        'than one source or silenced entirely.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          entity: {
+            type: 'string',
+            description: 'CDS entity, e.g. ZC_DemoRosterMonitor',
+          },
+          element: {
+            type: 'string',
+            description: 'Element within the entity, e.g. Stcd2. Omit for the whole entity.',
+          },
+          variant: {
+            type: 'string',
+            description: 'Annotation variant, when the entity declares more than one.',
+          },
+        },
+        required: ['entity'],
+      },
+    },
+    async handler(args = {}) {
+      const params = {
+        entity: args.entity,
+        element: args.element,
+        variant: args.variant,
+      };
+      let out;
+      try {
+        out = await namedGet(transportFor(session.raw), 'annotationChain', params);
+      } catch (e) {
+        // A RouteViolation never reached the network, so it costs no read and is not an
+        // ADT gap -- it is a caller error. An HTTP failure is a gap: the question stands
+        // unanswered, and "could not read" must never be filed as "nothing found".
+        if (e?.name !== 'RouteViolation' && journal?.enabled) {
+          journal.gap({
+            code: 'ADT_ERROR',
+            subject: `annotation chain of ${args.entity}`,
+            detail: `HTTP ${e?.status ?? '?'} on ${e?.url ?? 'the annotation chain route'}`,
+            impact:
+              'the annotation chain of this element is unknown -- this is NOT evidence ' +
+              'that no annotation conflicts',
+            fallback:
+              'read the annotate entity layers from source, or use the Eclipse ADT ' +
+              'annotation view',
+          });
+        }
+        throw e;
+      }
+
+      record(
+        cfg,
+        'adt_annotation_chain',
+        [args.entity, args.element].filter(Boolean).join('/'),
+        out.bytes
+      );
+
+      if (!out.shapeObserved && journal?.enabled) {
+        journal.gap({
+          code: 'SHAPE_UNOBSERVED',
+          subject: 'ddic/ddlx/annotation/chain',
+          detail: `${out.status} ${out.contentType ?? 'no content-type'}, ${out.bytes} bytes`,
+          impact:
+            'the payload is returned verbatim and not parsed: no conclusion about the ' +
+            'chain can be drawn from this answer yet',
+          fallback:
+            'paste the raw payload into docs/adt-api-reference.md, then write the ' +
+            'parser against the measured shape',
+        });
+      }
+
+      const head = {
+        route: out.route,
+        url: out.url,
+        status: out.status,
+        contentType: out.contentType,
+        bytes: out.bytes,
+        measured: out.shapeObserved,
+      };
+
+      // Unmeasured: hand back evidence, never a conclusion.
+      if (!out.shapeObserved) {
+        const truncated = out.body.length > MAX_PAYLOAD;
+        return json({
+          ...head,
+          warning:
+            'The shape of this reply has never been observed on this system. It is ' +
+            'returned verbatim and NOT interpreted. Do not state which layer set an ' +
+            'annotation on the basis of this answer until the payload has been ' +
+            'recorded in docs/adt-api-reference.md and a parser written against it.',
+          payload: truncated ? out.body.slice(0, MAX_PAYLOAD) : out.body,
+          ...(truncated
+            ? { payloadTruncated: `${out.bytes} bytes, first ${MAX_PAYLOAD} shown` }
+            : {}),
+        });
+      }
+
+      const chain = parseAnnotationChain(out.body);
+
+      // A 200 that parses to nothing is not "this element has no annotations": it is a
+      // shape this parser did not recognise, and the two must never read the same. The
+      // payload comes back so the next reader can see what actually arrived.
+      if (chain.counts.contributions === 0) {
+        if (journal?.enabled) {
+          journal.gap({
+            code: 'SHAPE_UNOBSERVED',
+            subject: 'ddic/ddlx/annotation/chain',
+            detail:
+              `${out.status} ${out.contentType ?? 'no content-type'}, ` +
+              `${out.bytes} bytes parsed to zero contributions`,
+            impact:
+              'the reply did not match the measured shape, so nothing is reported -- ' +
+              'this is NOT evidence that the element carries no annotations',
+            fallback:
+              'compare the payload with tests/fixtures/annotation-chain-measured.xml',
+          });
+        }
+        return json({
+          ...head,
+          warning:
+            `${out.bytes} bytes came back and none of it matched the measured shape. ` +
+            'No conclusion is drawn. The element may genuinely carry no annotations, or ' +
+            'the reply shape may have changed -- these two look identical here, so the ' +
+            'raw payload is returned for comparison.',
+          payload: out.body.slice(0, MAX_PAYLOAD),
+        });
+      }
+
+      // The cross-key contradiction: hidden AND given a display role, both active. It
+      // produces NO conflict (the two keys are different), which is exactly why reading
+      // `conflicts` alone was not enough -- measured twice on 2026-09-09.
+      const hiddenRole = hiddenWithUiRole(chain);
+
+      // Two sources writing one key is the diagnosis this tool exists for, so it is a
+      // finding about the WORKSPACE, not a gap in the server.
+      if (journal?.enabled) {
+        for (const h of hiddenRole) {
+          journal.finding({
+            code: 'ANNOTATION_HIDDEN_WITH_ROLE',
+            subject: `${h.entity ?? args.entity}.${h.element ?? args.element ?? '*'}`,
+            effect:
+              `${h.hiddenBy?.name ?? 'an upstream layer'} sets @UI.hidden: true while ` +
+              `${h.roleSources.map((s) => s.name).join(', ') || 'another layer'} gives it ` +
+              `${h.roles.join(', ')} -- the field does not render, and no error is raised ` +
+              'anywhere',
+            context: {
+              hiddenBy: h.hiddenBy?.name,
+              hiddenByType: h.hiddenBy?.type,
+              roles: h.roles.join(', '),
+              roleSources: h.roleSources.map((s) => s.name).join(', '),
+            },
+          });
+        }
+        for (const c of chain.conflicts) {
+          journal.finding({
+            code: 'ANNOTATION_OVERRIDDEN',
+            subject:
+              `${chain.entity ?? args.entity}.${chain.element ?? args.element ?? '*'} ` +
+              `${c.path}`,
+            // `effect`, not `detail`: detail is a GAPS field and the journal allowlist
+            // drops it on a finding -- correctly, and silently, because the allowlist is
+            // a security boundary rather than a validator.
+            effect: c.winner
+              ? `${c.winner.name} won with ${c.winner.value ?? '(no value)'}; also ` +
+                `written by ${c.overridden.map((o) => o.name).join(', ')}`
+              : 'no contribution is active: the annotation is in the chain and reaches ' +
+                'nothing -- removing whatever neutralises it re-arms it',
+            context: {
+              annotation: c.path,
+              winner: c.winner?.name,
+              winnerValue: c.winner?.value,
+              overriddenBy: c.overridden.map((o) => o.name).join(', '),
+            },
+          });
+        }
+      }
+
+      return json({
+        ...head,
+        entity: chain.entity ?? args.entity,
+        element: chain.element ?? args.element,
+        counts: chain.counts,
+        sources: chain.sources,
+        annotations: chain.annotations,
+        conflicts: chain.conflicts,
+        ...(hiddenRole.length ? { hiddenWithUiRole: hiddenRole } : {}),
+        summary:
+          renderChain(chain) +
+          hiddenRole
+            .map(
+              (h) =>
+                `\n  !! HIDDEN BUT GIVEN A UI ROLE: ${h.hiddenBy?.name ?? '?'} sets ` +
+                `@UI.hidden: true; ${h.roleSources.map((s) => s.name).join(', ')} sets ` +
+                `${h.roles.join(', ')}. The field does not render and nothing errors.`
+            )
+            .join(''),
+      });
+    },
+  };
+}
+
+const json = (value) => ({
+  content: [{ type: 'text', text: JSON.stringify(value, null, 2) }],
+});

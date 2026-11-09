@@ -1,0 +1,64 @@
+* ZDEMO_PERSON_01 (TABL/DT) -- package ZDEMO_PKG
+* measured on DEV/001, 2026-09-22 (the provenance line with the host is stripped on purpose)
+*
+* THE COUNTER-EXAMPLE THIS FIXTURE EXISTS FOR: delivery class C, and the row is a person --
+* VORNA, NACHN, GBDAT, GESCH, NATIO, EMAIL and RACE (sensitive personal data, LGPD art. 11).
+* This is a FIELD LIST, which is metadata: no row of this table is in this repository, and
+* none ever may be (docs/security.md, "no payload, ever").
+
+@EndUserText.label : 'Demo person record - master data'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #C
+@AbapCatalog.dataMaintenance : #ALLOWED
+define table zdemo_person_01 {
+
+  key mandt  : mandt not null;
+  key docnum : j_1bdocnum not null;
+  plans      : plans;
+  orgeh      : orgeh;
+  massn      : massn;
+  massg      : massg;
+  begda      : begda;
+  login      : zdemodt_login;
+  email      : zdemodt_email;
+  abkrs      : abkrs;
+  @AbapCatalog.foreignKey.screenCheck : true
+  ansvh      : ansvh
+    with foreign key t542a
+      where mandt = zdemo_person_01.mandt
+        and molga = '37'
+        and ansvh = zdemo_person_01.ansvh;
+  anred      : anrde
+    with value help h_t522t_1
+      where anred = zdemo_person_01.anred;
+  pernr      : pernr_d;
+  vorna      : pad_vorna;
+  nachn      : pad_nachn;
+  gbdat      : gbdat;
+  gesch      : gesch;
+  famst      : zdemodt_famst;
+  race       : pbr_race;
+  gbort      : hrpadbr_city_text;
+  gbdep      : gbdep;
+  @AbapCatalog.foreignKey.screenCheck : true
+  gblnd      : gblnd
+    with foreign key t005
+      where mandt = zdemo_person_01.mandt
+        and land1 = zdemo_person_01.gblnd;
+  @AbapCatalog.foreignKey.screenCheck : true
+  natio      : natsl
+    with foreign key t005
+      where mandt = zdemo_person_01.mandt
+        and land1 = zdemo_person_01.natio;
+  resext     : zdemodt_resext;
+  escabr     : zdemodm_educ;
+  esfibr     : zdemodt_educ;
+  natur      : zdemodt_natur;
+  dtnatur    : hrpadbr_dtnatur;
+  temfil     : zdemodt_haschild;
+  anzkd      : anzkd;
+  tement     : zdemodt_hasitem;
+  nument     : zdemodt_number;
+
+}

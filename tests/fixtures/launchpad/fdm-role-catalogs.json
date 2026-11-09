@@ -1,0 +1,36 @@
+{
+ "d": {
+  "results": [
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/catalogSet('X-SAP-UI2-CATALOGPAGE%3AZCT_DEMO_20')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/catalogSet('X-SAP-UI2-CATALOGPAGE%3AZCT_DEMO_20')",
+     "type": ".UI2.FDM_PAGE_REPOSITORY_SRV.Catalog"
+    },
+    "displayId": "ZCT_DEMO_20",
+    "id": "X-SAP-UI2-CATALOGPAGE:ZCT_DEMO_20",
+    "title": "Catalog of transaction ME2O"
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/catalogSet('X-SAP-UI2-CATALOGPAGE%3AZCT_DEMO_19')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/catalogSet('X-SAP-UI2-CATALOGPAGE%3AZCT_DEMO_19')",
+     "type": ".UI2.FDM_PAGE_REPOSITORY_SRV.Catalog"
+    },
+    "displayId": "ZCT_DEMO_19",
+    "id": "X-SAP-UI2-CATALOGPAGE:ZCT_DEMO_19",
+    "title": "Catalog of transaction ME2ON"
+   },
+   {
+    "__metadata": {
+     "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/catalogSet('X-SAP-UI2-CATALOGPAGE%3AZCT_DEMO_21')",
+     "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/catalogSet('X-SAP-UI2-CATALOGPAGE%3AZCT_DEMO_21')",
+     "type": ".UI2.FDM_PAGE_REPOSITORY_SRV.Catalog"
+    },
+    "displayId": "ZCT_DEMO_21",
+    "id": "X-SAP-UI2-CATALOGPAGE:ZCT_DEMO_21",
+    "title": "Catalog of transaction /SCWM/TO_CONF"
+   }
+  ]
+ }
+}

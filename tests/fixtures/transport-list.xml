@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  REBUILT, not pasted. The shape the bare collection returns with
+  Accept: application/vnd.sap.adt.transportorganizertree.v1+xml -- the ONLY request that
+  answers. Measured 2026-09-09: 270 138 bytes, 6 requests, 14 tasks, 672 objects, in one
+  reply with no paging. Reduced here to three requests.
+
+  Four things about this document are the measurement, not the reduction:
+
+    * The wrapper is tm:released and it CARRIES ITS OWN SCOPE: "Released (From Last 2
+      Weeks)". There was no tm:modifiable node at all -- the list is released-only and the
+      two-week window is written into the data, not into a parameter.
+    * tm:request here has TWELVE attributes. No tm:status_text and no tm:source_client:
+      the detail resource has those, this one does not.
+    * There is no tm:all_objects. The union rule is not optional here, it is the only way
+      to know what a request contains.
+    * The owners are not all the caller. DEVUSER2 owns DEVK900107 and it appears because
+      DEVUSER1 holds a task inside it. That is enumeration of third parties, small and
+      declared -- see docs/security.md.
+-->
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" xmlns:adtcore="http://www.sap.com/adt/core"
+  xmlns:atom="http://www.w3.org/2005/Atom" adtcore:name="DEVUSER1">
+  <tm:workbench>
+    <tm:released tm:status="Released (From Last 2 Weeks)">
+      <tm:request tm:number="DEVK900110" tm:parent="" tm:owner="DEVUSER1"
+        tm:desc="Sample delivery" tm:type="K" tm:status="R" tm:target="QAS"
+        tm:target_desc="Quality" tm:cts_project="" tm:cts_project_desc=""
+        tm:lastchanged_timestamp="20260902110455"
+        tm:uri="/sap/bc/adt/cts/transportrequests/DEVK900110">
+        <tm:abap_object tm:pgmid="R3TR" tm:type="CLAS" tm:name="ZCL_DEMO_ONE" tm:position="000001"
+          tm:wbtype="CLAS/OC" tm:obj_desc="Sample class" tm:obj_info="Class (ABAP class development)"
+          tm:lock_status="" tm:img_activity=""/>
+        <tm:abap_object tm:pgmid="CORR" tm:type="RELE" tm:name="DEVK900110" tm:position="000002"
+          tm:obj_info="Comment entry: release completed" tm:lock_status="" tm:img_activity=""/>
+        <tm:task tm:number="DEVK900111" tm:parent="DEVK900110" tm:owner="DEVUSER2"
+          tm:desc="Sample delivery" tm:type="Development/Correction" tm:status="R"
+          tm:target="" tm:target_desc="" tm:cts_project="" tm:cts_project_desc=""
+          tm:lastchanged_timestamp="20260902104012"
+          tm:uri="/sap/bc/adt/cts/transportrequests/DEVK900111">
+          <tm:abap_object tm:pgmid="R3TR" tm:type="DDLS" tm:name="ZI_DEMO_VIEW" tm:position="000001"
+            tm:wbtype="DDLS/DF" tm:obj_desc="Sample view" tm:obj_info="Data definition language source"
+            tm:lock_status="" tm:img_activity=""/>
+        </tm:task>
+      </tm:request>
+      <!--
+        The shape of DEVK900102, and it is here for two reasons. It is GENUINELY empty --
+        zero own objects, one released task that carries none either -- which must not
+        read like the customizing case, where an empty own list hides four objects in an
+        open task. And its task belongs to a THIRD person who owns no request in the
+        answer: measured live on 2026-09-09, the reply named three people and only two of
+        them owned a request, so a scope that lists request owners under-declares.
+      -->
+      <tm:request tm:number="DEVK900102" tm:parent="" tm:owner="DEVUSER1"
+        tm:desc="Sample test request" tm:type="K" tm:status="R" tm:target="QAS"
+        tm:target_desc="Quality" tm:cts_project="" tm:cts_project_desc=""
+        tm:lastchanged_timestamp="20260902092009"
+        tm:uri="/sap/bc/adt/cts/transportrequests/DEVK900102">
+        <tm:task tm:number="DEVK900103" tm:parent="DEVK900102" tm:owner="DEVUSER3"
+          tm:desc="Sample test request" tm:type="Development/Correction"
+          tm:status="R" tm:target="" tm:target_desc="" tm:cts_project=""
+          tm:cts_project_desc="" tm:lastchanged_timestamp="20260902092009"
+          tm:uri="/sap/bc/adt/cts/transportrequests/DEVK900103"/>
+      </tm:request>
+    </tm:released>
+  </tm:workbench>
+  <tm:customizing>
+    <tm:released tm:status="Released (From Last 2 Weeks)">
+      <tm:request tm:number="DEVK900107" tm:parent="" tm:owner="DEVUSER2"
+        tm:desc="Released sample customizing" tm:type="W" tm:status="R" tm:target="QAS"
+        tm:target_desc="Quality" tm:cts_project="" tm:cts_project_desc=""
+        tm:lastchanged_timestamp="20260901160844"
+        tm:uri="/sap/bc/adt/cts/transportrequests/DEVK900107">
+        <tm:abap_object tm:pgmid="R3TR" tm:type="TABU" tm:name="ZDEMO_TAB_C" tm:position="000001"
+          tm:obj_func="K" tm:obj_info="Table contents" tm:lock_status="" tm:img_activity=""/>
+        <tm:task tm:number="DEVK900108" tm:parent="DEVK900107" tm:owner="DEVUSER1"
+          tm:desc="Released sample customizing" tm:type="Customizing Task" tm:status="R"
+          tm:target="" tm:target_desc="" tm:cts_project="" tm:cts_project_desc=""
+          tm:lastchanged_timestamp="20260901155210"
+          tm:uri="/sap/bc/adt/cts/transportrequests/DEVK900108">
+          <tm:abap_object tm:pgmid="R3TR" tm:type="VDAT" tm:name="ZDEMO_V_B" tm:position="000001"
+            tm:obj_func="K" tm:obj_info="View maintenance: data" tm:lock_status="" tm:img_activity=""/>
+        </tm:task>
+      </tm:request>
+    </tm:released>
+  </tm:customizing>
+</tm:root>

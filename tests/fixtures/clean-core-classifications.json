@@ -1,0 +1,43 @@
+{
+ "formatVersion": "2",
+ "objectClassifications": [
+  {
+   "tadirObject": "FUGR",
+   "tadirObjName": "J1BS",
+   "objectType": "FUNC",
+   "objectKey": "J_1BREAD_BRANCH_DATA",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "FI-LOC-LO-BR",
+   "state": "classicAPI",
+   "labels": [
+    "transactional-consistent"
+   ]
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_BANKACCOUNT",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_BANKACCOUNT",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "FIN-FSCM-CLM",
+   "state": "classicAPI",
+   "successors": [
+    {
+     "tadirObject": "DDLS",
+     "tadirObjName": "I_BANKACCOUNTBASICDATA",
+     "objectType": "CDS_STOB",
+     "objectKey": "I_BANKACCOUNTBASICDATA"
+    }
+   ]
+  },
+  {
+   "tadirObject": "CLAS",
+   "tadirObjName": "/AIF/CL_TRANSFORM_DATA",
+   "objectType": "CLAS",
+   "objectKey": "/AIF/CL_TRANSFORM_DATA",
+   "softwareComponent": "SAP_BASIS",
+   "applicationComponent": "BC-SRV-AIF",
+   "state": "noAPI"
+  }
+ ]
+}

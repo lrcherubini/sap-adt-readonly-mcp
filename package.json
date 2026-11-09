@@ -1,0 +1,36 @@
+{
+  "name": "sap-adt-readonly-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Read-only MCP server over the SAP ADT REST API (S/4HANA / ABAP Platform)",
+  "license": "MIT",
+  "author": "Leandro R Cherubini",
+  "repository": {
+    "type": "git",
+    "url": "<public repository URL>"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "adt": "node server.mjs",
+    "probe": "node scripts/probe.mjs",
+    "config": "node scripts/config.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:guard": "node --test tests/guard.test.mjs tests/adt-get.test.mjs",
+    "coverage": "node --test --experimental-test-coverage --test-coverage-exclude=tests/** --test-coverage-lines=92 --test-coverage-branches=82 --test-coverage-functions=88 tests/*.test.mjs",
+    "sync:catalog": "node scripts/sync-catalog.mjs",
+    "measure:ddla": "node scripts/measure-annotation-defs.mjs",
+    "report": "node scripts/report.mjs",
+    "logs:prune": "node scripts/prune-logs.mjs",
+    "propose:table": "node scripts/propose-customizing-table.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "abap-adt-api": "8.4.3"
+  },
+  "overrides": {
+    "qs": ">=6.16.0"
+  }
+}

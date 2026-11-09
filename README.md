@@ -1,0 +1,507 @@
+# sap-adt-readonly-mcp
+
+**Read-only MCP server over the SAP ADT REST API.** Gives an AI coding agent the answers that
+otherwise require leaving the editor: *does this object exist? what is its real source? who
+calls it? what is in this package? does it pass the ATC? does it consume anything that is not
+released?* Everything is read from the SAP system itself — no local checkout, no copy of SAP
+sources, no IDE file.
+
+---
+
+## Why this exists
+
+SAP ships an official ADT MCP server inside the IDE (Eclipse on `localhost:2234`, VS Code
+on `localhost:2236`). It covers the **write** side — activate, unit tests, transports,
+generators — and it only runs while the IDE is open. It does **not** search the repository,
+read source, or answer where-used; and its ATC answer, measured, is "error" and nothing else.
+
+This server covers the **read** side of that gap, and never the write side:
+
+| | Official SAP ADT MCP | `sap-adt` (this repo) |
+|---|---|---|
+| Activate, ABAP Unit, create/change objects, release transports | ✅ | ❌ by design |
+| ATC on one object, findings legible, several variants | "error" (measured) | ✅ `adt_atc_run` (decision in `docs/security.md`) |
+| Search objects, read source, where-used, package tree | ❌ | ✅ |
+| Clean Core and annotation scans of a package, value-help recommendation | ❌ | ✅ |
+| Transport contents and history, runtime errors (ST22), customizing reads, launchpad content | ❌ | ✅ |
+| Works with the IDE closed | ❌ | ✅ |
+| Can change the SAP system | yes | **no** |
+
+> The official server covers writing and runs only with the IDE open; this one covers reading
+> and runs with the IDE closed. The two coexist: this one **never** touches ports 2234/2236 or
+> the IDE token.
+
+## What it does
+
+- **15 MCP tools** for an AI agent (Claude Code or any MCP client that speaks Streamable HTTP),
+  every one of them read-only and reading from the SAP system:
+  - *objects* — `adt_search`, `adt_read_source`, `adt_object_info`, `adt_where_used`,
+    `adt_package_tree`;
+  - *package scans* — `adt_clean_core_scan` (what the CDS views consume, at which Clean Core
+    level), `adt_annotation_scan` (which annotation reaches an element, from which layer);
+  - *CDS and services* — `adt_value_help`, `adt_annotation_chain`, `adt_contract_check`;
+  - *change and runtime* — `adt_transport`, `adt_runtime_errors`, `adt_atc_run`;
+  - *configuration and UI* — `adt_customizing` (a closed list of tables), `adt_launchpad`
+    (SAP-standard launchpad OData services).
+- **A journal and a report**: every call, finding and limit hit is recorded (no payload, ever),
+  and read back as a report from the terminal.
+- **A configuration CLI** over a local SQLite store, so nothing of your landscape lives in the
+  code, and a **catalogue sync** that keeps SAP's Clean Core release catalogue current outside
+  the repository.
+
+Every tool is described in [Tools](#tools); every npm script in [Scripts](#scripts); what it
+cannot do in [Limitations](#limitations).
+
+## Safety model
+
+1. **Read-only by absence of capability.** Every ADT call passes through a proxy
+   (`lib/guard.mjs`) built on an **allowlist**: of the 161 members `ADTClient` declares in
+   its 8.4.3 `.d.ts`, **22 are reachable** and the other 139 throw before a request is
+   issued — each addition justified in [`docs/security.md`](docs/security.md). Writing through
+   ADT requires locking first, so `lock` being absent is the effective brake. An allowlist
+   also fails closed — a method a future library release adds is unreachable until someone
+   adds it on purpose. Raw GETs go only through a closed table of named routes
+   (`lib/adt-get.mjs`). Covered by `npm run test:guard`, which runs offline.
+2. **The session is stateless.** A stateful ADT session is what holds locks and enqueues;
+   switching it is refused at runtime.
+3. **The SAP password is never stored.** It is typed once per server start and lives only in
+   memory. There is no `.env`, no keyring, no fallback to an environment variable.
+4. **One login attempt per start.** On `401` the server refuses to retry: repeated failed
+   logons lock the SAP user, and a locked user takes the IDE, abapGit and transports down
+   with it.
+5. **Nothing sensitive lands in the repository.** The environment store, the loopback token,
+   the catalogue and the audit log live in `%LOCALAPPDATA%\sap-adt\`. The server refuses to
+   start if that path resolves inside a git work tree.
+6. **The MCP endpoint is loopback-only**: bound to `127.0.0.1`, `Host` and `Origin` checked on
+   every request (DNS-rebinding protection, required by the MCP transport specification), and
+   a bearer token compared in constant time.
+7. **No value of your landscape is hard-coded.** Closed lists of SAP-standard entries ship as
+   reviewable JSON (`data/defaults/`); everything your installation chooses lives in the
+   environment store and passes the same validation on the way in and on the way out
+   (see [Configuration](#configuration)).
+
+## Requirements
+
+- **Node.js ≥ 22.13** (the environment store uses the built-in `node:sqlite`; no extra npm
+  dependency). Node prints no warning for it: the one `ExperimentalWarning` is filtered.
+- **An ABAP system** (S/4HANA or ABAP Platform, on-premise or private cloud) whose
+  `/sap/bc/adt` ICF node is active and reachable over **HTTPS** with **Basic authentication**
+  (user + password). SSO-only nodes (SAML, X.509, `MYSAPSSO2`) are not supported.
+- **An SAP user** with the authorizations your ADT IDE already uses. The data preview
+  (`adt_customizing`, `adt_launchpad` semantic objects), the ATC run and the launchpad OData
+  services need the SAP authorizations for those functions too; a missing one comes back as
+  the SAP error, never as an empty answer.
+- **A terminal (TTY)** for every command that logs on: the password is typed, never read from a
+  file or an environment variable.
+- **Internet access once a month** (or a manual download) for the Clean Core catalogue — see
+  [The Clean Core catalogue](#the-clean-core-catalogue). The server itself never goes online.
+- Developed and tested on **Windows**. On Linux/macOS the state directory is
+  `~/.local/share/sap-adt`.
+
+## Install and first run
+
+```bash
+git clone <this repository> && cd sap-adt-readonly-mcp
+npm ci --ignore-scripts     # third-party code, no lifecycle scripts
+npm run test:guard          # proves the read-only guard, offline
+npm run probe -- --host my-sap-host --port 44300   # reachability + auth scheme, NO credentials
+```
+
+1. **Configure the connection** (nothing is read from an IDE or any other file):
+
+   ```bash
+   npm run config -- set host my-sap-host.example.com
+   npm run config -- set client 001
+   npm run config -- set user MYUSER
+   ```
+
+   Or copy [`config.example.json`](config.example.json), replace the invented values and load
+   it once with `npm run config -- import my-env.json`.
+2. **Get the Clean Core catalogue** for the release of your system:
+
+   ```bash
+   npm run sync:catalog -- --list                  # the releases SAP publishes
+   npm run config -- set catalog.release PCE2023_0 # the one matching your system
+   npm run sync:catalog                            # downloads it into the state directory
+   npm run config -- doctor                        # what is set, what is missing, what is stale
+   ```
+3. **Start the server** in a terminal and leave it running:
+
+   ```bash
+   npm run adt
+   ```
+
+   Before asking for anything it prints the MCP endpoint (`http://127.0.0.1:2237/mcp`), the
+   catalogue's age, and the exact `claude mcp add` line for your machine, in PowerShell and bash
+   form, with the bearer token read from `%LOCALAPPDATA%\sap-adt\token` by the shell (never
+   pasted).
+4. **Register it once** in Claude Code, from a **second** terminal, with the printed line, and
+   check with `claude mcp list`. Any other MCP client works the same way: Streamable HTTP
+   transport, that URL, header `Authorization: Bearer <token>`.
+5. **Type the SAP password** in the first terminal. **Nothing is echoed while you type** — no
+   asterisks, no cursor movement. That is the terminal, not a hang: type it and press Enter. An
+   empty password is refused locally, but a wrong one is a failed SAP logon, and repeated
+   failures lock the user. The endpoint starts listening only after the logon succeeds.
+
+To see the server the way a client does, the official **MCP Inspector** works against it:
+`npx @modelcontextprotocol/inspector`, transport *Streamable HTTP*, URL
+`http://127.0.0.1:2237/mcp`, header `Authorization: Bearer <token>`.
+
+What the probe proves is in [`docs/phase0-report.md`](docs/phase0-report.md). What the ADT
+API itself accepts, and the measured shape of every read used here, is in
+[`docs/adt-api-reference.md`](docs/adt-api-reference.md) — SAP publishes no endpoint
+reference, so that file records a service document as measured instead of guesses.
+
+### Tests
+
+`npm test` runs the whole suite offline — no SAP system, no credentials, no network: the ADT
+client and GitHub are doubled. It includes a protocol test that drives the server with the
+SDK's own MCP client over a real loopback connection (`tests/mcp-protocol.test.mjs`).
+`npm run coverage` runs it again with thresholds (92 % lines, 82 % branches, 88 % functions,
+tests themselves excluded from the count). Those numbers are a **ratchet, not a target**: they
+sit just under what the suite already reaches, so a change that quietly stops exercising a path
+fails the run. What the suite is actually for is the two things that cannot be checked by
+reading: that no blocked ADT method is reachable, and that a recommendation is never emitted for
+an entity the catalogue does not release.
+
+**There is no prettier and no linter here, and formatting is manual — on purpose.** This
+server has zero devDependencies: everything it needs to be tested and audited ships with
+Node. Style is kept by hand (100 columns, single quotes); `npx prettier` will complain, and
+that complaint is not a finding.
+
+## Configuration
+
+Everything an installation chooses lives in **one SQLite file outside any git work tree**,
+`%LOCALAPPDATA%\sap-adt\sap-adt.db`, written **only** by `npm run config`. Every value is
+validated when it is written and again when the server reads it at start, with the same rules
+the runtime fence applies — a value the CLI accepts can never make the server refuse to start,
+and a value the fence would refuse can never be stored. Nothing else on the machine is read.
+
+```text
+npm run config -- <command> [--json] [--db <file>]
+
+  keys                              every setting, its group, default and meaning
+  list                              the settings this installation has
+  get <key>                         one setting (or its default)
+  set <key> <value>                 validate and store one setting (a list: "a;b;c" or JSON)
+  unset <key>                       remove one setting (back to its default)
+  table list                        customizing tables: standard + this installation's
+  table add <NAME> <why> [--key A,B] [--routine COL=GROUP ...]
+  table remove <NAME>
+  atc list | atc add <NAME> <why> | atc remove <NAME>
+  import <file.json> [--replace]    validate a whole file (config.example.json shape) and store it;
+                                    merges by default, --replace drops what the file does not name
+  export [--out <file.json>]        the whole environment in that shape
+  doctor                            validate the store and say what is missing or stale
+```
+
+For example:
+
+```bash
+npm run config -- table add ZMY_TABLE "why the data preview needs it" --key FIELD1,FIELD2
+npm run config -- atc add ZMY_CLEAN_CORE "Clean Core governance (the system check variant)"
+npm run config -- atc add ZMY_DEV_PRACTICE "development practices: naming, performance, robustness"
+npm run config -- set atc.defaultVariant ZMY_CLEAN_CORE
+npm run config -- export --out my-env.json     # backup / review; `import` reads it back
+```
+
+Every command takes `--json` and answers `{ "ok": true, "data": … }` or
+`{ "ok": false, "error": { "code", "message", "key" } }`, exiting 0 / 1 (refused value) /
+2 (usage error) — a stable contract for tools that drive the CLI. `--db` points the CLI at
+another store file (to prepare or inspect one; the server reads only the default).
+[`config.example.json`](config.example.json) shows every block with invented values.
+
+**Switching environments.** `import` merges: it writes what the file names and keeps everything
+else. To move to another system without leftovers, back up the current one and replace:
+
+```bash
+npm run config -- export --out dev.json
+npm run config -- import qas.json --replace     # settings, tables and variants not in the file are dropped
+```
+
+An import is validated whole. A refused value writes nothing and says so. A standard table listed
+in the file (or in `table add`) is skipped with a warning, since it needs no registration.
+
+| Group | Keys (default) | Used by |
+|---|---|---|
+| connection | `host`, `port` (44300), `client` (none — always your choice), `user`, `language` (EN), `system` (a label only), `allowUnauthorizedTls` (false; prefer `NODE_EXTRA_CA_CERTS` for an internal CA) | the session |
+| server | `mcpPort` (2237), `budget.reads` (200, a notice, not a cap), `shutdownMs` (5000) | `server.mjs`, the audit |
+| catalogue | `catalog.release` (none — `Latest`, `PCELatest`, `PCE2025_2`, `PCE2023_0`, …) | `adt_clean_core_scan`, `adt_value_help`, `sync:catalog` |
+| fences | customizing tables (`table add`), ATC variants (`atc add`, `atc.defaultVariant`) | `adt_customizing`, `adt_atc_run` |
+| journal | `paths.logs` (`logs/` in this repository, git-ignored) | the journal, `report`, `logs:prune` |
+| value help | `valueHelp.namePattern` (`ZI_{entity}VH`), `valueHelp.labelPrefix` (`Value help - `) | `adt_value_help` |
+
+`npm run config -- keys` prints the meaning of each one. The SAP-standard half of every fence
+ships in [`data/defaults/`](data/defaults/) and changes only by commit; the reason the fences
+have two layers is recorded in `docs/security.md` (*The list has two layers*).
+
+**ATC variants.** SAP's `DEFAULT` is always available; list your own with `atc add` — typically
+the system's Clean Core governance variant (`systemCheckVariant` of `atc/customizing`) and a
+variant for development practices. `adt_atc_run` runs up to three of them on one object in one
+call, each with its own worklist and findings, and announces every variant with its purpose to
+the client.
+
+## The Clean Core catalogue
+
+`adt_clean_core_scan` and `adt_value_help` decide what is released with **SAP's Cloudification
+Repository** ([`SAP/abap-atc-cr-cv-s4hc`](https://github.com/SAP/abap-atc-cr-cv-s4hc),
+Apache-2.0): one release file (`objectReleaseInfo_<release>.json`) plus
+`objectClassifications_SAP.json` (the classic APIs, Level B). These are the files the ATC Cloud
+Readiness check itself reads.
+
+- **Outside the repository.** `npm run sync:catalog` resolves the upstream commit, downloads
+  both files **at that commit**, validates them, and swaps them into
+  `%LOCALAPPDATA%\sap-adt\catalog\` (the previous copy stays as `catalog.prev`).
+  `PROVENANCE.json` records release, commit, sha256, rows and date.
+- **Refreshed on purpose.** The catalogue changes when SAP publishes, and the answers change
+  with it, so the server never downloads anything. **Monthly** is a sensible cadence; the server
+  banner, `doctor` and every answer of the two tools state the catalogue's age, and `doctor`
+  warns past 35 days. To schedule it on Windows:
+  `schtasks /Create /SC MONTHLY /TN sap-adt-catalog /TR "cmd /c cd /d <repo> && npm run sync:catalog"`.
+- **No internet, or a proxy?** Download the two files by hand from the repository's `src/`
+  folder and run `npm run sync:catalog -- --from <folder>`. Behind a proxy, Node's `fetch` uses
+  `HTTPS_PROXY` when `NODE_USE_ENV_PROXY=1` is set.
+- **Without a catalogue** the two tools refuse and file `CATALOG_MISSING` — never "released".
+- **For people:** SAP's viewer, https://sap.github.io/abap-atc-cr-cv-s4hc/, shows the same data;
+  the answers link to it for a manual check.
+
+`npm run sync:catalog -- --check` prints what is installed and how old it is, without network.
+
+## MCP conformance
+
+The server follows the MCP specification (2025-06-18) and the official TypeScript SDK:
+
+- **Transport:** Streamable HTTP, stateless, loopback only, `Host`/`Origin` validated, bearer
+  token (no OAuth is advertised: a `401` carries no `WWW-Authenticate`, so clients do not start a
+  discovery flow this server does not implement). HTTP rather than stdio because the SAP password
+  is typed in the server's terminal, and the specification forbids asking for it through the
+  client (elicitation must not request sensitive information).
+- **Initialize:** `serverInfo` with name, title and version, and `instructions` that tell the
+  model how to use the tools well.
+- **Tools:** every definition has a `title`, behaviour `annotations` (`readOnlyHint: true`,
+  `destructiveHint: false`, `idempotentHint` — false only for `adt_atc_run`, which leaves a
+  worklist — and `openWorldHint: true`), and a closed input schema (`additionalProperties:
+  false`) that is **enforced** before the handler runs (type, enum, ranges, items, unknown
+  arguments). Answers carry `structuredContent` next to the same JSON as text. No `outputSchema`
+  is declared on purpose: the answers are rich and shaped by what the system returned, and a
+  client must reject an answer that does not match a declared schema.
+- **Errors:** a tool failure is a result with `isError: true` and a readable reason, never a
+  protocol error.
+- **Long calls:** the package scans and a multi-variant ATC run send progress notifications when
+  the client asks for them, and stop between reads when the call is cancelled.
+
+## Tools
+
+| Tool | What it answers | Guard rails |
+|---|---|---|
+| `adt_search` | Which objects match this name pattern? | max 200 results, and an answer of exactly `max` hits says `truncated: "possible"` — the quick search has no paging, so a full page is not proof of a complete list. ⚠️ An empty answer is not proof of absence either: the search does not see every object that exists (a generated include, measured); the by-name tools fall back to the direct URI for `PROG/P`, `PROG/I`, `CLAS/OC`, `FUGR/F` and say `foundBy: "uri"` when that is how they got there. With a facet given, an empty answer is asked once more through the `quickSearch` route, which sends the facet **whole** (the client library strips it — `FUGR/FF` is only ever found this way); that reply carries no description, and the answer says `foundBy: "facet"` |
+| `adt_read_source` | What is the real source in the system? — and, with `enhancements: true`, what customer code is implanted in it | class includes selectable; enhancement source only when asked for. `objectNames: [...]` (max 25) reads a batch, one JSON item per name, a failed name never stops the others (`BATCH_ITEM_NOT_READ`). An ENHO has no source at its own URI (measured): the answer names the **enhanced object** and the call that reads its implants (`ENHO_SOURCE_IS_ELSEWHERE`). On an `ENHO/XH` (class / interface enhancement) it answers empty **without** asking the structure (which dumps the server) and names the abapGit files that carry the methods |
+| `adt_object_info` | Package, owner, dates, API state, structure | a class enhancement or function-module interface enhancement (`ENHO/XH`, tools `CLASENH`/`FUGRENH`) has **no model in the ADT**: its own resource dumps the server (measured, 3 of 3), the enhanced object does not list it and the search index does not know the methods it adds. So the structure is **never asked**; the tool reads the one resource that answers (`objectproperties`, named route `objectProperties`: package chain, owner, API state, creation date), says `clasenh: true` with where the code really is (SE19; abapGit `<enho>.enho.xml` + `<enho>.enho.em_<method>.abap`) and files `CLASENH_NOT_IN_ADT` — never "no enhancement". On any other `ENHO/*` it answers `enhancedObject` (`kind` PROG/FUGR/CLAS/ENHO, name, URI kept percent-encoded); `null` on a BAdI implementation, which implements a spot, not an object — and for an `ENHO/XHB` the spot is read from the object's own body (`badi`: spot, BAdI definition, implementing class, referenced objects; one raw GET at the URI the search resolved, measured). On a package (`DEVC/K`) it answers `packagePath` (root first, via `findObjectPath`) and `parentPackage`; a failed path read says *NOT a root package* |
+| `adt_where_used` | Who calls this? | standard objects need `allowStandard: true` |
+| `adt_package_tree` | What does this package contain? | recursion capped at 3 — `compact: true` drops the object list (hierarchy + counts only; a large root package at depth 3 is several MB otherwise) and raises the cap to 5. The tree resource sends each row's short description **shifted to the next row** (measured, server-side, POST-only so not re-readable raw): it is returned as `treeDescription`, never as the row's description; `describe: true` fetches the sub-package descriptions from the search, one call each |
+| `adt_clean_core_scan` | What do the CDS views of this package consume that is not released, and what should replace it? | `package` required; reads the package's DDLS from the system (one call each, `maxObjects` 1..300, default 100, sub-packages by default), extracts every data source and classifies it A/B/C/D against the catalogue, with the successor SAP names; an `entity` filter reads one source. `scope.complete` is false when an object was not read or the cap was reached — absent there is not absent in the package. Progress and cancellation supported |
+| `adt_annotation_scan` | Which annotations reach this element and from **which layer** — and which elements have layers that contradict each other? | `package` required; reads the package's DDLS and DDLX from the system, then follows the upstream views they select from (`upstream`, default 20) — so a hide written in a **standard** view is seen too. Carries every annotation family, from the DDLX **and** from the inline DDLS. Answers what the **source** says; it knows nothing about switches, kernel layers or `IS_ACTIVE`, so every detector hit is a suspicion that `adt_annotation_chain` confirms at one ADT call. The index is kept 10 minutes for follow-up lookups (`refresh: true` rebuilds it) |
+| `adt_value_help` | Which **released** value help CDS fits this field, and what do I bind? | candidates are filtered against the Clean Core catalogue **before** any ADT call; the entity's own source (read from the system) says which fields are already bound; every emitted key is validated against **this system's** annotation definitions (its DDLA) — if those cannot be read, the block says NOT VALIDATED; exposure is checked against the service definitions the system says use the entity (where-used, at most 3 read); a call ceiling per run (`maxCalls`); a proposed value help of your own is named by `valueHelp.namePattern` |
+| `adt_annotation_chain` | Which annotation reached this element, and from where? | one GET on a single named route; reports the value that actually reaches the app per annotation, the source that contributed it, and any key written by more than one source or silenced entirely. Also flags the cross-key contradiction — hidden by one layer while another gives it a display role — which produces **no** conflict and is invisible to reading either source alone. ⚠️ `entity` and `element` are disjoint scopes: an element-level defect is not visible in an entity-level call |
+| `adt_contract_check` | Which OData expose aliases of this service are frozen contracts? | `service` required; reads the service definition (one call) and lists every alias with the EntitySet / EntityType it generates — the names a consumer addresses by hand and a rename breaks silently — plus an entity exposed under two aliases. With `apps` (at most 10 deployed UI5 apps, by BSP name), each app is read from the system's UI5 repository and every hand-written reference is checked against the **live** `$metadata` of the services its manifest names, V2 or V4 (V4 once measured). Checked: controller reads, function calls and their parameters, `$filter`/`$select` properties, absolute bindings, local annotation targets and paths, and manifest pages. A name the service no longer publishes is a `UI5_REFERENCE_BROKEN` finding, and each alias lists the files that cite it. The app's own `localService` copy is never used as a source. Apps are named, never searched, so an alias no named app cites is not claimed unused. CPI runs in another system |
+| `adt_transport` | Which objects moved together, when, and by whom? | one GET on a named route, in one of two modes and never by default: `number` reads one request in full, `recent: true` reads the list the server offers. The answer is the **union of the request's own objects with every task's**, because a task's objects reach the request only when the task is released — with the per-task attribution kept. The list mode is **released only, last two weeks, no paging**: that is the server's scope, not a filter this tool applies, and it is returned as a structured `scope` field. It **names other developers**, because a request you hold a task in is listed under its owner. Local caps of 50 requests / 300 objects, applied after the bytes arrive, and always reported. With `keys: true` (detail mode only) it also answers **which ROWS moved** — the `E071K` table keys of each object, decoded field by field against the key layout the CTS declares, which was measured to be the DDIC's own. That is what turns `CDAT BUPAFLDMOD` from a maintenance-object name into the rows in the tables that actually travelled. One extra ADT call per object, so it is budgeted (25 by default) and every object it did not reach is counted in the answer. Which objects are asked is the **system's own word**: `tm:obj_func` is `E071-OBJFUNC`, and its `K` means *has rows in the key list* (domain read) — every entry carries it decoded (`objFunc: {code, meaning, systemText}`), so a request that **deletes** an object (`D`) no longer reads like one that ships it, and every object in the key sweep says whether it was asked on the attribute, skipped on the attribute, or decided by the measured type census (`askedBy` / `skippedTypes[].by`). The third mode asks the **reverse** question: `object: {name, type}` reads the object's **version history** — every request that ever carried it, released or open, and the one **holding it now** (version `00000`). The feed's path is taken from the link `objectStructure` publishes, never assembled (a class keeps **five** histories, and three of the five undercount — the answer is their union); **transports of copies are set apart on the server's own `isTestTransport` flag**, never on a `"CP - "` title prefix (measured: most numbers in one class feed were copies). The content URI of each old version is reported and **never followed**. On an `ENHO/XH` the object mode reads **nothing** (its structure dumps the server) and points at the caller of the added members |
+| `adt_runtime_errors` | What dumped (ST22), where, on which line -- and what the gateway logged | the Eclipse **Feed Reader** over the wire: `feeds: true` reads the catalogue `/sap/bc/adt/feeds` (the feeds the system offers, each with the attributes and operators a filter may use); `list: {feed: "dumps"\|"gateway"\|"atc", filters?, max?, skip?, report?}` reads one page (`$top` 1..100, default 50) of `/sap/bc/adt/runtime/dumps`, `/sap/bc/adt/gw/errorlog` or `/sap/bc/adt/atc/feeds/verdicts`; `detail: {id, full?}` returns ONE dump -- header, what happened, error analysis, where terminated, source extract with the failing line marked, call stack with the ADT position of each frame (all parsed from the entry, which **carries its whole report**, about 17 KB), plus the dump **resource** at the HTTP twin of the entry's `self` link (`/sap/bc/adt/runtime/dump/<key>`: links and the 20-chapter index with line numbers) and, with `full: true`, the whole ST22 report as text, chosen variables included. `filters` is up to two `{attribute, op, value}` triples **generated** into the catalogue's own prefix grammar, comma form (`and ( equals ( user , X ) , notContains ( objectName , Y ) )`, measured to filter); free text never reaches `$query`, the route regex is a second fence, and the side-by-side form -- which **dumped the server** when it was probed -- is never produced. The gateway log and the ATC feed answered no entry when measured: their entries come back generic and flagged `entriesMeasured: false`. The answer names whoever dumped (that is the question); the audit line carries the feed, the page and the dump's timestamp+host+sequence, never a user. And **every** tool uses the same feed after an HTTP 500: the newest dump of the session's user since the call is appended to the error (`-- the SAP system dumped: <error> in <program> (ST22 <key>; …)`) and filed as `SERVER_DUMPED`, because on every measurement a 500 from the ADT was a dump |
+| `adt_atc_run` | Does this object pass the check variants -- Clean Core governance, development practices, SAP's DEFAULT -- and if not, which finding, which check, which line? | the **second POST** this server sends, and the first that leaves something on the server: an ATC result worklist per variant (what the ATC Result Browser lists), nothing else -- no lock, no transport, no object touched (measured). `variants`: up to **3** from the closed set of SAP's `DEFAULT` plus the variants your installation lists (`npm run config -- atc add`), run one after the other on the same object; default `atc.defaultVariant`. Per variant: `POST /sap/bc/adt/atc/worklists?checkVariant=<v>`, `POST /sap/bc/adt/atc/runs?worklistId=<id>` with a body **generated** from one validated object URI and `maxFindings` 1..100, then `GET /sap/bc/adt/atc/worklists/<id>`. The set is closed because **the server hands an id to any name** (measured); an `ENHO/XH` is refused (its URI dumps the server). The answer: each finding's priority, check, message, source position, quickfix flags, documentation link; with several variants, one block per variant, and a variant that failed is listed as **not run** -- never clean. A few seconds per variant. `ATC_NOT_RUN` / `ATC_RESULT_NOT_READ` in the journal. ABAP Unit stays with the IDE; exemptions are governance writes and are not admitted |
+| `adt_customizing` | Which pricing-procedure step calls routine 953? Which copy control carries requirement 653? | the **only POST** this server sends: `/sap/bc/adt/datapreview/freestyle`, body a `SELECT` **generated** from a closed grammar (one table, listed fields, `=`/`<>`/`IN` joined by `AND`, 1..200 rows) for a table in the closed list `CUSTOMIZING_TABLES` — the SAP-standard tables in [`data/defaults/customizing-tables.json`](data/defaults/customizing-tables.json) (pricing procedures and condition tables, copy control, the VOFM registry, launchpad semantic objects, the object directory, CDS header annotations, payment terms, STVARV parameters, partner determination, the material master screen map, MRP areas, material status, the factory calendar, the organizational units) **plus the tables your installation added** with `npm run config -- table add`, through the same validation. Any other table, field or value the grammar cannot say is refused **before a socket opens**; the server would answer any table (`VBAK` measured 200), so the fence is the client and it is tested. Read-only by semantics (no lock, no transport; `SM12` checked before and after), POST by wire. `totalRows` is the server's count **without** the cap; NUMC columns compare at full width (`0000953` in `T683S`, `953` in `TVCPA`). The audit line carries the table and the row cap, never a row. `runQuery`/`tableContents` of the library stay denied — the decision, dated, is in `docs/security.md` |
+| `adt_launchpad` | Which tiles and target mappings does catalog X carry, which groups show them, which catalogs does role Y get, and is the semantic object registered? | one `kind` per call (`catalogs`/`catalog`, `groups`/`group`, `spaces`/`space`, `pages`/`page`, `semobjs`/`semobj`, `roleCatalogs`). The one place the routes leave `/sap/bc/adt`, for **SAP-standard services only**: OData V2 under four `ODATA_ROOTS` (PAGE_BUILDER_CONF/CUST, FDM_*_CUST_SRV; never `PAGE_BUILDER_PERS`, `$batch` or a generic GET over entity sets). No customer (Z) service is called, and every person-like key is stripped from every body. `semobjs`/`semobj` read the `/UI2/SEMOBJ*` tables through the ADT data preview, as `adt_customizing` does. Decision, dated, in `docs/security.md` (*The Fiori launchpad*); shapes in `docs/adt-api-reference.md` |
+
+`adt_read_source` answers a second question the working tree cannot: **who implanted code
+into this standard object.** With `enhancements: true` it lists the enhancement
+implementations active on the source — the ENHO, the enhancement-point path, whether the
+implementation *replaces* that point, and the line it sits at — and with
+`enhancementSource: true` the implanted source itself. An implicit enhancement or an
+enhancement spot implementation never appears in a Z-namespace sweep, and no abapGit
+repository serialises it against the standard object it modifies. When the read fails, the
+footer says so — *"enhancements NOT read"* is never rendered as *"there are none"*.
+
+`adt_value_help` is the one tool that is a pipeline rather than a call. For each field of a
+CDS view it resolves the data element and the domain in the system (a projection field
+inherits its type, so the source text cannot answer this), builds candidates from the released
+catalogue, classifies them **A / B / C with the evidence** instead of asserting a rule, refuses
+annotation keys that are not released in this release, and checks that the entity is exposed in
+the service definition — an omission that makes the F4 come up empty with no activation error
+and no `/IWFND/ERROR_LOG` entry.
+
+The strongest signal is not a name at all: a field whose **DDIC type** is `UNIT`, `CUKY` or
+`LANG` *is* a unit key, a currency key or a language key, whatever it is called, and that
+costs nothing extra because the field list already carries the type. It is also the only
+signal that survives a projection, where the field restates neither its type nor its
+annotations. `BaseUnit` is the case the tool was built for: its data element states
+`BASEUOM` (measured — not `UNIT_OF_MEASURE`, which is what it looks like), nothing named
+`BaseUnit`, `BASEUOM` or `MEINS` is in the catalogue, and its type `UNIT` lands straight on
+`I_UnitOfMeasureStdVH`. `readAnnotations: true` additionally reads the entity's own source
+for `@Semantics` — worth the three calls only for calculated elements, which have no data
+element to type.
+
+When nothing matches by name or by type it **asks the system** rather than guessing: an
+anchored, type-filtered repository search on the concept (one call, ~3 KB), and if that
+comes back empty, the domain's value table through where-used — the only route that can
+discover that the VDM calls the concept something else entirely (`T006` is what connects
+`MEINS` to `UnitOfMeasure`). Everything the search finds still passes the release gate, and
+when nothing is confirmed the proposed own view keeps a **placeholder** source instead of
+naming an entity that may not exist. Turn it off with `deepSearch: false`.
+
+With `precedent: true` it also asks who else binds the recommended value help, reads one such
+consumer from the system and copies its `additionalBinding` — cited, never invented.
+
+The catalogue is **both** files, not just the release info: hundreds of CDS entities exist only
+in `objectClassifications_SAP.json` as `classicAPI`, so loading one file would answer "unknown
+to the catalogue" for entities that exist and are classified. They are still never recommended —
+Level B is not a Level A answer — but they are shown as rejected candidates with their state and,
+when the catalogue names one, with their released successor.
+
+## Scripts
+
+Every entry point is an npm script. **Logon** means the script opens one SAP session: it needs a
+TTY, asks for the password once per run, never stores it and never retries a failed logon.
+None of them commits anything to git.
+
+| Script | Logon | What it does | Writes |
+|---|---|---|---|
+| `npm run adt` | yes | the MCP server | audit log, journal |
+| `npm run probe -- [--host H] [--port P] [--client C] [--strict-tls]` | **no credentials** | is `/sap/bc/adt` reachable, which auth scheme it offers (host, port and client default to the store) | nothing |
+| `npm run config -- …` | no | the configuration CLI ([Configuration](#configuration)) | the store |
+| `npm run sync:catalog [-- --list \| --check \| --from <folder> \| --release <r>]` | no (GitHub) | downloads or refreshes SAP's Clean Core catalogue ([details](#the-clean-core-catalogue)) | `%LOCALAPPDATA%\sap-adt\catalog\` |
+| `npm test` / `npm run test:guard` / `npm run coverage` | no | the offline suite / the read-only guard alone / the suite with thresholds | nothing |
+| `npm run report` | no | reads the journal back: cost, findings backlog, the server's own gaps | stdout |
+| `npm run logs:prune -- --days N [--apply] [--audit]` | no | trims the journal (and, opt-in, the audit log); a dry run without `--apply` | the journal |
+| `npm run propose:table -- T1 T2` | yes | evidence (delivery class, fields) for adding a table to the customizing fence; decides nothing | stdout only |
+| `npm run measure:ddla` | yes | checks the annotation-definition parser against what the system serves | state directory |
+
+Each script prints its full option list in the header comment of its file under
+[`scripts/`](scripts/).
+
+## The journal
+
+Every tool call, every defect a scan found and every limit the server hit is written to `logs/`
+— three JSONL streams, one file per day, **git-ignored**. `npm run report` reads them back as
+three blocks: how much of the work cost the SAP system nothing (measured from the read budget,
+not asserted), a findings backlog grouped by package with *first seen / last seen / how many
+times*, and the server's own gaps ranked by how often each one actually bit. The fingerprint is
+what makes it a backlog rather than a log: re-running a scan accumulates occurrences instead of
+duplicating rows, and a later **complete** scan of the same package (nothing left unread, no cap
+reached, no filter) is what retires a row that is no longer filed.
+
+```bash
+npm run report              # [--since YYYY-MM-DD] [--json]  -> Markdown by default
+npm run logs:prune -- --days 90 [--apply] [--audit]
+```
+
+The journal carries **no credential, no SAP source and no payload**, and that is enforced by a
+field allowlist rather than promised — see `docs/security.md`. It is a different artefact from
+the audit trail, which stays outside the repository.
+
+### No silent errors
+
+A journal is only worth reading if a quiet answer means *nothing was there* rather than *nobody
+looked*. Two rules keep that true, and both are enforced by `tests/no-silent-errors.test.mjs`
+rather than by review:
+
+- **Every registered code has an emitter.** A code in `lib/journal-codes.mjs` that no module ever
+  writes is an intention the server does not keep. The reverse direction is checked too: a code
+  emitted but not registered fails the build instead of failing at runtime on whichever path
+  happens to run.
+- **A `catch` that discards its error must be listed, with a reason.** Everywhere else has to
+  report — to the journal, to the answer, or to stderr. The list is the few places where the
+  thrown thing genuinely carries nothing a caller could act on (git absent when absence is the
+  wanted outcome, a socket already closed, a day file not created yet).
+
+The concrete case this closed: a scan used to skip what it could not read with a bare
+`continue`, and a lower count always reads as *cleaner*. Now every object a package scan could
+not read, and every package it could not list, is a `SOURCE_NOT_READ` gap, a reached cap is
+`SCAN_AT_CAP`, and the answer says `complete: false`. And at the bottom of the stack: if the
+journal itself cannot write, it warns once on stderr that an empty report from then on means
+**unrecorded, not clean**.
+
+Every call is also written to `%LOCALAPPDATA%\sap-adt\audit.log` — tool, target, result size.
+**Never the payload.**
+
+## Limitations
+
+**By design — what it will never do**
+
+- **Write anything to SAP.** No activation, no ABAP Unit, no object change, no lock, no
+  transport release, no ATC exemption. It cannot prove that code **activates** or that a test
+  passes; that is the official MCP server's job, from the IDE. (ATC it **can** run, on one
+  object at a time: `adt_atc_run`; each run leaves an ATC result worklist on the server, as
+  the IDE does.)
+- **Read business data.** It reads the repository and a **closed list** of configuration
+  tables (SAP-standard ones plus those you add with `table add`), through a generated
+  `SELECT` that cannot name anything else. `runQuery`/`tableContents` are a **closed
+  decision**, not a backlog item (`docs/security.md`): a free table read would make the audit
+  trail's "no payload, ever" untrue by construction.
+- **Call a customer (Z) HTTP service.** Outside `/sap/bc/adt` it reaches only the SAP-standard
+  launchpad OData services under `/sap/opu/odata/UI2/`.
+- **Store the password** or retry a failed logon. **Download at run time**: only
+  `sync:catalog`, run by you, goes online.
+
+**Scope — what it does not cover**
+
+- It is meant for a **development** system. Pointing it at quality or production is outside its
+  design.
+- **One SAP system per installation** (one store, one session). The server always reads the
+  store in the state directory; `--db` exists only on the configuration CLI.
+- **Basic authentication over HTTPS only.** No SSO, SAML, X.509 or OAuth, so no SAP BTP ABAP
+  environment.
+- **`adt_contract_check` reads only the Fiori apps you name.** The UI5 repository cannot be
+  searched by service (the list ignores every filter). OData V4 data sources are not checked
+  until their `$metadata` route is measured. Relative bindings, payloads built in variables and
+  `Filter` objects are not checked. CPI integrations live in another system (SAP BTP) that this
+  server does not reach.
+- **PFCG roles are not read.** `adt_launchpad` answers which catalogs FDM resolves for a role
+  (`roleCatalogs`), but no SAP-standard service lists roles, so it cannot say which roles open a
+  catalog.
+- It answers nothing about SM30/SE54 maintenance, the CPI graphical editor, or Fiori deploy.
+- **Commands that log on need an interactive terminal**; the server cannot run as a background
+  service.
+- **Windows first.** The state directory follows Windows conventions; elsewhere it is
+  `~/.local/share/sap-adt`.
+
+**Cost and accuracy — what an answer can and cannot prove**
+
+- **A package scan costs one ADT call per object** (capped, default 100, at most 300) and counts
+  against the read budget. Scan a sub-package when the root is large.
+- An empty `adt_search` is not proof of absence: the quick search does not index every object
+  (see the tool row). By-name tools fall back to the direct URI where the name allows it.
+- The release catalogue is a snapshot at a recorded upstream commit; refresh it with
+  `npm run sync:catalog` (monthly). Its age is in every answer that relies on it.
+- `adt_annotation_scan` reads the **source**, so it cannot see a switch, a kernel layer or an
+  `IS_ACTIVE` flag. It ranks what deserves an `adt_annotation_chain` call; it never replaces it.
+  An upstream view is read for its inline annotations only — its own DDLX is not looked up.
+- **`@UI.hidden` and `@Consumption.hidden` are both crossed against display roles**, and the
+  finding carries `hiddenKey` to say which one hid the field — they do not have the same remedy.
+- ⚠️ **The blind spots that do remain**, both declared by `adt_annotation_scan` in its own
+  reply: a hide bound to a field (`@UI.hidden: 'SomeFlag'`) is **skipped as deliberate design**,
+  and a hide reached over more than one propagating hop is matched on element **name** — so a row
+  with a high `depth` is the weaker claim, and `depth` is reported for exactly that reason.
+
+## Project layout
+
+| Path | What is there |
+|---|---|
+| `server.mjs` | starts the server: config, SAP logon, loopback HTTP listener, shutdown |
+| `lib/mcp-server.mjs` | the MCP plumbing: server info and instructions, tool handlers, the `Host`/`Origin` and token gate |
+| `lib/tool-meta.mjs` | titles, behaviour annotations, the input-schema check, `structuredContent`, progress |
+| `tools/` | the 15 MCP tools |
+| `lib/` | the guard (`guard.mjs`), the named GET routes (`adt-get.mjs`), package reads (`package-sources.mjs`), the session, the store and its validation (`store.mjs`, `environment.mjs`), the catalogue and its sync, parsers and the journal |
+| `scripts/` | the npm scripts above, each with its usage in its header comment |
+| `data/defaults/` | the SAP-standard half of every fence: customizing tables, ATC variant `DEFAULT`, launchpad OData roots |
+| `docs/` | `security.md` (every decision, dated), `adt-api-reference.md` (measured endpoint shapes), `phase0-report.md` (checking a system with the probe), `backlog.md` (open decisions and measurements) |
+| `tests/` | the offline suite and its synthetic fixtures (`ZDEMO_*`, host `vhdemohost.example`, client `001`) |
+| `config.example.json` | an invented environment in the shape `config import` reads |
+| `CLAUDE.md`, `.claude/` | how Claude Code works in this repository (PDCA, invariants) and the Stop hook that keeps `npm test` green |
+
+## License
+
+[MIT](LICENSE). `abap-adt-api` (MIT) and `@modelcontextprotocol/sdk` are pinned to exact versions
+and installed with `--ignore-scripts`.
+
+**Third-party data.** The Clean Core catalogue that `npm run sync:catalog` downloads is SAP's
+Cloudification Repository, [`SAP/abap-atc-cr-cv-s4hc`](https://github.com/SAP/abap-atc-cr-cv-s4hc),
+© SAP SE or an SAP affiliate company and contributors, Apache-2.0. It is not redistributed with
+this repository; each installation downloads it from SAP's repository.

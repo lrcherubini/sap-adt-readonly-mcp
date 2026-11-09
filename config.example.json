@@ -1,0 +1,39 @@
+{
+  "$comment": "An example environment with invented values. Import it into the store with `npm run config -- import config.example.json`, then change what differs in your landscape with `npm run config -- set <key> <value>`. Every key is listed by `npm run config -- keys`. Nothing here is a secret: the SAP password is never stored.",
+  "host": "dev-system.example.com",
+  "port": 44300,
+  "client": "001",
+  "user": "DEVELOPER",
+  "language": "EN",
+  "system": "DEV",
+  "allowUnauthorizedTls": false,
+  "mcpPort": 2237,
+  "budget": {
+    "reads": 200
+  },
+  "catalog": {
+    "release": "PCE2023_0"
+  },
+  "atc": {
+    "defaultVariant": "ZDEMO_CLEAN_CORE"
+  },
+  "atcVariants": [
+    {
+      "name": "ZDEMO_CLEAN_CORE",
+      "why": "the system check variant (atc/customizing systemCheckVariant): the Clean Core governance run"
+    },
+    {
+      "name": "ZDEMO_DEV_PRACTICE",
+      "why": "development practices: naming, performance, robustness checks run next to the Clean Core one"
+    }
+  ],
+  "customizingTables": [
+    {
+      "name": "ZDEMO_REGION",
+      "why": "state -> sales district map read by a demo order integration",
+      "keyColumns": [
+        "REGION"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,193 @@
+{
+ "formatVersion": "1",
+ "objectReleaseInfo": [
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "C_BILLGDOCITMPRCGELMNTBSCDEX",
+   "objectType": "CDS_STOB",
+   "objectKey": "C_BILLGDOCITMPRCGELMNTBSCDEX",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "SD-ANA",
+   "state": "deprecated",
+   "successorClassification": "oneObject",
+   "successors": [
+    {
+     "tadirObject": "DDLS",
+     "tadirObjName": "C_BILLGDOCITMPRCGELMNTBSCDEX_1",
+     "objectType": "CDS_STOB",
+     "objectKey": "C_BILLGDOCITMPRCGELMNTBSCDEX_1"
+    }
+   ]
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_FUNCNLLOCCATSTDVH",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_FUNCNLLOCCATSTDVH",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "PM-EQM-FL",
+   "state": "notToBeReleasedStable",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_ADDITIONALMATERIALGROUP1",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_ADDITIONALMATERIALGROUP1",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "SD-MD-MM",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_COMPANYCODE",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_COMPANYCODE",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "FI-GL-IS",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_COMPANYCODEVH",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_COMPANYCODEVH",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "FI-GL-IS",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_CUSTOMER_VH",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_CUSTOMER_VH",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "LO-MD-BP",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_DISTRIBUTIONCHANNEL",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_DISTRIBUTIONCHANNEL",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "SD-MD-MM",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_FACTORYCALENDARVALUEHELP",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_FACTORYCALENDARVALUEHELP",
+   "softwareComponent": "SAP_BASIS",
+   "applicationComponent": "BC-SRV-ASF-CAL",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_PLANT",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_PLANT",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "MM-IM-GF",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_PLANTSTDVH",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_PLANTSTDVH",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "MM-IM-GF",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_SALESORGANIZATION",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_SALESORGANIZATION",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "SD-MD-MM",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_STORAGELOCATION",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_STORAGELOCATION",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "LO-MD-MM",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_SUPPLIER_VH",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_SUPPLIER_VH",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "LO-MD-BP",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_UNITOFMEASURE",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_UNITOFMEASURE",
+   "softwareComponent": "SAP_BASIS",
+   "applicationComponent": "BC-SRV-ASF-UOM",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_UNITOFMEASURESTDVH",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_UNITOFMEASURESTDVH",
+   "softwareComponent": "SAP_BASIS",
+   "applicationComponent": "BC-SRV-ASF-UOM",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_PRODUCTTYPE",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_PRODUCTTYPE",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "LO-MD-MM",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_PRODUCTSTDVH",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_PRODUCTSTDVH",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "LO-MD-MM",
+   "state": "released",
+   "successorClassification": ""
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_PRODUCTGROUP_2",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_PRODUCTGROUP_2",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "LO-MD-MM",
+   "state": "released",
+   "successorClassification": ""
+  }
+ ]
+}

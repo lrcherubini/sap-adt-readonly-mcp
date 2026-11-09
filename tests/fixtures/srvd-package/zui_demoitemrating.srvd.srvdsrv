@@ -1,0 +1,8 @@
+// Synthetic. The defective case: none of the 5 value helps used in the parameters of
+// zc_demoitemrating is exposed.
+@EndUserText.label: 'Product Review'
+define service ZUI_DemoItemRating {
+  expose ZC_DemoItemRating     as DemoItemRating;
+  expose ZC_DemoItemMasterRating as DemoItemMasterRating;
+  expose ZC_DemoItemPackSpec     as DemoUnitPackSpec;
+}

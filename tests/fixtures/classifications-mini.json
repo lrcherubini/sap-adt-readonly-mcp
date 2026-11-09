@@ -1,0 +1,34 @@
+{
+ "formatVersion": "2",
+ "objectClassifications": [
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_BANKACCOUNT",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_BANKACCOUNT",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "FIN-FSCM-CLM",
+   "state": "classicAPI",
+   "successors": [
+    {
+     "tadirObject": "DDLS",
+     "tadirObjName": "I_BANKACCOUNTBASICDATA",
+     "objectType": "CDS_STOB",
+     "objectKey": "I_BANKACCOUNTBASICDATA"
+    }
+   ]
+  },
+  {
+   "tadirObject": "DDLS",
+   "tadirObjName": "I_TECHNICALOBJECTLABELVH",
+   "objectType": "CDS_STOB",
+   "objectKey": "I_TECHNICALOBJECTLABELVH",
+   "softwareComponent": "S4CORE",
+   "applicationComponent": "PM-WOC-MN",
+   "state": "classicAPI",
+   "labels": [
+    "transactional-consistent"
+   ]
+  }
+ ]
+}

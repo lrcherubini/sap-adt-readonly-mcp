@@ -1,0 +1,37 @@
+# Third-party runtime code — installed with `npm ci --ignore-scripts`.
+node_modules/
+
+# Never in this repo: credentials, session state, cached SAP source, the audit trail.
+# All of it lives under %LOCALAPPDATA%\sap-adt\ by design, and lib/config.mjs refuses
+# to start if that path resolves inside a git work tree. See docs/security.md.
+.env
+*.env
+token
+*.log
+cache/
+local/
+config.json
+
+# The journal (lib/journal.mjs): analysis metadata — object names, codes, counters,
+# timings. A DIFFERENT class of artefact from the four above, which is why it may sit
+# here: it carries no credential, no SAP source and no payload (enforced by a field
+# allowlist, not by promise), and it is most useful next to the code that produced it.
+# tests/journal.test.mjs asserts this ignore still holds — do not remove it.
+/logs/
+
+# Temporary probes (scripts/probes/*.mjs): one-off reads of the SAP system that measure a route
+# before it is built. The probe is never the record -- its findings are transcribed into
+# docs/adt-api-reference.md and the file is deleted. Ignoring the folder makes "never
+# commit a probe" a property of the tree instead of a memory; a probe committed once by
+# accident is why. scripts/probe.mjs, the permanent credential-less phase-0
+# probe, stays outside this folder on purpose. tests/journal.test.mjs asserts this too.
+/scripts/probes/
+
+# --out transcripts of propose:table. Same reasoning as the probes above: the transcript is a
+# READING of one system at one moment, not a record of the repository. What survives from it
+# goes into docs/adt-api-reference.md as a measurement, with its date. Leaving one committed
+# makes the next reader take a snapshot of one system for the state of the world.
+/transcript-*.txt
+
+# Personal Claude Code notes for this checkout (see CLAUDE.md).
+CLAUDE.local.md

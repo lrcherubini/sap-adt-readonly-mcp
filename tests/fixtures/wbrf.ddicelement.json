@@ -1,0 +1,442 @@
+{
+  "type": "TABL/DT",
+  "name": "wbrf",
+  "properties": {
+    "elementProps": false,
+    "annotations": []
+  },
+  "children": [
+    {
+      "type": "TABL/DTF",
+      "name": "mandt",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": true,
+          "ddicDataElement": "mandt",
+          "ddicDataType": "clnt",
+          "ddicLength": 3
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "ruuid",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": true,
+          "ddicDataElement": "wlf_doc_rel_uuid",
+          "ddicDataType": "raw",
+          "ddicLength": 16
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "wbelnv",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "wbeln_von",
+          "ddicDataType": "char",
+          "ddicLength": 10
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "posnv",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "wposnr_von",
+          "ddicDataType": "numc",
+          "ddicLength": 6
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "wbelnn",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "wbeln_nach",
+          "ddicDataType": "char",
+          "ddicLength": 10
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "posnn",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "wposnr_nach",
+          "ddicDataType": "numc",
+          "ddicLength": 6
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "lftypn",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "wftypn",
+          "ddicDataType": "char",
+          "ddicLength": 2
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "lftypv",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "wftyp_v",
+          "ddicDataType": "char",
+          "ddicLength": 2
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "erdat",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "erdat",
+          "ddicDataType": "dats",
+          "ddicLength": 8
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "erzet",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "erzet",
+          "ddicDataType": "tims",
+          "ddicLength": 6
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "ernam",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "ernam",
+          "ddicDataType": "char",
+          "ddicLength": 12
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "wrtyp",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "wrtyp",
+          "ddicDataType": "char",
+          "ddicLength": 1
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "abartn",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "nafkt_nach",
+          "ddicDataType": "char",
+          "ddicLength": 1
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "wdtypv",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "doctypev",
+          "ddicDataType": "char",
+          "ddicLength": 1
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "wdtypn",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "doctypen",
+          "ddicDataType": "char",
+          "ddicLength": 1
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "gjahrv",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "gjahr",
+          "ddicDataType": "numc",
+          "ddicLength": 4
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "wbelnn_long",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "wlf_wbeln_to_long",
+          "ddicDataType": "char",
+          "ddicLength": 20
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "_dataaging",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "data_temperature",
+          "ddicDataType": "dats",
+          "ddicLength": 8
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "ui_behavior",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "wlf_ui_behavior",
+          "ddicDataType": "char",
+          "ddicLength": 1
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DS",
+      "name": ".append",
+      "properties": {
+        "elementProps": false,
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "corr_document",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "wlf_corr_document",
+          "ddicDataType": "char",
+          "ddicLength": 1
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DS",
+      "name": ".append",
+      "properties": {
+        "elementProps": false,
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DS",
+      "name": ".include",
+      "properties": {
+        "elementProps": false,
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "knumh",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "knumh",
+          "ddicDataType": "char",
+          "ddicLength": 10
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "kopos",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "kopos",
+          "ddicDataType": "numc",
+          "ddicLength": 2
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "coco_num",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "wcb_coco_num",
+          "ddicDataType": "char",
+          "ddicLength": 10
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DS",
+      "name": ".append",
+      "properties": {
+        "elementProps": false,
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "settlement_date",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "wlf_settlement_date",
+          "ddicDataType": "dats",
+          "ddicLength": 8
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "settl_date_seq_id",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "wb2_settlement_date_seq_id",
+          "ddicDataType": "numc",
+          "ddicLength": 1
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DS",
+      "name": ".append",
+      "properties": {
+        "elementProps": false,
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "dt_comp",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "augdt",
+          "ddicDataType": "dats",
+          "ddicLength": 8
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "TABL/DTF",
+      "name": "st_comp",
+      "properties": {
+        "elementProps": {
+          "ddicIsKey": false,
+          "ddicDataElement": "zdemo_de_comp",
+          "ddicDataType": "char",
+          "ddicLength": 1
+        },
+        "annotations": []
+      },
+      "children": []
+    },
+    {
+      "type": "DEVC/K",
+      "name": "WZRE",
+      "properties": {
+        "elementProps": false,
+        "annotations": []
+      },
+      "children": []
+    }
+  ]
+}

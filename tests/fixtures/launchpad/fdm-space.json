@@ -1,0 +1,106 @@
+{
+ "d": {
+  "__metadata": {
+   "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/spaceSet('SAP_FIN_SP_JVA_ACCOUNTANT')",
+   "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/spaceSet('SAP_FIN_SP_JVA_ACCOUNTANT')",
+   "type": ".UI2.FDM_SPACE_REPOSITORY_SRV.Space",
+   "etag": "W/\"datetime'2020-09-10T19%3A36%3A57'\""
+  },
+  "numberOfPages": 5,
+  "sortPriority": "0.000",
+  "id": "SAP_FIN_SP_JVA_ACCOUNTANT",
+  "numberOfRoles": 2,
+  "title": "Joint Venture Accounting",
+  "description": "Joint Venture Accountant",
+  "masterLanguage": "",
+  "pages": {
+   "results": [
+    {
+     "__metadata": {
+      "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_OVR')",
+      "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_OVR')",
+      "type": ".UI2.FDM_SPACE_REPOSITORY_SRV.Page"
+     },
+     "id": "SAP_FIN_PG_JVA_ACC_OVR",
+     "pageIndex": 1,
+     "title": "Overview",
+     "description": "Joint Venture Accounting - Overview",
+     "visibility": true,
+     "spaces": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_OVR')/spaces"
+      }
+     }
+    },
+    {
+     "__metadata": {
+      "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_PERD_ACTVT')",
+      "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_PERD_ACTVT')",
+      "type": ".UI2.FDM_SPACE_REPOSITORY_SRV.Page"
+     },
+     "id": "SAP_FIN_PG_JVA_ACC_PERD_ACTVT",
+     "pageIndex": 2,
+     "title": "Periodic Activities",
+     "description": "Joint Venture Accounting - Periodic Activities",
+     "visibility": true,
+     "spaces": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_PERD_ACTVT')/spaces"
+      }
+     }
+    },
+    {
+     "__metadata": {
+      "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_REP')",
+      "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_REP')",
+      "type": ".UI2.FDM_SPACE_REPOSITORY_SRV.Page"
+     },
+     "id": "SAP_FIN_PG_JVA_ACC_REP",
+     "pageIndex": 3,
+     "title": "Reports",
+     "description": "Joint Venture Accounting - Reports",
+     "visibility": true,
+     "spaces": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_REP')/spaces"
+      }
+     }
+    },
+    {
+     "__metadata": {
+      "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_JRNL_ENTRIES')",
+      "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_JRNL_ENTRIES')",
+      "type": ".UI2.FDM_SPACE_REPOSITORY_SRV.Page"
+     },
+     "id": "SAP_FIN_PG_JVA_ACC_JRNL_ENTRIES",
+     "pageIndex": 4,
+     "title": "Line Items",
+     "description": "Joint Venture Accounting - Line Items",
+     "visibility": true,
+     "spaces": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_JRNL_ENTRIES')/spaces"
+      }
+     }
+    },
+    {
+     "__metadata": {
+      "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_MST_DATA')",
+      "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_MST_DATA')",
+      "type": ".UI2.FDM_SPACE_REPOSITORY_SRV.Page"
+     },
+     "id": "SAP_FIN_PG_JVA_ACC_MST_DATA",
+     "pageIndex": 5,
+     "title": "Master Data",
+     "description": "Joint Venture Accounting - Master Data",
+     "visibility": true,
+     "spaces": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_SPACE_REPOSITORY_CUST_SRV/pageSet('SAP_FIN_PG_JVA_ACC_MST_DATA')/spaces"
+      }
+     }
+    }
+   ]
+  }
+ }
+}

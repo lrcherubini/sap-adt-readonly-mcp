@@ -1,0 +1,124 @@
+{
+ "d": {
+  "__metadata": {
+   "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/pageSet('SAP_BASIS_PG_UI_FLP')",
+   "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/pageSet('SAP_BASIS_PG_UI_FLP')",
+   "type": ".UI2.FDM_PAGE_REPOSITORY_SRV.Page",
+   "etag": "W/\"datetime'2022-03-11T12%3A16%3A23'\""
+  },
+  "devclass": "",
+  "id": "SAP_BASIS_PG_UI_FLP",
+  "title": "SAP Fiori Launchpad",
+  "transportId": "",
+  "description": "SAP Fiori Launchpad",
+  "masterLanguage": "",
+  "sections": {
+   "results": [
+    {
+     "__metadata": {
+      "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/sectionSet('3WO90XZ1DX1AO8JZ8LH5RB8YS')",
+      "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/sectionSet('3WO90XZ1DX1AO8JZ8LH5RB8YS')",
+      "type": ".UI2.FDM_PAGE_REPOSITORY_SRV.Section"
+     },
+     "id": "3WO90XZ1DX1AO8JZ8LH5RB8YS",
+     "title": "SAP Fiori Launchpad",
+     "sectionIndex": 1,
+     "viz": {
+      "results": []
+     },
+     "subsections": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/sectionSet('3WO90XZ1DX1AO8JZ8LH5RB8YS')/subsections"
+      }
+     }
+    }
+   ]
+  },
+  "spaces": {
+   "results": [
+    {
+     "__metadata": {
+      "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/spaceSet('SAP_BASIS_SP_UI_FLP')",
+      "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/spaceSet('SAP_BASIS_SP_UI_FLP')",
+      "type": ".UI2.FDM_PAGE_REPOSITORY_SRV.Space"
+     },
+     "id": "SAP_BASIS_SP_UI_FLP",
+     "sortPriority": "0.000",
+     "title": "SAP Fiori Launchpad",
+     "description": "SAP Fiori Launchpad"
+    },
+    {
+     "__metadata": {
+      "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/spaceSet('SAP_BASIS_SP_ADMINISTRATION')",
+      "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/spaceSet('SAP_BASIS_SP_ADMINISTRATION')",
+      "type": ".UI2.FDM_PAGE_REPOSITORY_SRV.Space"
+     },
+     "id": "SAP_BASIS_SP_ADMINISTRATION",
+     "sortPriority": "0.000",
+     "title": "Administration",
+     "description": "Administration"
+    }
+   ]
+  },
+  "roles": {
+   "results": [
+    {
+     "__metadata": {
+      "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/roleSet('SAP_BR_ADMINISTRATOR')",
+      "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/roleSet('SAP_BR_ADMINISTRATOR')",
+      "type": ".UI2.FDM_PAGE_REPOSITORY_SRV.Role"
+     },
+     "id": "SAP_BR_ADMINISTRATOR",
+     "title": "Administrator",
+     "catalogs": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/roleSet('SAP_BR_ADMINISTRATOR')/catalogs"
+      }
+     }
+    },
+    {
+     "__metadata": {
+      "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/roleSet('Z_DEMO_ADMINISTRATOR')",
+      "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/roleSet('Z_DEMO_ADMINISTRATOR')",
+      "type": ".UI2.FDM_PAGE_REPOSITORY_SRV.Role"
+     },
+     "id": "Z_DEMO_ADMINISTRATOR",
+     "title": "Administrator",
+     "catalogs": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/roleSet('Z_DEMO_ADMINISTRATOR')/catalogs"
+      }
+     }
+    },
+    {
+     "__metadata": {
+      "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/roleSet('SAP_FLP_ADMIN')",
+      "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/roleSet('SAP_FLP_ADMIN')",
+      "type": ".UI2.FDM_PAGE_REPOSITORY_SRV.Role"
+     },
+     "id": "SAP_FLP_ADMIN",
+     "title": "SAP Fiori Launchpad Administration Tasks",
+     "catalogs": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/roleSet('SAP_FLP_ADMIN')/catalogs"
+      }
+     }
+    },
+    {
+     "__metadata": {
+      "id": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/roleSet('Z_DEMO_FLP_ADMIN')",
+      "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/roleSet('Z_DEMO_FLP_ADMIN')",
+      "type": ".UI2.FDM_PAGE_REPOSITORY_SRV.Role"
+     },
+     "id": "Z_DEMO_FLP_ADMIN",
+     "title": "Administration Tasks of SAP Fiori Launchpad",
+     "catalogs": {
+      "__deferred": {
+       "uri": "https://vhdemohost.example:44300/sap/opu/odata/UI2/FDM_PAGE_REPOSITORY_CUST_SRV/roleSet('Z_DEMO_FLP_ADMIN')/catalogs"
+      }
+     }
+    }
+   ]
+  }
+ }
+}

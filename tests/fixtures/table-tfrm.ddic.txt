@@ -1,0 +1,25 @@
+* TFRM (TABL/DT) -- package VOFM
+* measured on DEV/001, 2026-09-22 (the provenance line with the host is stripped on purpose)
+*
+* THE COUNTER-EXAMPLE THIS FIXTURE EXISTS FOR: TFRM is in CUSTOMIZING_TABLES and its delivery
+* class is G, not C. A rule that admitted "class C" would have dropped it.
+
+@EndUserText.label : 'Form Routines for Requirements/Formulas/Data Transports'
+@AbapCatalog.enhancement.category : #EXTENSIBLE_CHARACTER_NUMERIC
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #G
+@AbapCatalog.dataMaintenance : #ALLOWED
+define table tfrm {
+
+  key grpze : grpze not null;
+  key grpno : grpno not null;
+  aktiv     : aktiv_tfrm;
+  @AbapCatalog.foreignKey.keyType : #NON_KEY
+  @AbapCatalog.foreignKey.screenCheck : true
+  kappl     : kappl
+    with foreign key [0..*,0..1] t681a
+      where kappl = tfrm.kappl;
+  gndat     : gndat;
+  gnzei     : gnzei;
+
+}

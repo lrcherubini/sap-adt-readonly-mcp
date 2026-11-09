@@ -1,0 +1,12 @@
+// Synthetic, shaped like a real checkout: a value help on a PARAMETER, in a DDLX.
+annotate entity ZC_DemoShelfStock with
+  parameters
+    @Consumption.valueHelpDefinition: [{
+      entity: {
+        name: 'ZI_DemoChannel',
+        element: 'Channel'
+      }
+    }]
+    p_channel
+{
+}
