@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { record, recordStart, recordStop, recordLogonRefused, resetBudget } from '../lib/audit.mjs';
 import { logonWith } from '../lib/session.mjs';
-import { runsFromAudit, renderRuns } from '../lib/audit-runs.mjs';
+import { runsFromAudit, renderRuns, refusedSinceLastStart } from '../lib/audit-runs.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -238,4 +238,24 @@ test('--runs names a refused logon and counts them, so restarts add up', () => {
   const md = renderRuns(out);
   assert.match(md, /2 logon\(s\) refused by the system/);
   assert.match(md.split('\n').find((l) => l.includes('`r1`')), /logon refused\*\* \(HTTP 401\)/);
+});
+
+test('the refusals before the prompt count since the last successful start of the same user and system', () => {
+  const at = (m, extra) => ({ ts: `2026-09-23T09:0${m}:00.000Z`, run: `r${m}`, host: 'vhdemohost.example', client: '001', user: 'DEVUSER1', ...extra });
+  const file = tempFile([
+    at(0, { event: 'logon-refused', status: 401 }),
+    at(1, { event: 'start' }),
+    at(2, { event: 'logon-refused', status: 401 }),
+    at(3, { event: 'logon-refused', status: 401, user: 'devuser1' }),
+    at(4, { event: 'logon-refused', status: 401, user: 'DEVUSER2' }),
+    at(5, { event: 'logon-refused', status: 401, client: '002' }),
+  ]);
+  const mine = refusedSinceLastStart({ host: 'vhdemohost.example', client: '001', user: 'DEVUSER1' }, file);
+  assert.deepEqual(mine, { count: 2, since: '2026-09-23T09:01:00.000Z' }, 'the refusal before the start is forgiven; another user or client is not counted');
+  assert.deepEqual(refusedSinceLastStart({ host: 'vhdemohost.example', client: '001', user: 'DEVUSER3' }, file), { count: 0, since: null });
+  assert.deepEqual(
+    refusedSinceLastStart({ host: 'vhdemohost.example', client: '001', user: 'DEVUSER1' }, path.join(os.tmpdir(), 'sap-adt-nope', 'audit.log')),
+    { count: 0, since: null },
+    'no trail: no warning, and no failure before the prompt'
+  );
 });

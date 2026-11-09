@@ -59,28 +59,6 @@ measurement.
 
 ---
 
-## 7. A refused logon leaves no trace, and the risk it carries is locking the SAP user
-
-**What is missing.** Decide whether the trail records a failed logon attempt. `recordStart` runs
-**after** the logon (`server.mjs`), so a 401 writes nothing: not in the audit, not in the journal.
-
-**Where it bit.** A run of server restarts with two 401s followed by two successful logons shows up
-in `npm run report -- --runs` as successful runs only; the refused ones are invisible. Aborting at
-the password prompt or a busy port are not risks: neither talks to SAP.
-
-**Why it matters.** `lib/session.mjs` refuses a second attempt in the same process because repeated
-failures lock the SAP user, and the IDE, abapGit and transports with it. That guard holds per
-process and cannot hold across processes: whoever restarts starts from zero. Only the trail could
-say "three refusals on this machine today", and it does not.
-
-**What to decide.** An `event: 'logon-refused'` with `run`, `pid`, `user` and the status (never the
-password, never the server's reason verbatim) is cheap and keeps the *no payload, ever* promise,
-but it **changes what the trail covers**: from what an authenticated server did to also what never
-became one. A `docs/security.md` decision. The question: does the trail exist to audit use, or also
-to protect the account?
-
----
-
 ## Accepted limit (not work): a per-target gap cannot retire itself
 
 Recorded so it does not come back as a defect.

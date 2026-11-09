@@ -141,7 +141,9 @@ npm run probe -- --host my-sap-host --port 44300   # reachability + auth scheme,
 5. **Type the SAP password** in the first terminal. **Nothing is echoed while you type** — no
    asterisks, no cursor movement. That is the terminal, not a hang: type it and press Enter. An
    empty password is refused locally, but a wrong one is a failed SAP logon, and repeated
-   failures lock the user. The endpoint starts listening only after the logon succeeds.
+   failures lock the user. The endpoint starts listening only after the logon succeeds. A
+   refused logon is written to the audit trail, and the next start prints how many are on record
+   since the last successful one, before it asks for the password.
 
 To see the server the way a client does, the official **MCP Inspector** works against it:
 `npx @modelcontextprotocol/inspector`, transport *Streamable HTTP*, URL
