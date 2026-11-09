@@ -69,6 +69,11 @@
     {"name":"T001L","why":"storage locations per plant","routineColumns":{},"keyColumns":["WERKS","LGORT"]},
     {"name":"T001W","why":"plants: company/valuation area, factory calendar FABKL, sales org, address","routineColumns":{},"keyColumns":["WERKS"]},
     {"name":"T001B","why":"open posting periods per posting period variant and account type","routineColumns":{},"keyColumns":["RRCTY","BUKRS","MKOAR","BKONT"]},
-    {"name":"T001Z","why":"company code additional parameters (PARTY/PAVAL, e.g. tax ids)","routineColumns":{},"keyColumns":["BUKRS","PARTY"]}
+    {"name":"T001Z","why":"company code additional parameters (PARTY/PAVAL, e.g. tax ids)","routineColumns":{},"keyColumns":["BUKRS","PARTY"]},
+    {"name":"SFW_PACKAGE","why":"Switch Framework: which switch a package is assigned to -- the first step from an append missing in the active table to a switch","routineColumns":{},"keyColumns":["SWITCH_ID","VERSION","DEVCLASS"]},
+    {"name":"SFW_SW_BF","why":"Switch Framework: which business function a switch belongs to, and as activation (A) or standby (E) switch","routineColumns":{},"keyColumns":["BFUNCTION","VERSION","SWITCH_ID"]},
+    {"name":"SFW_ACTIVE_BFUNC","why":"Switch Framework: the business functions active in this client (per client, class C)","routineColumns":{},"keyColumns":["VERSION","BFUNCTION"]},
+    {"name":"SFW_SWITCHT","why":"Switch Framework: switch texts","routineColumns":{},"keyColumns":["SWITCH_ID","SPRAS"]},
+    {"name":"SFW_BFT","why":"Switch Framework: business function texts","routineColumns":{},"keyColumns":["BFUNCTION","SPRAS"]}
   ]
 }

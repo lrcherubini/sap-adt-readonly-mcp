@@ -29,14 +29,19 @@ when no field of an append appears in the active field list, and stops there on 
   switch-dependent by design. A where-used or an enhancement listing that ignores the switch
   overstates what runs.
 
-**What remains** (discovery publishes no switch or business-function collection, only feature
-toggles; see the reference, *Discovery has no switch or business-function collection*):
-1. The answer lives only in table rows (`SFW_SWITCH`, `SFW_BF` and the switch → package /
-   object assignments). That hits the boundary this server defends: `runQuery`/`tableContents` are
-   denied and the customizing list is closed. The options are proposing the `SFW_*` tables through
-   `npm run propose:table`, with the evidence the process requires, or accepting that the cause
-   lives in the IDE. **The owner's decision.**
-2. What `SFW_BROWSER` shows that the tables do not: one manual pass before building anything.
+**What remains.** The tables of the chain package → `SFW_PACKAGE` → `SFW_SW_BF` →
+`SFW_ACTIVE_BFUNC` are admitted (`docs/security.md`, *Switch Framework tables*, 2026-11-09).
+`VERSION` is A/I/P (active, inactive, pending after import) and `SWITCHTYPE` is A/E (activation,
+standby), both read from their domains. Still to do:
+1. **Measure the chain on the known case**, through `adt_customizing`. The four `OI*_KNA1` appends
+   missing from the active `KNA1` all sit in package `OI0_COMMON_2`. Read its `SFW_PACKAGE` rows,
+   then the business functions of each switch, then whether those are in `SFW_ACTIVE_BFUNC`, and
+   what `X_OFF` means there. If the chain explains the four and leaves the seven present ones
+   alone, it is evidence; if it does not, it is not built.
+2. **Then** `propose:table` prints, for each append `NOT IN THE ACTIVE TABLE`, the switch and the
+   business function its package hangs on, and whether that function is active. That is evidence
+   next to the absence, never the stated cause.
+3. The code half (`ENHO` behind a switch) is not started.
 
 Until measured, nothing may **assert** a switch as the cause. Reports state absence and point to
 `SE11`/`SFW_BROWSER`.
