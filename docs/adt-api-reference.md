@@ -2227,6 +2227,39 @@ for an implant anchored in a function module -- the 34 of 45 FUGR dumps of 2026-
 ended in "0 implementation(s)" are that, not absence. `objectEnhancements(<fm source/main>)`
 of the library does `/enhancements` then `/elements` on 404, so it reads this today.
 
+### The enhancement listing ignores the Switch Framework — MEASURED 2026-11-09
+
+`objectEnhancements` on `SAPMV45A` lists four `ENHO/XHH`, every one with `adtcore:version="active"`.
+That attribute is the object's version, not its switch. Each of the four sits in a package behind a
+switch (`SFW_PACKAGE`), and **none of those switches has an active business function** in the
+logon client:
+
+| ENHO | package | switch | business functions (`SFW_SW_BF`) | active (`SFW_ACTIVE_BFUNC`) |
+|---|---|---|---|---|
+| `OI0_COMMON_SAPMV45A` (47 elements) | `OI0_COMMON` | `OI0_COMMON_DS` | `BUSINESS_FUNCTION_BASIS_COM` (E), `COMMODITY_MGMT_&_BULK_LOGISTIC` (A) | none |
+| `OIJ_SAPMV45A` (9 elements) | `OIJ` | `OIJ_TSW` | the same two, plus `LOG_TSW_ECC` (A) | none |
+| `FSH_DET_PROCESS` | `FSH_SD_SFW` | `SFSW_FASHION` | `ISR_RETAILSYSTEM` (A), `RFM_RETAIL_BASE_SCOPE` (A) | none |
+| `ITMF_SAPMV45A_01` | `INT_TMF_SD_TC` | `ITMF_SFW_SD_TC` | none | — |
+
+So the listing names implementations **whatever their switch says**. `adt_read_source` therefore
+labels its footer "bound to", never "active on".
+
+**But the business-function chain cannot say which of them is off.** On this S/4HANA system the 169
+active business functions are almost all feature toggles (`FTGL_*`, `SD_*`, `FIN_*`). No classic
+industry function is active: not the 14 of switch `FICA`, not the IS-Oil ones, not Fashion. Yet
+objects behind those switches are plainly in use: the three `KNA1` appends of `OI0_COMMON_2`, a
+switch with no business function, are in the active table (*The switch chain* above). A switch's
+state is not derived from `SFW_ACTIVE_BFUNC` alone. It is stored in **`SFW_SWITCH_STATE`**
+(`SWITCH_ID`, `CLIENT`, `VERSION`, `USERNAME`, `STATE`; `STATE` is domain `SFW_SETTING`: `T` on,
+`S` stand-by, `F` off). That table was refused (class L, a user name in the key), so whether the
+listed implementations run is **not answered** by anything this server reads.
+
+The same day, `OIH_SAPLV45A` (`OIH` → `OIH_EXCISE_DUTY`, no active business function) enhances
+function group `V45A` and is **not** in the listing of the group's main program, which shows only
+`FICA_SAPLV45A` (`FKKI` → switch `FICA`, no active business function). Its elements are probably
+anchored in an include of the group (see the section above). That is a property of where the
+listing is asked, not a switch filter, and it is recorded as inconclusive.
+
 ### A function group's `objectstructure` lists its FMs, includes and `ENHO/XH` — MEASURED 2026-09-14
 
 Round 17, step 3. The library's `objectStructure()` on a FUGR answers metadata and links only

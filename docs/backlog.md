@@ -13,24 +13,31 @@ Last reviewed: 2026-11-09, against the self-contained server (every source read 
 
 ---
 
-## 1. Switch Framework in code: an enhancement behind a switch that is off
+## 1. Switch Framework: whether a switch is ON is not read
 
-**What is missing.** An `ENHO` carries `@switchSupported`, so an enhancement implementation is
-switch-dependent by design. `adt_read_source` with `enhancements: true` and the enhancement
-listings report every implementation they find, whether or not its switch is on, so they overstate
-what runs.
+**What is missing.** The real state of a switch. The ADT lists enhancement implementations
+whatever their switch says (reference, *The enhancement listing ignores the Switch Framework*),
+and the business-function chain cannot stand in for the state. On this S/4HANA system no classic
+business function is active, yet objects behind those switches are in use. So "this ENHO is bound"
+cannot be followed by "and it runs", or "it does not", and the DDIC chain printed by
+`propose:table` is weaker evidence than it looks.
 
-**What exists.** The DDIC half is built: `propose:table` prints the switch chain beside an append
-`NOT IN THE ACTIVE TABLE` (`lib/switch-chain.mjs`). The chain goes package → `SFW_PACKAGE` →
-`SFW_SW_BF` → `SFW_ACTIVE_BFUNC`, all admitted tables. It was read on `KNA1` (reference, *The
-switch chain*): consistent on one absent append, and a switch with no business function was seen
-carrying active appends.
+**Where it bit.**
+- `SAPMV45A` lists four implementations, all behind switches with no active business function.
+- `KNA1`: three appends of a switch with no business function are active, and one append of a
+  switch whose business functions are inactive is not.
 
-**What to measure.** Whether an enhancement implementation is switched through its package, like
-the appends, or through its own name: `SFW_PACKAGE` and `SFW_SW_BF` both carry `ENHNAME`, empty
-on every row read so far. One `ENHO` known to sit behind a switch is needed, with its
-`SFW_PACKAGE`/`SFW_SW_BF` rows read through `adt_customizing`. Until then nothing may **assert**
-that an enhancement does not run.
+**What to decide** (the owner's). The state lives in `SFW_SWITCH_STATE`: `STATE` is `T` on,
+`S` stand-by, `F` off. It was refused in `docs/security.md` (class L, `USERNAME` in the key).
+`SCICHKV_HD` is the precedent: class L, admitted by exception with a field allowlist, and its user
+column `filterOnly`, never returned. The same form would read `SWITCH_ID`, `CLIENT`,
+`VERSION` and `STATE`, with `USERNAME` only as a filter (blank = the system setting).
+
+**Then measure.** The state of `OI0_COMMON_2` (expected on: its appends are active),
+`OI0_COMMON_DS` (expected off: `OILKNA1` is absent), and the switches of the four
+`SAPMV45A` implementations. If the table reproduces both known `KNA1` facts, it replaces the
+business-function step in `lib/switch-chain.mjs`, and the enhancement footer can say per
+implementation whether its switch is on.
 
 ---
 

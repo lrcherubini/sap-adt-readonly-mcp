@@ -61,7 +61,7 @@ service document instead, so this is how a parameter name gets verified rather t
 guessed — which is the difference between the first and the second attempt at
 `ddicElement` above.
 
-`objectEnhancements` reads the enhancement implementations active on a source object:
+`objectEnhancements` reads the enhancement implementations bound to a source object:
 a GET on `/source/main/enhancements`, `Accept: …enhancements.v3+xml`. It was opened
 because it closes a gap an include-exit inventory has **declared open**, not to round out the set.
 Such an inventory lists the include exits and states plainly that their

@@ -299,8 +299,11 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
       try {
         const found = await api.objectEnhancements(sourceUrl, context, !!enhancementSource);
         const impls = found?.implementations ?? [];
+        // `version` is the OBJECT's version (adtcore:version), not its switch: the listing names
+        // implementations whose package sits behind a switch with no active business function
+        // too (measured on SAPMV45A, 2026-11-09). So the heading says "bound to", never "runs".
         const lines = impls.flatMap((i) => [
-          `* ${i.name} (${i.type ?? '?'}, ${i.version ?? '?'})` +
+          `* ${i.name} (${i.type ?? '?'}, version ${i.version ?? '?'})` +
             (i.enhancedObject?.name ? ` on ${i.enhancedObject.name}` : ''),
           ...(i.elements ?? []).map(
             (e) =>
@@ -315,10 +318,10 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             : []),
         ]);
         enhFooter =
-          `\n\n* ===== ${impls.length} enhancement implementation(s) active on ` +
+          `\n\n* ===== ${impls.length} enhancement implementation(s) bound to ` +
           `${hit['adtcore:name']} =====\n` +
           (lines.length
-            ? lines.join('\n')
+            ? '* listed whatever their Switch Framework switch says: bound is not running\n' + lines.join('\n')
             : '* none -- the system reports no enhancement bound to this object') +
           '\n';
       } catch (e) {
@@ -486,8 +489,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         description:
           'Read the real source of an object from the SAP system, including standard objects ' +
           'that exist in no local abapGit repo. With enhancements: true it also returns the ' +
-          'enhancement implementations active on it -- customer code inside a standard object, ' +
-          'which no Z-namespace sweep and no abapGit repo shows. Pass objectNames (up to 25) ' +
+          'enhancement implementations bound to it -- customer code inside a standard object, ' +
+          'which no Z-namespace sweep and no abapGit repo shows; they are listed whatever their ' +
+          'Switch Framework switch says, so bound is not running. Pass objectNames (up to 25) ' +
           'instead of objectName to read a batch: one item per name, a failed item never ' +
           'stops the others. An ENHO has no source of its own: the answer names the enhanced ' +
           'object to read instead. A form-based type has no source and is refused with the call ' +

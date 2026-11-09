@@ -365,8 +365,12 @@ test('adt_read_source lists the enhancements when asked, and only then', async (
   assert.equal(api.count('objectEnhancements'), 1);
   // The source is still the source; the enhancements are a footer under it.
   assert.match(withEnh, /define view entity ZI_TEST/);
-  assert.match(withEnh, /1 enhancement implementation\(s\) active on ZI_TEST/);
-  assert.match(withEnh, /ZENH_SD_ORDER_CHECK \(ENHO\/XH, active\) on MV45AFZZ/);
+  // "bound to", never "active on": the ADT lists implementations whatever their switch says, and
+  // `active` is the object version (measured on SAPMV45A, 2026-11-09).
+  assert.match(withEnh, /1 enhancement implementation\(s\) bound to ZI_TEST/);
+  assert.match(withEnh, /bound is not running/);
+  assert.equal(/active on ZI_TEST/.test(withEnh), false);
+  assert.match(withEnh, /ZENH_SD_ORDER_CHECK \(ENHO\/XH, version active\) on MV45AFZZ/);
   assert.match(withEnh, /USEREXIT_SAVE_DOCUMENT/);
   assert.match(withEnh, /at line 120/);
   // Not asked for, so the enhancement's own source stays out.
