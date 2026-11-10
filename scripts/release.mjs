@@ -5,8 +5,11 @@
 // Conventional Commits types (lib/release.mjs) and prints the CHANGELOG entry.
 //
 // IT WRITES NOTHING WITHOUT --apply. With it, it sets the version in package.json and
-// package-lock.json and puts the entry at the top of CHANGELOG.md. It never commits, tags or
-// pushes: it prints those commands, and the release procedure (CLAUDE.md) runs them.
+// package-lock.json, puts the entry at the top of CHANGELOG.md, commits those three files (by
+// name, nothing else) as `chore(release): vX.Y.Z` and tags that commit `vX.Y.Z`, so a release
+// can no longer be left untagged. It refuses, before writing anything, when something is already
+// staged, when one of the three files has changes of its own, or when the tag exists. The commit
+// goes through the repository's hooks like any other. It never pushes.
 //
 // Runs in the current directory, which npm sets to the package root.
 
@@ -77,11 +80,25 @@ if (!apply) {
   process.exit(0);
 }
 
-fs.writeFileSync(path.join(root, 'package.json'), setVersion(pkgText, version));
+// Refuse before anything is written: a release commit carries the three files and nothing else.
 const lock = read('package-lock.json');
+const files = ['package.json', ...(lock !== null ? ['package-lock.json'] : []), 'CHANGELOG.md'];
+const refuse = (why) => {
+  console.error(`release refused: ${why}. Nothing was written.`);
+  process.exit(2);
+};
+const staged = git('diff', '--cached', '--name-only').trim();
+if (staged) refuse(`something is already staged (${staged.split('\n').join(', ')}); commit or unstage it first`);
+const dirty = git('status', '--porcelain', '--', ...files).trim();
+if (dirty) refuse(`${dirty.split('\n').map((l) => l.slice(3)).join(', ')} has changes of its own; commit them first`);
+if (git('tag', '--list', `v${version}`).trim()) refuse(`tag v${version} already exists`);
+
+fs.writeFileSync(path.join(root, 'package.json'), setVersion(pkgText, version));
 if (lock !== null) fs.writeFileSync(path.join(root, 'package-lock.json'), setVersion(lock, version));
 fs.writeFileSync(path.join(root, 'CHANGELOG.md'), prependEntry(read('CHANGELOG.md'), entry));
-console.log('Written. Review, then:');
-console.log('  git add package.json package-lock.json CHANGELOG.md');
-console.log(`  git commit -m "chore(release): v${version}"`);
-console.log(`  git tag v${version}`);
+git('add', '--', ...files);
+git('commit', '-q', '-m', `chore(release): v${version}`, '--', ...files);
+git('tag', `v${version}`);
+const head = git('rev-parse', '--short', 'HEAD').trim();
+console.log(`Committed ${head} chore(release): v${version} (${files.join(', ')}) and tagged it v${version}.`);
+console.log(`Not pushed. To publish: git push && git push origin v${version}`);

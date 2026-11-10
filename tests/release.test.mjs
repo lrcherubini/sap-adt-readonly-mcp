@@ -144,7 +144,7 @@ test('the repository version is SemVer, the lockfile agrees, and npm formatting 
   assert.equal(pkg.scripts.release, 'node scripts/release.mjs');
 });
 
-test('the release script against a scratch repository: no tag, dry run, apply', () => {
+test('the release script against a scratch repository: no tag, dry run, apply, refusals', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'release-'));
   const git = (...args) =>
     execFileSync('git', ['-c', 'user.name=Dev User', '-c', 'user.email=dev@example.com',
@@ -152,8 +152,21 @@ test('the release script against a scratch repository: no tag, dry run, apply', 
     { cwd: dir, encoding: 'utf8', stdio: 'pipe' });
   const run = (...args) => {
     try {
+      // The script commits and tags: give it an identity and no hooks or signing, like `git` here.
+      const env = {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'Dev User',
+        GIT_AUTHOR_EMAIL: 'dev@example.com',
+        GIT_COMMITTER_NAME: 'Dev User',
+        GIT_COMMITTER_EMAIL: 'dev@example.com',
+        GIT_CONFIG_COUNT: '2',
+        GIT_CONFIG_KEY_0: 'core.hooksPath',
+        GIT_CONFIG_VALUE_0: '',
+        GIT_CONFIG_KEY_1: 'commit.gpgsign',
+        GIT_CONFIG_VALUE_1: 'false',
+      };
       const out = execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'release.mjs'), ...args],
-        { cwd: dir, encoding: 'utf8', stdio: 'pipe' });
+        { cwd: dir, encoding: 'utf8', stdio: 'pipe', env });
       return { status: 0, out };
     } catch (e) {
       return { status: e.status, out: `${e.stdout}${e.stderr}` };
@@ -184,9 +197,29 @@ test('the release script against a scratch repository: no tag, dry run, apply', 
     assert.match(dry.out, /Dry run/);
     assert.ok(!fs.existsSync(path.join(dir, 'CHANGELOG.md')), 'a dry run writes nothing');
 
+    // Refused before anything is written: something else staged, or a release file changed.
+    fs.writeFileSync(path.join(dir, 'other.txt'), 'x');
+    git('add', 'other.txt');
+    const stagedRun = run('--apply');
+    assert.equal(stagedRun.status, 2);
+    assert.match(stagedRun.out, /something is already staged \(other\.txt\)/);
+    git('rm', '-q', '--cached', 'other.txt');
+    fs.rmSync(path.join(dir, 'other.txt'));
+    fs.writeFileSync(path.join(dir, 'CHANGELOG.md'), 'local notes\n');
+    const dirtyRun = run('--apply');
+    assert.equal(dirtyRun.status, 2);
+    assert.match(dirtyRun.out, /CHANGELOG\.md has changes of its own/);
+    fs.rmSync(path.join(dir, 'CHANGELOG.md'));
+    assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).version, '0.1.0', 'nothing written');
+
     const applied = run('--apply');
-    assert.equal(applied.status, 0);
-    assert.match(applied.out, /git tag v0\.2\.0/);
+    assert.equal(applied.status, 0, applied.out);
+    assert.match(applied.out, /chore\(release\): v0\.2\.0 \(package\.json, CHANGELOG\.md\) and tagged it v0\.2\.0/);
+    assert.match(applied.out, /Not pushed/);
+    assert.equal(git('log', '-1', '--format=%s').trim(), 'chore(release): v0.2.0');
+    assert.deepEqual(git('show', '--name-only', '--format=', 'HEAD').trim().split('\n').sort(), ['CHANGELOG.md', 'package.json']);
+    assert.equal(git('rev-parse', 'v0.2.0^{commit}').trim(), git('rev-parse', 'HEAD').trim(), 'the tag is on the release commit');
+    assert.equal(git('status', '--porcelain').trim(), '', 'nothing left behind');
     assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).version, '0.2.0');
     const log = fs.readFileSync(path.join(dir, 'CHANGELOG.md'), 'utf8');
     assert.ok(log.startsWith(CHANGELOG_HEAD));
@@ -194,12 +227,19 @@ test('the release script against a scratch repository: no tag, dry run, apply', 
     assert.match(log, /### Fixes\n\n- \*\*guard\*\*: a bug/);
     assert.match(log, /- docs: a page/);
     assert.ok(!log.includes('Old-style'));
-    assert.equal(git('tag').trim(), 'v0.1.0', 'the script never tags');
 
-    // Released and committed, not tagged: the next release counts from the release commit only.
-    git('add', 'package.json', 'CHANGELOG.md');
-    commit('chore(release): v0.2.0');
+    // A tag that already exists is refused. It sits on a commit outside the history, so it is not
+    // the tag the release counts from -- only the name the next release would take.
     commit('fix(tools): after the release');
+    git('tag', 'v0.2.1', git('commit-tree', 'HEAD^{tree}', '-m', 'elsewhere').trim());
+    const exists = run('--apply');
+    assert.equal(exists.status, 2);
+    assert.match(exists.out, /tag v0\.2\.1 already exists/);
+    git('tag', '-d', 'v0.2.1');
+
+    // A release committed and not tagged (made by hand, or before the script tagged): the next one
+    // counts from the release commit only.
+    git('tag', '-d', 'v0.2.0');
     const next = run();
     assert.equal(next.status, 0);
     assert.match(next.out, /from chore\(release\): v0\.2\.0 \([0-9a-f]{7}, not tagged yet\)/);
