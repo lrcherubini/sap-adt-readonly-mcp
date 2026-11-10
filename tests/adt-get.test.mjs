@@ -53,6 +53,7 @@ function spyTransport(reply = {}) {
 test('the route table is closed, and these are the routes in it', () => {
   assert.deepEqual(routeNames(), [
     'annotationChain',
+    'apiRelease',
     'atcCheckVariant',
     'atcCustomizing',
     'atcVerdicts',

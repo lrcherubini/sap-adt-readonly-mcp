@@ -1741,6 +1741,20 @@ development, last changed by `SAP`; the Z class answered `NOT_RELEASED` for C1 a
 `ars:behaviour` describes what the **caller** may do (create, update, delete a contract): it is
 about writing, and nothing reads it. The `atom:link` titles are in the logon language.
 
+A second run read six more objects, one per family: a CDS view (`I_PRODUCT`: C0 and C1
+`RELEASED`), an interface (C1 `RELEASED`, C4 not), a table (`MARA`: C0 `NOT_RELEASED`, C1
+`NOT_TO_BE_RELEASED` with **successors** `I_PRODUCT`, `I_PRODUCTPROCUREMENT`, `I_PRODUCTQM`,
+`I_PRODUCTSALES`, …), a data element (C1 `RELEASED`), a function module (no contract at all),
+a namespaced class (its URI percent-encoded once more, `%252f`, answered for `/IWBEP/…`) and a
+class that does not exist.
+
+- ⚠️ **No contract and no object answer the same**: 200, the `ars:releasableObject` echoing the
+  URI, no contract element. An empty list is "no contract" only for an object resolved first.
+- ⚠️ **`ars:status` appears once for the contract and once per allowed transition** inside
+  `ars:stateTransitions`. The state is the first one, before the transitions.
+- A contract element of the answer carries `ars:contract`; the elements of the same name inside
+  `ars:behaviour` do not, which is how the two are told apart.
+
 #### Read and not used
 
 - `GET /sap/bc/adt/repository/informationsystem/objectproperties/transports?uri=<uri>` answered an

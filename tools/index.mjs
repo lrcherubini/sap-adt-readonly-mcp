@@ -18,6 +18,7 @@ import { virtualFoldersPost, parseVirtualFolders } from '../lib/virtual-folders.
 import { legacyKindOf, readLegacyObjects } from '../lib/legacy-objects.mjs';
 import { VERSION_PATTERN, readVersion, compareVersions, readerFor, documentVersion } from '../lib/source-versions.mjs';
 import { parseClassComponents, findMethod, sliceLines, methodLabel } from '../lib/class-components.mjs';
+import { parseApiRelease, API_RELEASE_OBJECT } from '../lib/api-release.mjs';
 import { valueHelpTool } from './value-help.mjs';
 import { cleanCoreScanTool } from './clean-core-scan.mjs';
 import { contractCheckTool } from './contract-check.mjs';
@@ -818,7 +819,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           'Metadata of an object: package, responsible, dates, release state, structure. Tables ' +
           'and CDS views add the field list (data element, type, annotations). By type: DEVC ' +
           '`packagePath`; ENHO/XHB `badi`; SRVB `binding` (per service version: SRVD, ' +
-          'published, URL, entity sets); DTEL `dataElement` and DOMA `domain` (fixed values).',
+          'published, URL, entity sets); DTEL `dataElement` and DOMA `domain` (fixed values). ' +
+          'Classes, interfaces, CDS, tables, data elements, function modules add `apiRelease` ' +
+          '(per contract: state, usable in key-user apps / cloud, successors), read live.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -1116,6 +1119,43 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           }
         }
 
+        // The API release state, read from the system for the families measured (2026-11-10).
+        // An empty list is "no contract": the object was resolved above, so it exists.
+        let apiRelease;
+        if (API_RELEASE_OBJECT.test(String(hit['adtcore:uri'] ?? ''))) {
+          if (!session.raw) {
+            apiRelease = { read: false, reason: 'this session has no raw client' };
+          } else {
+            let out;
+            try {
+              out = await namedGet(transportFor(session.raw), 'apiRelease', { uri: hit['adtcore:uri'] });
+              const parsed = parseApiRelease(out.body);
+              apiRelease = { read: true, anyReleased: parsed.anyReleased, contracts: parsed.contracts };
+              if (parsed.drift.length) {
+                journal?.gap?.({
+                  code: 'SHAPE_DRIFT',
+                  subject: `${hit['adtcore:name']} apireleases`,
+                  detail: parsed.drift.map((d) => `${d.node}/${d.attribute ?? ''} ${d.where ?? ''}`).join('; '),
+                  impact: 'the release state stands where it was read; the measured shape has aged',
+                  fallback: 're-measure (docs/adt-api-reference.md, "The API release state of one object")',
+                });
+              }
+            } catch (e) {
+              journal?.gap?.({
+                code: 'API_RELEASE_NOT_READ',
+                subject: `${hit['adtcore:type']} ${hit['adtcore:name']}`,
+                detail: `HTTP ${e?.status ?? '?'}: ${e?.message ?? e}`.slice(0, 300),
+                impact: 'whether this object is released for use is unknown: this is NOT "not released"',
+                fallback: 'the API State tab of the object in the IDE',
+              });
+              apiRelease = { read: false, reason: `${e.name ?? 'Error'}: ${e.message}` };
+            } finally {
+              record(cfg, 'adt_object_info', `${hit['adtcore:name']}#apirelease`, out?.bytes ?? 0);
+            }
+          }
+        }
+        const abapLanguageVersion = structure?.metaData?.['adtcore:abapLanguageVersion'] ?? null;
+
         record(cfg, 'adt_object_info', hit['adtcore:name'], elements.length);
         return asText({
           found: hit,
@@ -1129,6 +1169,8 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           ...(badiNote ? { badiNote } : {}),
           ...(binding !== undefined ? { binding } : {}),
           ...(bindingNote ? { bindingNote } : {}),
+          ...(abapLanguageVersion ? { abapLanguageVersion } : {}),
+          ...(apiRelease ? { apiRelease } : {}),
           ...(elementsNote ? { elementsNote } : {}),
           metadata,
           elements,

@@ -990,6 +990,24 @@ that could not be read says so in the answer and files `TEXT_ELEMENTS_NOT_READ`;
 answered 200 with no byte is "none". The audit line names the object, the method or the category,
 never a line of source and never a text.
 
+### The API release state of one object: a route of its own -- 2026-11-10
+
+The IDE's communication log showed what its "API State" tab reads: `GET
+/sap/bc/adt/apireleases/<object URI>`. It answers, per contract, whether SAP (or the customer)
+released the object, for key-user apps and for cloud development, and which successors SAP names
+for one that is not to be released. That is the Clean Core question asked of the system itself,
+exact for its release, next to the catalogue `adt_clean_core_scan` reads.
+
+This is not the list refused on 2026-11-09 (*Release states: not read*): that one is the code list
+of the twenty state texts, which nothing consumes. This one is the state of one object.
+
+**What it admits.** One named route, `apiRelease`, GET, the object URI as one percent-encoded
+segment held to the six families measured (class, interface, CDS view, table, data element,
+function module). `adt_object_info` asks it after the object was resolved, because an object with
+no contract and an object that does not exist answer the same. `ars:behaviour`, what the caller
+may do to a contract, is a write side and is not read. A read that failed is `read: false`, never
+"not released".
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:
