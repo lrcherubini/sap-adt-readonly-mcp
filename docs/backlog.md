@@ -38,9 +38,17 @@ Each needs a measurement on the system and a dated decision before it is built.
 - **Existing ABAP traces, read only.** `GET /sap/bc/adt/runtime/traces/abaptraces` and the
   hit list, DB accesses and statements of one trace. Creating or configuring a trace is a write
   and stays out. Measure: the shapes, and whether reading changes the trace state.
+- **The syntax check of every text object, not only classes and programs.** Quickfixes, and the
+  check run behind them, exist for any source-based object: CDS (DDLS, DDLX, DCLS), RAP behaviour
+  definitions, service definitions, interfaces, function modules, includes. `adt_syntax_check`
+  and its body builder admit the two families measured. Measure, per type: the object URI the
+  check run takes, its reply (the quickfix marker `atom:link rel=.../categories/quickfixes` is
+  already parsed for any message), and whether `inactive` checks an empty source when there is
+  no inactive version, as it does for a program.
 - **Quickfix proposals, never applied.** `POST /sap/bc/adt/quickfixes/evaluation` with a
-  position. Today an ATC finding says only that a quickfix exists. Decide: it sends source to the
-  server, so the body is the stored source just read, never text from the caller.
+  position. A check message and an ATC finding say only that a quickfix exists (the check run
+  names it, e.g. `art.syntax:GTU`). Decide: it sends source to the server, so the body is the
+  stored source just read, never text from the caller.
 - **Go to definition.** `POST /sap/bc/adt/navigation/target`. Same body question as quickfixes.
 - **Grouped dumps.** `adt_runtime_errors` grouping a page by program, line and error. Local
   post-processing only, no new call. Decide the grouping key on real pages.
