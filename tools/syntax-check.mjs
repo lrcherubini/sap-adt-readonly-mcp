@@ -26,6 +26,64 @@ import {
 
 const asText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] });
 
+/**
+ * One check run on a body built by `buildCheckBody`, and the verdict. Shared by
+ * adt_syntax_check and adt_package_health. A failed POST files SYNTAX_NOT_CHECKED and throws;
+ * a report the server did not process is `checked: false` and never clean.
+ */
+export async function checkStored(cfg, session, journal, { subject, body, version, tool = 'adt_syntax_check' }) {
+  let res;
+  try {
+    res = await checkRunPost(session.raw, body);
+  } catch (e) {
+    journal?.gap?.({
+      code: 'SYNTAX_NOT_CHECKED',
+      subject,
+      detail: `${e.name ?? 'Error'}: ${e.message}`.slice(0, 300),
+      impact: 'nothing is said about whether this source compiles: this is NOT a clean check',
+      fallback: 'the syntax check of the IDE (Ctrl+F2)',
+    });
+    throw e;
+  } finally {
+    // One line per call: the object and the version, never a message or a line of source.
+    record(cfg, tool, `${subject} ${version}`, res?.bytes ?? 0);
+  }
+  const { reports, drift } = parseCheckRun(res.body);
+  if (drift.length) {
+    journal?.gap?.({
+      code: DRIFT_CODE,
+      subject: `${subject} check run`,
+      detail: drift.map((d) => (d.attribute ? `${d.node}/@${d.attribute}` : `<${d.node}>`)).join('; ').slice(0, 300),
+      impact: 'the answer stands, but the measured shape no longer describes this reply fully',
+      fallback: 're-read the raw reply and update lib/syntax-check.mjs and docs/adt-api-reference.md',
+    });
+  }
+  const report = reports.find((r) => r.reporter === 'abapCheckRun') ?? reports[0] ?? null;
+  if (!report || report.status !== 'processed') {
+    journal?.gap?.({
+      code: 'SYNTAX_NOT_CHECKED',
+      subject,
+      detail: report ? `status ${report.status}: ${report.statusText ?? ''}`.slice(0, 300) : 'no checkReport in the reply',
+      impact: 'nothing is said about whether this source compiles: this is NOT a clean check',
+      fallback: 'the syntax check of the IDE (Ctrl+F2)',
+    });
+    return {
+      checked: false,
+      status: report?.status ?? null,
+      statusText: report?.statusText ?? null,
+      reason: 'the server did not process the check: no statement is made about this source',
+    };
+  }
+  return {
+    checked: true,
+    clean: report.messages.length === 0,
+    count: report.messages.length,
+    byType: countByType(report.messages),
+    messages: report.messages,
+    ...(drift.length ? { drift } : {}),
+  };
+}
+
 export function syntaxCheckTool(cfg, session, journal) {
   return {
     definition: {
@@ -79,60 +137,7 @@ export function syntaxCheckTool(cfg, session, journal) {
         }
       }
 
-      let res;
-      try {
-        res = await checkRunPost(session.raw, body);
-      } catch (e) {
-        journal?.gap?.({
-          code: 'SYNTAX_NOT_CHECKED',
-          subject,
-          detail: `${e.name ?? 'Error'}: ${e.message}`.slice(0, 300),
-          impact: 'nothing is said about whether this source compiles: this is NOT a clean check',
-          fallback: 'the syntax check of the IDE (Ctrl+F2)',
-        });
-        throw e;
-      } finally {
-        // One line per call: the object and the version, never a message or a line of source.
-        record(cfg, 'adt_syntax_check', `${subject} ${v}`, res?.bytes ?? 0);
-      }
-      const { reports, drift } = parseCheckRun(res.body);
-      if (drift.length) {
-        journal?.gap?.({
-          code: DRIFT_CODE,
-          subject: `${subject} check run`,
-          detail: drift.map((d) => (d.attribute ? `${d.node}/@${d.attribute}` : `<${d.node}>`)).join('; ').slice(0, 300),
-          impact: 'the answer stands, but the measured shape no longer describes this reply fully',
-          fallback: 're-read the raw reply and update lib/syntax-check.mjs and docs/adt-api-reference.md',
-        });
-      }
-      const report = reports.find((r) => r.reporter === 'abapCheckRun') ?? reports[0] ?? null;
-      if (!report || report.status !== 'processed') {
-        journal?.gap?.({
-          code: 'SYNTAX_NOT_CHECKED',
-          subject,
-          detail: report ? `status ${report.status}: ${report.statusText ?? ''}`.slice(0, 300) : 'no checkReport in the reply',
-          impact: 'nothing is said about whether this source compiles: this is NOT a clean check',
-          fallback: 'the syntax check of the IDE (Ctrl+F2)',
-        });
-        return asText({
-          object,
-          version: v,
-          checked: false,
-          status: report?.status ?? null,
-          statusText: report?.statusText ?? null,
-          reason: 'the server did not process the check: no statement is made about this source',
-        });
-      }
-      return asText({
-        object,
-        version: v,
-        checked: true,
-        clean: report.messages.length === 0,
-        count: report.messages.length,
-        byType: countByType(report.messages),
-        messages: report.messages,
-        ...(drift.length ? { drift } : {}),
-      });
+      return asText({ object, version: v, ...(await checkStored(cfg, session, journal, { subject, body, version: v })) });
     },
   };
 }

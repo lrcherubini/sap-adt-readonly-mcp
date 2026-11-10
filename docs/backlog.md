@@ -63,9 +63,10 @@ Each needs a measurement on the system and a dated decision before it is built.
   uses, with its API release state (`apiRelease`), instead of their full sources: what an agent
   needs to judge the object's Clean Core level. A composition of existing reads, no new route.
   Measure: the reads it costs on a real class against the read budget, and decide the depth.
-- **Package health report.** One summary per package of the Clean Core level, the ATC and
-  syntax check results and what could not be read, from the gaps already filed. Decide whether
-  it is a mode of `npm run report` (local, no new call) or a tool.
+- **ATC on a package, for `adt_package_health`.** The tool runs the Clean Core scan and the
+  syntax check; ATC stays out because `adt_atc_run` checks one object. Measure, from the IDE's
+  communication log: an ATC run on a package (the object set the run takes, the worklist it
+  leaves, its size and duration), and whether it differs from one run per object.
 
 ABAP Unit is not a candidate: it stays with the IDE (`docs/security.md`).
 

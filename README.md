@@ -34,12 +34,13 @@ This server covers the **read** side of that gap, and never the write side:
 
 ## What it does
 
-- **16 MCP tools** for an AI agent (Claude Code or any MCP client that speaks Streamable HTTP),
+- **17 MCP tools** for an AI agent (Claude Code or any MCP client that speaks Streamable HTTP),
   every one of them read-only and reading from the SAP system:
   - *objects* — `adt_search`, `adt_read_source`, `adt_object_info`, `adt_where_used`,
     `adt_package_tree`;
   - *package scans* — `adt_clean_core_scan` (what the CDS views consume, at which Clean Core
-    level), `adt_annotation_scan` (which annotation reaches an element, from which layer);
+    level), `adt_annotation_scan` (which annotation reaches an element, from which layer),
+    `adt_package_health` (both of the Clean Core scan and the syntax check, on one listing);
   - *CDS and services* — `adt_value_help`, `adt_annotation_chain`, `adt_contract_check`;
   - *change and runtime* — `adt_transport`, `adt_runtime_errors`, `adt_atc_run`,
     `adt_syntax_check`;
@@ -317,6 +318,7 @@ The server follows the MCP specification (2025-06-18) and the official TypeScrip
 | `adt_customizing` | Which pricing-procedure step calls routine 953? Which copy control carries requirement 653? | the **first POST** this server sends: `/sap/bc/adt/datapreview/freestyle`, body a `SELECT` **generated** from a closed grammar (one table, listed fields, `=`/`<>`/`IN`/`LIKE` joined by `AND`, 1..200 rows; `LIKE` takes a name with `*` wildcards and the module writes the literal and its `ESCAPE`; a table may fix the columns it admits, so a user field is never read) for a table in the closed list `CUSTOMIZING_TABLES` — the SAP-standard tables in [`data/defaults/customizing-tables.json`](data/defaults/customizing-tables.json) (pricing procedures and condition tables, copy control, the VOFM registry, launchpad semantic objects, the object directory, CDS header annotations, payment terms, STVARV parameters, partner determination, the material master screen map, MRP areas, material status, the factory calendar, the organizational units, application log objects, Code Inspector check variants) **plus the tables your installation added** with `npm run config -- table add`, through the same validation. Any other table, field or value the grammar cannot say is refused **before a socket opens**; the server would answer any table (`VBAK` measured 200), so the fence is the client and it is tested. Read-only by semantics (no lock, no transport; `SM12` checked before and after), POST by wire. `totalRows` is the server's count **without** the cap; NUMC columns compare at full width (`0000953` in `T683S`, `953` in `TVCPA`). The audit line carries the table and the row cap, never a row. `runQuery`/`tableContents` of the library stay denied — the decision, dated, is in `docs/security.md` |
 | `adt_launchpad` | Which tiles and target mappings does catalog X carry, which groups show them, which catalogs does role Y get, and is the semantic object registered? | one `kind` per call (`catalogs`/`catalog`, `groups`/`group`, `spaces`/`space`, `pages`/`page`, `semobjs`/`semobj`, `roleCatalogs`). The one place the routes leave `/sap/bc/adt`, for **SAP-standard services only**: OData V2 under four `ODATA_ROOTS` (PAGE_BUILDER_CONF/CUST, FDM_*_CUST_SRV; never `PAGE_BUILDER_PERS`, `$batch` or a generic GET over entity sets). No customer (Z) service is called, and every person-like key is stripped from every body. `semobjs`/`semobj` read the `/UI2/SEMOBJ*` tables through the ADT data preview, as `adt_customizing` does. Decision, dated, in `docs/security.md` (*The Fiori launchpad*); shapes in `docs/adt-api-reference.md` |
 | `adt_syntax_check` | Does the source the system stores for this class or program compile — the active version, or the inactive one waiting to be activated? | the **fourth POST** this server sends: `/sap/bc/adt/checkruns?reporters=abapCheckRun`, a body built from one class or program URI and the version, **no source sent** — the server checks what it stores. Each message: type, text, include, line, column. Measured: no `Location`, no run id, nothing left on the server, a stateless session (the IDE runs the same check after every save). `version: inactive` first reads the object document, because on an object with **no** inactive version the server checks an empty source and reports an error that is not in the program (measured); the answer then says *no inactive version* and nothing is sent. A report the server did not process is `checked: false`, never clean (`SYNTAX_NOT_CHECKED`) |
+| `adt_package_health` | How healthy is this package for Clean Core, in one answer? | a composition, no read of its own: the package is listed **once**, then the Clean Core scan of its CDS views (the same run as `adt_clean_core_scan`: levels and the first 20 findings) and the syntax check of the stored **active** version of each class and program (the same check run as `adt_syntax_check`, `maxChecks` 1..50, default 20). `complete` is true only when every part read everything: an object not checked, a view not read or a cap reached makes it false, and nothing is summarised about what was not read. Without the catalogue the Clean Core part says it did not run and the syntax part still runs. **ATC is not run**: whether an ATC run accepts a package as its object set is not measured |
 
 `adt_read_source` answers a second question the working tree cannot: **who implanted code
 into this standard object.** With `enhancements: true` it lists the enhancement
@@ -549,7 +551,7 @@ tag, `v0.1.0`, on the last commit that belongs to that version.
 | `lib/class-components.mjs` | the outline of a class (components and their positions) and the slice of one method |
 | `lib/api-release.mjs` | the API release state of one object, per contract, and its parser |
 | `lib/system-check.mjs` | the system confirmed before the password prompt: one GET without credentials, the SID and client its 401 names |
-| `tools/` | the 16 MCP tools |
+| `tools/` | the 17 MCP tools |
 | `lib/` | the guard (`guard.mjs`), the named GET routes (`adt-get.mjs`), package reads (`package-sources.mjs`), the session, the store and its validation (`store.mjs`, `environment.mjs`), the catalogue and its sync, parsers and the journal |
 | `scripts/` | the npm scripts above, each with its usage in its header comment |
 | `data/defaults/` | the SAP-standard half of every fence: customizing tables, ATC variant `DEFAULT`, launchpad OData roots |

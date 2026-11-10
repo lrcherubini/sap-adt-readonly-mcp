@@ -63,10 +63,12 @@ export async function runCleanCoreScan(cfg, api, args = {}, journal = null, extr
     only: args.entity,
     max: args.maxObjects,
     cfg,
-    tool: 'adt_clean_core_scan',
     signal: extra.signal,
     progress: progressOf(extra),
+    listing: extra.listing ?? null,
+    tool: extra.tool ?? 'adt_clean_core_scan',
   });
+  const tool = extra.tool ?? 'adt_clean_core_scan';
   const hits = hitsOf(read.read, pkg);
   const minLevel = args.minLevel ?? 'B';
   const { results, counts } = classify(hits, catalog, { minLevel });
@@ -108,7 +110,7 @@ export async function runCleanCoreScan(cfg, api, args = {}, journal = null, extr
   });
 
   if (journal?.enabled) {
-    for (const g of packageGaps('adt_clean_core_scan', pkg, read)) journal.gap(g);
+    for (const g of packageGaps(tool, pkg, read)) journal.gap(g);
     if (catalog.note) {
       journal.gap({
         code: 'CATALOG_PARTIAL',
