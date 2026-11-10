@@ -35,17 +35,15 @@ measured on the wire; and what `lib/guard.mjs` becomes once no client is left to
 
 Each needs a measurement on the system and a dated decision before it is built.
 
-- **The syntax check of every text object, not only classes and programs.** Quickfixes, and the
-  check run behind them, exist for any source-based object: CDS (DDLS, DDLX, DCLS), RAP behaviour
-  definitions, service definitions, interfaces, function modules, includes. `adt_syntax_check`
-  and its body builder admit the two families measured. Measure, per type: the object URI the
-  check run takes, its reply (the quickfix marker `atom:link rel=.../categories/quickfixes` is
-  already parsed for any message), and whether `inactive` checks an empty source when there is
-  no inactive version, as it does for a program.
-- **Quickfix proposals, never applied.** `POST /sap/bc/adt/quickfixes/evaluation` with a
-  position. A check message and an ATC finding say only that a quickfix exists (the check run
-  names it, e.g. `art.syntax:GTU`). Decide: it sends source to the server, so the body is the
-  stored source just read, never text from the caller.
+- **The syntax check of every text object, not only classes and programs.** Measured 2026-11-10
+  from the IDE: a behaviour definition takes the same body (`bo/behaviordefinitions/<name>`) and a
+  second reporter, `bdefImplementationCheck`; a CDS view is sent to `abapCheckRun` with a body of
+  the same size. Still to read: one `abapCheckRun` body for a CDS view, a DDLX, a service
+  definition, an interface and a function module (Ctrl+F2 in each, the request body from the log).
+- **Quickfix proposals, never applied.** Measured 2026-11-10 (`adt-api-reference.md`, *Backlog
+  reads*): the body is a constant empty element, the object, position and marker go in the query,
+  and the server evaluates its stored source. Build: the fifth POST, its dated decision, a tool
+  or a mode that lists proposals and never follows their apply URI.
 - **Go to definition.** `POST /sap/bc/adt/navigation/target`. Same body question as quickfixes.
 - **Package boundary violations.** A customer object that uses an object of another customer
   package outside that package's declared interface (`PINF`): the dependency side of Clean Core,
@@ -60,21 +58,10 @@ Each needs a measurement on the system and a dated decision before it is built.
   Discovery (2026-11-10): for CDS the `graphdata` route already answers; for a class the
   candidates are `/sap/bc/adt/objectrelations` (a POST body) and `objectsets/references/{id}`,
   to be captured from the IDE's Relation Explorer.
-- **ATC on a package, for `adt_package_health`.** The tool runs the Clean Core scan and the
-  syntax check; ATC stays out because `adt_atc_run` checks one object. Measure, from the IDE's
-  communication log: an ATC run on a package (the object set the run takes, the worklist it
-  leaves, its size and duration), and whether it differs from one run per object.
-
-ABAP Unit is not a candidate: it stays with the IDE (`docs/security.md`).
-
----
-
-## 3. Reads seen in the IDE's communication log and not built
-
-Read on 2026-11-10 while the IDE compared versions, checked syntax and released requests. The
-write requests of that log (lock, source PUT, activation, transport checks and release, the
-background run that releases) are out by design and are not listed.
-
+- **ATC on a package, for `adt_package_health`.** Measured 2026-11-10 from the IDE: the run takes
+  one object reference, a virtual-folders URI with `selection=package:<pkg> owner:<user>`. Measure
+  next: the same run with `package:` alone, and whether the worklist answers sub-packages or the
+  objects of earlier runs. Then build it into `adt_package_health` with its dated decision.
 - **The requests a saved search configuration lists.** Admitted read-only by the owner
   (2026-11-10); measured the same day (`adt-api-reference.md`, *Backlog reads*): the list is the
   logged-on user's requests, modifiable and released, with every object inline (874 KB for 858

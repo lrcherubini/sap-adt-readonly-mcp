@@ -3454,9 +3454,89 @@ the bodies are still to be read):
 - `POST /sap/bc/adt/quickfixes/evaluation?uri=<source URI percent-encoded with
   #start=<l>,<c>;end=<l>,<c>>`, for a CDS view and a behaviour definition; with a marker,
   `&markerId=art.syntax:<id>&markerIdIsFilter=true`. Request body 0.123 KB, reply 0.1-0.8 KB.
+  The two bodies, read the same day, are below.
 - ATC on a package: `GET /sap/bc/adt/atc/customizing`, `POST /sap/bc/adt/atc/runs?worklistId=<id>&clientWait=false`
   (`201`, request body 0.43 KB, 5 s), then `GET /sap/bc/adt/atc/worklists/<id>?includeExemptedFindings=false` (7.8 KB):
   the sequence `adt_atc_run` already uses, with a different object set.
+
+**The quickfix evaluation, request and reply** (IDE log, 2026-11-10, anonymised):
+
+```
+POST /sap/bc/adt/quickfixes/evaluation?uri=%2Fsap%2Fbc%2Fadt%2Fbo%2Fbehaviordefinitions%2Fzdemo_i_rate%2Fsource%2Fmain%23start%3D1%2C52%3Bend%3D1%2C71&markerId=art.syntax%3A%2BBDL054&markerIdIsFilter=true
+Content-Type: application/vnd.sap.adt.quickfixes.evaluation+xml;version=1.0.0
+Accept: application/xml
+
+<?xml version="1.0" encoding="ASCII"?>
+<quickfixes:evaluationRequest xmlns:quickfixes="http://www.sap.com/adt/quickfixes"/>
+
+-> 200  application/xml
+<qf:evaluationResults xmlns:qf="http://www.sap.com/adt/quickfixes">
+  <evaluationResult>
+    <adtcore:objectReference adtcore:uri="/sap/bc/adt/quickfixes/proposals/providers/refactoring/quickfixes/create_global_bil_class"
+        adtcore:type="create_global_bil_class"
+        adtcore:name="Create behavior implementation class 'zbp_demo_i_rate'"
+        adtcore:description="&lt;p&gt;Create global behavior implementation class &lt;b&gt;zbp_demo_i_rate&lt;/b&gt; …&lt;/p&gt;"/>
+    <userContent>behavior_definition=zdemo_i_rate
+name=zbp_demo_i_rate</userContent>
+  </evaluationResult>
+</qf:evaluationResults>
+```
+
+- **The body is a constant, empty element: no source travels.** The object, the position
+  (`#start=<line>,<col>;end=<line>,<col>` inside the percent-encoded `uri`) and the optional
+  marker filter are all in the query. The server evaluates the source it stores.
+- Without a marker, on a CDS view position with no quickfix, the reply is the empty
+  `<qf:evaluationResults/>` (106 bytes): "no proposal at this position", not "not asked".
+- Each proposal is an `evaluationResult`: an `adtcore:objectReference` whose `uri` is the
+  **apply** resource (`/quickfixes/proposals/providers/…`) and whose `type` is the quickfix id,
+  a `name` (the label), a `description` in HTML, and a `userContent` text block of `key=value`
+  lines the apply request would send back. Following that URI is applying the quickfix: a write.
+
+**The check run of a behaviour definition, and ATC over a package** (IDE log, 2026-11-10, anonymised):
+
+```
+POST /sap/bc/adt/checkruns?reporters=bdefImplementationCheck
+Content-Type: application/vnd.sap.adt.checkobjects+xml   Accept: application/vnd.sap.adt.checkmessages+xml
+
+<chkrun:checkObjectList xmlns:adtcore="http://www.sap.com/adt/core" xmlns:chkrun="http://www.sap.com/adt/checkrun">
+  <chkrun:checkObject adtcore:uri="/sap/bc/adt/bo/behaviordefinitions/zdemo_i_rate" chkrun:version="active"/>
+</chkrun:checkObjectList>
+
+-> 200  <chkrun:checkRunReports><chkrun:checkReport chkrun:reporter="bdefImplementationCheck"
+        chkrun:triggeringUri="/sap/bc/adt/bo/behaviordefinitions/zdemo_i_rate" chkrun:status="processed"
+        chkrun:statusText="Object ZDEMO_I_RATE has been checked"/></chkrun:checkRunReports>
+```
+
+- The body is the class and program body with a behaviour definition URI. The IDE sends the
+  same object to `reporters=abapCheckRun` in parallel (same request size); that body was not read.
+- `bdefImplementationCheck` is a second reporter: whether the behaviour implementation class
+  matches the definition. A processed report with no message list means "no message".
+
+```
+POST /sap/bc/adt/atc/runs?worklistId=<id>&clientWait=false
+Content-Type: application/xml   Accept: application/vnd.sap.atc.run.objectsets.v2+xml, application/xml
+
+<atc:run maximumVerdicts="100" xmlns:atc="http://www.sap.com/adt/atc"><objectSets xmlns:adtcore="http://www.sap.com/adt/core">
+  <objectSet kind="inclusive"><adtcore:objectReferences>
+    <adtcore:objectReference adtcore:uri="/sap/bc/adt/repository/informationsystem/virtualfolders?selection=package%3aZDEMO_PKG%20owner%3aDEVUSER1"/>
+  </adtcore:objectReferences></objectSet>
+</objectSets></atc:run>
+
+-> 201  Location: /sap/bc/adt/atc/runs/<id>      (5 s server time)
+GET /sap/bc/adt/atc/worklists/<worklist id>?includeExemptedFindings=false   Accept application/atc.worklist.v1+xml
+-> 200  7.8 KB, objectSetIsComplete="true", 21 objects (CLAS, DDLS, INTF, PROG, TABL) from the package
+        and four others, each with an empty atcobject:findings
+```
+
+- **A package is checked as one object reference: a virtual-folders URI with a `selection`.**
+  The IDE added `owner:<user>` to it (the run was "my objects in the package"); a selection with
+  `package:` alone was not sent. The run and the worklist are the ones `adt_atc_run` already reads.
+- The objects of the worklist came from five packages; whether they are sub-packages of the one
+  named, or objects of earlier runs kept in the "All Objects" set, was not established.
+
+**Source reads carry caching headers too:** `GET …/behaviordefinitions/<bdef>/source/main?version=workingArea`
+answered `ETag` (stamp + media type + hash) and `Last-Modified`; the IDE sent `Cache-Control: no-cache`
+on that read, so it was not revalidated.
 
 ## How to reproduce
 
