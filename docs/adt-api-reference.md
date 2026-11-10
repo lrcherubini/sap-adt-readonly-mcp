@@ -3543,10 +3543,14 @@ GET /sap/bc/adt/atc/worklists/<worklist id>?includeExemptedFindings=false   Acce
 ```
 
 - **A package is checked as one object reference: a virtual-folders URI with a `selection`.**
-  The IDE added `owner:<user>` to it (the run was "my objects in the package"); a selection with
-  `package:` alone was not sent. The run and the worklist are the ones `adt_atc_run` already reads.
-- The objects of the worklist came from five packages; whether they are sub-packages of the one
-  named, or objects of earlier runs kept in the "All Objects" set, was not established.
+  The first run carried `owner:<user>` too ("my objects in the package"); a second run, the same
+  day, sent `selection=package%3aZDEMO_PKG` alone and was answered `201` (0.7 s server time).
+- **Read the worklist with `usedObjectSet=<the LAST_RUN set>`.** Read without it, the IDE's
+  long-lived worklist answered 21 objects from five packages: its "All Objects" set, the sum of
+  earlier runs, not sub-packages. Read with `usedObjectSet=99999999999999999999999999999999`, it
+  answered the five objects of the package only, and a third object set appeared:
+  `kind="PACKAGE"`, `title="Package: ZDEMO_PKG (…)"`. A worklist created for one run (what
+  `adt_atc_run` does) holds that run alone either way.
 
 **Source reads carry caching headers too:** `GET …/behaviordefinitions/<bdef>/source/main?version=workingArea`
 answered `ETag` (stamp + media type + hash) and `Last-Modified`; the IDE sent `Cache-Control: no-cache`

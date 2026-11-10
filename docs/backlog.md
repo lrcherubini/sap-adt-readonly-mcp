@@ -59,10 +59,10 @@ Each needs a measurement on the system and a dated decision before it is built.
   Discovery (2026-11-10): for CDS the `graphdata` route already answers; for a class the
   candidates are `/sap/bc/adt/objectrelations` (a POST body) and `objectsets/references/{id}`,
   to be captured from the IDE's Relation Explorer.
-- **ATC on a package, for `adt_package_health`.** Measured 2026-11-10 from the IDE: the run takes
-  one object reference, a virtual-folders URI with `selection=package:<pkg> owner:<user>`. Measure
-  next: the same run with `package:` alone, and whether the worklist answers sub-packages or the
-  objects of earlier runs. Then build it into `adt_package_health` with its dated decision.
+- **ATC on a package, for `adt_package_health`.** Measured 2026-11-10 from the IDE: one object
+  reference, `virtualfolders?selection=package:<pkg>`, answered `201`; the worklist read with the
+  LAST_RUN set holds the package's objects. Build: the object set into the ATC run body, its dated
+  decision, and the part of `adt_package_health` that runs it.
 - **The requests a saved search configuration lists.** Admitted read-only by the owner
   (2026-11-10); measured the same day (`adt-api-reference.md`, *Backlog reads*): the list is the
   logged-on user's requests, modifiable and released, with every object inline (874 KB for 858
