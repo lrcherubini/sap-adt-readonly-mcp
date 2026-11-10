@@ -27,11 +27,5 @@ config.json
 # probe, stays outside this folder on purpose. tests/journal.test.mjs asserts this too.
 /scripts/probes/
 
-# --out transcripts of propose:table. Same reasoning as the probes above: the transcript is a
-# READING of one system at one moment, not a record of the repository. What survives from it
-# goes into docs/adt-api-reference.md as a measurement, with its date. Leaving one committed
-# makes the next reader take a snapshot of one system for the state of the world.
-/transcript-*.txt
-
 # Personal Claude Code notes for this checkout (see CLAUDE.md).
 CLAUDE.local.md

@@ -19,7 +19,7 @@
 // UNKNOWN exits 1 -- so a caller can never read silence as approval.
 
 import { writeFileSync } from 'node:fs';
-import { loadConfig } from '../lib/config.mjs';
+import { loadConfig, measurementFile } from '../lib/config.mjs';
 import { connectOrExit, disconnect } from '../lib/session.mjs';
 import { buildTools } from '../tools/index.mjs';
 import {
@@ -54,10 +54,12 @@ if (depthAt >= 0 && (!Number.isInteger(maxDepth) || maxDepth < 1)) {
 // KNA1 another 180 -- and a scrollback that drops the first half is worse than no transcript,
 // because what is missing is invisible. With --out nothing is lost and the file can be diffed
 // between runs, which is what makes it a CHECK rather than a look.
+// The transcript is a reading of one system, so it is written where the measurements live: a new
+// folder under <stateDir>/measurements/, never the path typed (lib/config.mjs, measurementFile).
 const outAt = argv.indexOf('--out');
-const outPath = outAt >= 0 ? argv[outAt + 1] : null;
-if (outAt >= 0 && (!outPath || outPath.startsWith('-'))) {
-  console.error('--out takes a file path.');
+const outArg = outAt >= 0 ? argv[outAt + 1] : null;
+if (outAt >= 0 && (!outArg || outArg.startsWith('-'))) {
+  console.error('--out takes a file name.');
   process.exit(2);
 }
 
@@ -70,7 +72,7 @@ if (!names.length) {
   console.error('Prints the DDIC header, the delivery class and the field list of each table,');
   console.error('plus the entry to add to data/defaults/customizing-tables.json. It adds nothing by itself.\n');
   console.error('  --depth N      follow includes at most N levels deep');
-  console.error('  --out <file>   write the whole report to <file>; the terminal gets one line per table');
+  console.error('  --out <name>   write the whole report to <stateDir>/measurements/propose-table-<stamp>/<name>');
   process.exit(2);
 }
 if (names.length > 25) {
@@ -81,6 +83,7 @@ if (names.length > 25) {
 // The report goes through `say`; `progress` is the terminal line, and the two are never the same
 // destination. Without --out `say` IS the terminal and `progress` says nothing, so a plain run
 // looks exactly as it did before.
+const outPath = outArg ? measurementFile('propose-table', outArg) : null;
 const transcript = outPath ? [] : null;
 const say = (...parts) => {
   if (transcript) transcript.push(parts.join(' '));

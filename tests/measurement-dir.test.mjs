@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { measurementStamp, newMeasurementDir } from '../lib/config.mjs';
+import { measurementStamp, newMeasurementDir, measurementFile } from '../lib/config.mjs';
 
 const tmpRoot = () => fs.mkdtempSync(path.join(os.tmpdir(), 'measure-'));
 const at = new Date('2026-11-09T17:15:02.123Z');
@@ -40,4 +40,13 @@ test('a name that could leave the measurements folder is refused', () => {
   for (const bad of ['../x', 'a/b', 'Upper', '', 'x'.repeat(62)]) {
     assert.throws(() => newMeasurementDir(bad, { now: at, root }), /must match/);
   }
+});
+
+test('an --out transcript lands in a new measurement folder, whatever path was typed', () => {
+  // Measured 2026-11-09: `--out vbap.txt` wrote a reading of the system into the repository root.
+  const root = tmpRoot();
+  const file = measurementFile('propose-table', '../../repo/vbap.txt', { now: at, root });
+  assert.equal(path.basename(file), 'vbap.txt');
+  assert.equal(path.dirname(file), path.join(root, 'propose-table-20261109T171502Z'));
+  assert.throws(() => measurementFile('propose-table', '..', { now: at, root }), /not a file name/);
 });
