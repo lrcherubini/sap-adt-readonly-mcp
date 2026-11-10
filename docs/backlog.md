@@ -13,40 +13,8 @@ Last reviewed: 2026-11-09, against the self-contained server (every source read 
 
 ---
 
-## 1. The data preview answered a `message` node and `totalRows` 0 beside 24 rows
+Nothing is open. Add an item here when a finding cannot be closed in the task that found it.
 
-**What is missing.** One reading. A TADIR `SELECT … WHERE OBJ_NAME IN (<24 names>)` through
-`adt_customizing` answered 24 rows with `totalRows` 0, plus a `dataPreview:message` element that
-the parser does not know. It was reported as drift (`SHAPE_DRIFT`), as designed.
-
-**Where it bit.** Not yet: `truncated` is `totalRows > rows`, so the answer stood. But a `totalRows`
-that undercounts would hide a cut on a larger read.
-
-**What to measure.** The text of that `message` and when it appears (the IN-list size, the table),
-through a probe that keeps the raw reply. Then parse it, or say what it means in the reference.
-
----
-
-## Accepted limit (not work): a per-target gap cannot retire itself
-
-Recorded so it does not come back as a defect.
-
-`report` retires a row when a later **census** did not file it again: a sweeping tool
-(`adt_clean_core_scan`, `adt_annotation_scan`) on the same package, unnarrowed and complete. That
-covers what is a census by nature. It cannot cover gaps filed **per target**
-(`ENHANCEMENTS_NOT_READ`, `BATCH_ITEM_NOT_READ`, `SHAPE_DRIFT`, `UI5_APP_NOT_READ`): no sequence
-of calls proves one of them went away. Those rows stay `unknown`, and `unknown` counts as open:
-**nobody looked is not the same as resolved.** To close one: re-read that target, or
-`npm run logs:prune -- --code <CODE> --apply`, an explicit act with its own command.
-
----
-
-## Closed in the 2026-11-09 review
-
-- **Append fields in `propose:table`.** Done: the script reads the three views and prints, per
-  append, the fields its own source declares, with a membership test against the active DDIC list.
-  What remains is product choice (one read per append, capped at 25; put it behind a flag if the
-  cost bothers).
-- **`INCLUDE_NOT_READ`, `VOFM_CARRIER_NOT_READ`.** They described the state of a local catalogue of
-  include dumps, not a limit of this server. The catalogue sweeps and their codes were removed with
-  the move to a self-contained server.
+An accepted limit is not an item: it is a decision, and it lives where the behaviour is (the
+per-target gap that cannot retire itself is explained in `lib/report.mjs`, `classifyStaleness`).
+What was closed is in the git history, not here.
