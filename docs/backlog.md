@@ -56,9 +56,10 @@ Each needs a measurement on the system and a dated decision before it is built.
   package document names its interfaces, but only by their SAP GUI URI, so their members were
   not read. The Relation Explorer's network (above) gives the package path of every object an
   object uses, so a use that crosses packages is visible; whether it goes through the other
-  package's interface still needs the interface's members. Measure next: `checkuseaccess`
-  (`/sap/bc/adt/packages/{package}/useaccesses/{interface}`), and whether any ADT resource lists an
-  interface's members.
+  package's interface still needs the interface's members. The IDE opens an interface in the
+  embedded SAP GUI, not in an ADT editor, so the IDE log will not show its members. Measure next,
+  with a GET probe: `checkuseaccess` (`/sap/bc/adt/packages/{package}/useaccesses/{interface}`).
+  If it does not answer, the members are out of ADT's reach and the item closes with that.
 - **The context an object consumes.** For one object, the public signature of each object it
   uses, with its API release state (`apiRelease`), instead of their full sources: what an agent
   needs to judge the object's Clean Core level. A composition of existing reads, no new route.

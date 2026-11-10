@@ -3412,6 +3412,12 @@ GET /sap/bc/adt/cts/transportrequests?targets=true&configUri=<that href, percent
 
 - The interface's URI is the **SAP GUI representation** (`/vit/wb/…`), not an ADT document: its
   members were not read.
+- The IDE itself has no ADT editor for it (IDE log, 2026-11-10): opening the interface sends
+  `GET /sap/bc/adt/security/reentranceticket` (`Accept: text/plain`, reply a short opaque ticket)
+  and then shows the transaction in the embedded SAP GUI. No ADT document of the interface is
+  read. The ticket is a logon credential for SAP GUI; this server never asks for it.
+- The package document carries an `ETag` (a timestamp, the media type and a hash) and
+  `Last-Modified`, as the other object documents do.
 - A quick search for `<package>*` with `objectType=PINF/KI` answered empty (109 bytes) **because the
   interface is not named after the package** — not because it is absent.
 - Discovery publishes `checkuseaccess` `/sap/bc/adt/packages/{packagename}/useaccesses/{packageinterfacename}`
