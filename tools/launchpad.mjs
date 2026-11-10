@@ -22,7 +22,7 @@
 
 import { record } from '../lib/audit.mjs';
 import { namedGet, transportFor } from '../lib/adt-get.mjs';
-import { buildSelect, previewPost, parsePreview, assertRanAsSent } from '../lib/data-preview.mjs';
+import { buildSelect, previewPost, parsePreview, assertRanAsSent, truncationOf } from '../lib/data-preview.mjs';
 import { parseCatalogList, parseGroupList, parsePage, parseFdm, intentsOf, catalogPageId, stripPersons } from '../lib/launchpad.mjs';
 
 const DRIFT_CODE = 'SHAPE_DRIFT';
@@ -197,7 +197,7 @@ export function launchpadTool(cfg, session, journal) {
       return {
         layer: 'cross-client',
         total: so.totalRows,
-        truncated: so.totalRows !== null && so.totalRows > so.rows.length,
+        truncated: truncationOf(so, 200),
         matched: rows.length,
         semanticObjects: rows.slice(0, cap),
       };

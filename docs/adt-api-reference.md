@@ -1812,6 +1812,22 @@ itself breaks with LF or CRLF the log does not show, and it no longer matters.
 no join, subquery, `;`, comment, `ORDER BY`. Not measured: `LIKE`, `OR`, joins, `ORDER BY` — the
 grammar does not offer them, so their behaviour on the wire is unknown by design.
 
+#### A literal with `FIELDS` breaks the count — MEASURED 2026-11-09
+
+`SELECT OBJ_NAME FROM TADIR WHERE … OBJ_NAME IN (…, 'PSM_FMFG_FIELDS_ITEM')` answers its rows,
+`totalRows` **0** and a `dataPreview:message` element. Bisected over 24 names, the one literal
+that triggers it is that name. A made-up `'ZZ_FIELDS_ZZ'` triggers it too, while `'ZZ_FIELDX_ZZ'`
+and `'ZZ_WHERE_ZZ'` do not. Statement length and line breaks are not the cause: 22- and 16-value
+`IN` lists over two lines counted right. The likeliest reading, not verified, is that the server
+builds its count from the statement text and `FIELDS`, an ABAP SQL keyword, inside a literal
+derails it. The rows stand. The count does not: asked for 1 row of 24, the reply said
+"not truncated".
+
+So `parsePreview` treats a count that the reply contradicts as **unknown**: a `message`, or fewer
+counted than returned. `truncationOf` then answers `'possible'` when as many rows came back as were
+asked, so no reader of the data preview (`adt_customizing`, `adt_launchpad`, the legacy objects,
+the switch state) can read an unknown count as "all rows". The text of the `message` is not read.
+
 ### `/sap/bc/adt/feeds` — the self-describing catalogue of the Feed Reader — MEASURED 2026-09-12
 
 Round 14, steps 1–2. Discovery lists `/sap/bc/adt/feeds` ("Feed Repository") and

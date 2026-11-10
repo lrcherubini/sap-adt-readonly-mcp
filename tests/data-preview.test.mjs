@@ -17,6 +17,7 @@ import {
   MAX_LINE,
   assertRanAsSent,
   likeLiteral,
+  truncationOf,
 } from '../lib/data-preview.mjs';
 
 /** Column-major, exactly as the system answered `SELECT KALSM, STUNR, KOFRM FROM T683S ... UP TO 2 ROWS`. */
@@ -313,4 +314,34 @@ test('routineColumnsOf resolves declared columns and patterns against the column
   assert.deepEqual(routineColumnsOf('NOPE', ['X']), { columns: [], missing: [] });
   assert.equal(padRoutine(953, 7), '0000953');
   assert.equal(padRoutine('953', 3), '953');
+});
+
+// Measured 2026-11-09: a literal holding the ABAP SQL keyword FIELDS ('PSM_FMFG_FIELDS_ITEM')
+// makes the server answer totalRows 0 plus a <message>, beside the rows it did return. Asked
+// for 1 row of 24, the reply read as "not truncated" -- a cut hidden by a count of 0.
+const replyWith = ({ total, message, rows }) =>
+  '<?xml version="1.0" encoding="utf-8"?><dataPreview:tableData xmlns:dataPreview="http://www.sap.com/adt/dataPreview">' +
+  `<dataPreview:totalRows>${total}</dataPreview:totalRows>` +
+  (message ? '<dataPreview:message>count failed</dataPreview:message>' : '') +
+  '<dataPreview:executedQueryString>SELECT OBJ_NAME FROM TADIR</dataPreview:executedQueryString>' +
+  '<dataPreview:columns><dataPreview:metadata dataPreview:name="OBJ_NAME" dataPreview:type="C" dataPreview:description="OBJ_NAME" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>' +
+  `<dataPreview:dataSet>${rows.map((r) => `<dataPreview:data>${r}</dataPreview:data>`).join('')}</dataPreview:dataSet></dataPreview:columns></dataPreview:tableData>`;
+
+test('a count the reply contradicts is unknown, and an unknown count at the cap is a possible cut', () => {
+  const broken = parsePreview(replyWith({ total: 0, message: true, rows: ['ZDEMO_A'] }));
+  assert.equal(broken.totalRows, null, 'never 0 beside a row');
+  assert.match(broken.countNote, /not usable.*answered 0 with a message/);
+  assert.deepEqual(broken.drift, [], 'message is a measured node, not drift');
+  assert.equal(truncationOf(broken, 1), 'possible', 'as many rows as asked: may be cut');
+  assert.equal(truncationOf(broken, 50), false, 'fewer than asked: nothing was cut');
+
+  // Fewer counted than returned is impossible, with or without a message.
+  assert.equal(parsePreview(replyWith({ total: 1, rows: ['ZDEMO_A', 'ZDEMO_B'] })).totalRows, null);
+
+  // A usable count decides as before.
+  const fine = parsePreview(replyWith({ total: 24, rows: ['ZDEMO_A'] }));
+  assert.equal(fine.totalRows, 24);
+  assert.equal(fine.countNote, undefined);
+  assert.equal(truncationOf(fine, 1), true);
+  assert.equal(truncationOf(parsePreview(replyWith({ total: 1, rows: ['ZDEMO_A'] })), 1), false);
 });
