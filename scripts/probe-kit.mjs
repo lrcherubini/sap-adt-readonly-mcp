@@ -27,6 +27,11 @@ import { connectOrExit, disconnect } from '../lib/session.mjs';
 
 const PROBE_PREFIX = '/sap/bc/adt/';
 
+/** Reply headers a measurement may need beyond the content type: whether the reply is cacheable. */
+const KEPT_HEADERS = ['etag', 'last-modified', 'cache-control'];
+const keptHeaders = (headers = {}) =>
+  Object.fromEntries(KEPT_HEADERS.filter((h) => headers?.[h] !== undefined).map((h) => [h, String(headers[h])]));
+
 /** The fence: a relative ADT path, nothing that can climb out of it or smuggle a header. */
 export function assertProbeUrl(url) {
   const s = String(url ?? '');
@@ -94,6 +99,8 @@ export async function probe(name, body, deps = {}) {
         bytes: text.length,
         file,
       });
+      const kept = keptHeaders(res?.headers);
+      if (Object.keys(kept).length) row.headers = kept;
       fs.writeFileSync(path.join(out, file), text);
       summary.push(row);
       return text;

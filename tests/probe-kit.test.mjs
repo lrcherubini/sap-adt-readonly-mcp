@@ -71,10 +71,18 @@ test('kit.get sends GET with Accept only and saves the reply and the summary', a
   assert.equal(calls.length, 1);
   assert.deepEqual(calls[0].opts, { method: 'GET', headers: { Accept: 'application/xml' } });
   assert.equal(summary[0].status, 200);
+  assert.equal(summary[0].headers, undefined, 'no caching header in the reply: none is recorded');
   assert.equal(fs.readFileSync(path.join(out, summary[0].file), 'utf8'), '<ok/>');
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8')), summary);
   assert.ok(out.startsWith(root));
   assert.equal(state.loggedOff, true);
+});
+
+test('kit.get records the caching headers of a reply, and only those', async () => {
+  const reply = { status: 200, body: '<ok/>', headers: { 'content-type': 'x', etag: '"abc"', 'cache-control': 'no-cache', 'set-cookie': 'secret' } };
+  const { deps } = fakeDeps(tmpRoot(), reply);
+  const { summary } = await probe('kit-test', (kit) => kit.get('source', '/sap/bc/adt/oo/classes/zcl_demo/source/main'), deps);
+  assert.deepEqual(summary[0].headers, { etag: '"abc"', 'cache-control': 'no-cache' });
 });
 
 test('a refused URL never reaches the transport, and the session is still closed', async () => {
