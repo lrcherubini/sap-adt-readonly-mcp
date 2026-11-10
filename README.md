@@ -21,7 +21,8 @@ This server covers the **read** side of that gap, and never the write side:
 |---|---|---|
 | Activate, ABAP Unit, create/change objects, release transports | ✅ | ❌ by design |
 | ATC on one object, findings legible, several variants | "error" (measured) | ✅ `adt_atc_run` (decision in `docs/security.md`) |
-| Search objects, read source, where-used, package tree | ❌ | ✅ |
+| Syntax check of the stored source, active or inactive | — | ✅ `adt_syntax_check` |
+| Search objects, read source and its stored versions, where-used, package tree | ❌ | ✅ |
 | Clean Core and annotation scans of a package, value-help recommendation | ❌ | ✅ |
 | Transport contents and history, runtime errors (ST22), customizing reads, launchpad content | ❌ | ✅ |
 | Works with the IDE closed | ❌ | ✅ |
@@ -33,14 +34,15 @@ This server covers the **read** side of that gap, and never the write side:
 
 ## What it does
 
-- **15 MCP tools** for an AI agent (Claude Code or any MCP client that speaks Streamable HTTP),
+- **16 MCP tools** for an AI agent (Claude Code or any MCP client that speaks Streamable HTTP),
   every one of them read-only and reading from the SAP system:
   - *objects* — `adt_search`, `adt_read_source`, `adt_object_info`, `adt_where_used`,
     `adt_package_tree`;
   - *package scans* — `adt_clean_core_scan` (what the CDS views consume, at which Clean Core
     level), `adt_annotation_scan` (which annotation reaches an element, from which layer);
   - *CDS and services* — `adt_value_help`, `adt_annotation_chain`, `adt_contract_check`;
-  - *change and runtime* — `adt_transport`, `adt_runtime_errors`, `adt_atc_run`;
+  - *change and runtime* — `adt_transport`, `adt_runtime_errors`, `adt_atc_run`,
+    `adt_syntax_check`;
   - *configuration and UI* — `adt_customizing` (a closed list of tables), `adt_launchpad`
     (SAP-standard launchpad OData services).
 - **A journal and a report**: every call, finding and limit hit is recorded (no payload, ever),
@@ -313,6 +315,7 @@ The server follows the MCP specification (2025-06-18) and the official TypeScrip
 | `adt_atc_run` | Does this object pass the check variants -- Clean Core governance, development practices, SAP's DEFAULT -- and if not, which finding, which check, which line? | the **second POST** this server sends, and the first that leaves something on the server: an ATC result worklist per variant (what the ATC Result Browser lists), nothing else -- no lock, no transport, no object touched (measured). `variants`: up to **3** from the closed set of SAP's `DEFAULT`, the system check variant (read from `atc/customizing` at start) and the variants your installation lists (`npm run config -- atc add`), run one after the other on the same object; default the system check variant, or `atc.defaultVariant` when set. Per variant: `POST /sap/bc/adt/atc/worklists?checkVariant=<v>`, `POST /sap/bc/adt/atc/runs?worklistId=<id>` with a body **generated** from one validated object URI and `maxFindings` 1..100, then `GET /sap/bc/adt/atc/worklists/<id>`. The set is closed because **the server hands an id to any name** (measured); an `ENHO/XH` is refused (its URI dumps the server). The answer: each finding's priority, check, message, source position, quickfix flags, documentation link; with several variants, one block per variant, and a variant that failed is listed as **not run** -- never clean. After each run the variant itself is read once (`atcCheckVariant`): a variant created in the ADT (`CHKV`) answers `variantChecks`, its checks with their parameter values; a variant created in transaction SCI, which SAP documents the ADT cannot display, answers `variantKind: SCI` with that note. A few seconds per variant. `ATC_NOT_RUN` / `ATC_RESULT_NOT_READ` / `ATC_SYSTEM_VARIANT_NOT_READ` / `ATC_VARIANT_NOT_READ` in the journal. ABAP Unit stays with the IDE; exemptions are governance writes and are not admitted |
 | `adt_customizing` | Which pricing-procedure step calls routine 953? Which copy control carries requirement 653? | the **first POST** this server sends: `/sap/bc/adt/datapreview/freestyle`, body a `SELECT` **generated** from a closed grammar (one table, listed fields, `=`/`<>`/`IN`/`LIKE` joined by `AND`, 1..200 rows; `LIKE` takes a name with `*` wildcards and the module writes the literal and its `ESCAPE`; a table may fix the columns it admits, so a user field is never read) for a table in the closed list `CUSTOMIZING_TABLES` — the SAP-standard tables in [`data/defaults/customizing-tables.json`](data/defaults/customizing-tables.json) (pricing procedures and condition tables, copy control, the VOFM registry, launchpad semantic objects, the object directory, CDS header annotations, payment terms, STVARV parameters, partner determination, the material master screen map, MRP areas, material status, the factory calendar, the organizational units, application log objects, Code Inspector check variants) **plus the tables your installation added** with `npm run config -- table add`, through the same validation. Any other table, field or value the grammar cannot say is refused **before a socket opens**; the server would answer any table (`VBAK` measured 200), so the fence is the client and it is tested. Read-only by semantics (no lock, no transport; `SM12` checked before and after), POST by wire. `totalRows` is the server's count **without** the cap; NUMC columns compare at full width (`0000953` in `T683S`, `953` in `TVCPA`). The audit line carries the table and the row cap, never a row. `runQuery`/`tableContents` of the library stay denied — the decision, dated, is in `docs/security.md` |
 | `adt_launchpad` | Which tiles and target mappings does catalog X carry, which groups show them, which catalogs does role Y get, and is the semantic object registered? | one `kind` per call (`catalogs`/`catalog`, `groups`/`group`, `spaces`/`space`, `pages`/`page`, `semobjs`/`semobj`, `roleCatalogs`). The one place the routes leave `/sap/bc/adt`, for **SAP-standard services only**: OData V2 under four `ODATA_ROOTS` (PAGE_BUILDER_CONF/CUST, FDM_*_CUST_SRV; never `PAGE_BUILDER_PERS`, `$batch` or a generic GET over entity sets). No customer (Z) service is called, and every person-like key is stripped from every body. `semobjs`/`semobj` read the `/UI2/SEMOBJ*` tables through the ADT data preview, as `adt_customizing` does. Decision, dated, in `docs/security.md` (*The Fiori launchpad*); shapes in `docs/adt-api-reference.md` |
+| `adt_syntax_check` | Does the source the system stores for this class or program compile — the active version, or the inactive one waiting to be activated? | the **fourth POST** this server sends: `/sap/bc/adt/checkruns?reporters=abapCheckRun`, a body built from one class or program URI and the version, **no source sent** — the server checks what it stores. Each message: type, text, include, line, column. Measured: no `Location`, no run id, nothing left on the server, a stateless session (the IDE runs the same check after every save). `version: inactive` first reads the object document, because on an object with **no** inactive version the server checks an empty source and reports an error that is not in the program (measured); the answer then says *no inactive version* and nothing is sent. A report the server did not process is `checked: false`, never clean (`SYNTAX_NOT_CHECKED`) |
 
 `adt_read_source` answers a second question the working tree cannot: **who implanted code
 into this standard object.** With `enhancements: true` it lists the enhancement
@@ -437,7 +440,7 @@ Every call is also written to `%LOCALAPPDATA%\sap-adt\audit.log` — tool, targe
   transport release, no ATC exemption. It cannot prove that code **activates** or that a test
   passes; that is the official MCP server's job, from the IDE. (ATC it **can** run, on one
   object at a time: `adt_atc_run`; each run leaves an ATC result worklist on the server, as
-  the IDE does.)
+  the IDE does. And it can say whether the stored source **compiles**: `adt_syntax_check`.)
 - **Read business data.** It reads the repository and a **closed list** of configuration
   tables (SAP-standard ones plus those you add with `table add`), through a generated
   `SELECT` that cannot name anything else. `runQuery`/`tableContents` are a **closed
@@ -534,9 +537,10 @@ tag, `v0.1.0`, on the last commit that belongs to that version.
 | `lib/tool-meta.mjs` | titles, behaviour annotations, the input-schema check, `structuredContent`, progress |
 | `lib/service-binding.mjs` | a service binding and the detail of each version: parsers, and the read `adt_object_info` runs |
 | `lib/virtual-folders.mjs` | the virtual folders of a package: the third POST (fixed path, body built from one package name) and its parser |
+| `lib/syntax-check.mjs` | the syntax check: the fourth POST (fixed path, body built from one object URI and a version, no source) and its parser |
 | `lib/legacy-objects.mjs` | the APLO and CHKV objects the ADT does not publish (SLG0, SCI), read from their tables for `adt_search` |
 | `lib/source-versions.mjs`, `lib/line-diff.mjs` | a stored version of a class or program (active, inactive, a history number) and the local unified diff of two |
-| `tools/` | the 15 MCP tools |
+| `tools/` | the 16 MCP tools |
 | `lib/` | the guard (`guard.mjs`), the named GET routes (`adt-get.mjs`), package reads (`package-sources.mjs`), the session, the store and its validation (`store.mjs`, `environment.mjs`), the catalogue and its sync, parsers and the journal |
 | `scripts/` | the npm scripts above, each with its usage in its header comment |
 | `data/defaults/` | the SAP-standard half of every fence: customizing tables, ATC variant `DEFAULT`, launchpad OData roots |

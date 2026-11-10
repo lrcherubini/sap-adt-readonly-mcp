@@ -944,6 +944,30 @@ inactive version was not measured); the IDE's working area (`workingArea` answer
 `inactive` on all five objects, so it adds nothing); and the trail: one audit line per read names
 the object, the include and the kind of read, never a line of source.
 
+### The syntax check: the fourth POST, a check that leaves nothing -- 2026-11-10
+
+The owner asked whether a stored source compiles. The README left that question to the IDE,
+because nothing here proved an activation. `adt_syntax_check` answers it on the stored version,
+active or inactive.
+
+**What it admits.** One POST, `/sap/bc/adt/checkruns?reporters=abapCheckRun`, through the raw
+transport with that path fixed (`lib/syntax-check.mjs`). The body is built here from one class or
+program URI, resolved through the guarded client, and a version from `active` | `inactive`. It
+carries **no source**: the IDE sends its editor buffer as a base64 artifact when it checks unsaved
+text, and that form is never built. `syntaxCheck` of the client library stays off the allowlist.
+
+**Why it is admitted.** Measured on one class and four programs, and read in the IDE's
+communication log: the answer is the report itself, with no `Location`, no run id and no resource
+to read back; the session stays stateless and no lock is taken. Unlike the ATC run, it leaves no
+worklist, so the tool is idempotent. Like every POST here it is read-only by semantics, POST by
+wire.
+
+**What it holds.** The check of `inactive` is sent only after the object document read with
+`?version=inactive` says one exists: on an object with none the server checks an empty source and
+reports an error that is not in the program. A report the server did not process is no verdict,
+never a clean one. Other object types (CDS, interfaces, function groups) were not measured and are
+refused before a socket opens. The audit line names the object and the version, never a message.
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:

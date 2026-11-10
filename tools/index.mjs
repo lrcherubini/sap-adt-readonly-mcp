@@ -1,4 +1,4 @@
-// The fifteen read-only tools. Everything they reach is a GET or a read-only POST on
+// The sixteen read-only tools. Everything they reach is a GET or a read-only POST on
 // the ADT REST API or the SAP-standard launchpad OData services (/UI2); nothing here
 // can change the system, and nothing reads a local checkout: every source comes from the system.
 
@@ -27,6 +27,7 @@ import { customizingTool } from './customizing.mjs';
 import { runtimeErrorsTool } from './runtime-errors.mjs';
 import { atcTool } from './atc.mjs';
 import { launchpadTool } from './launchpad.mjs';
+import { syntaxCheckTool } from './syntax-check.mjs';
 import { publish, schemaErrors, closeSchema, withStructuredContent } from '../lib/tool-meta.mjs';
 
 // Z*, Y* and /NAMESPACE/ objects are ours; anything else is SAP standard.
@@ -1266,6 +1267,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
     // The launchpad: SAP-standard OData V2 under /UI2, the one place the routes leave
     // /sap/bc/adt (docs/security.md, "The Fiori launchpad").
     launchpadTool(cfg, session, journal),
+    // The fourth POST: the syntax check on the stored version, no source sent, nothing left
+    // behind (docs/security.md, 2026-11-10).
+    syntaxCheckTool(cfg, session, journal),
   ];
 
   // Validated INSIDE the journal wrapper, so a refused call is still one line in logs/calls.

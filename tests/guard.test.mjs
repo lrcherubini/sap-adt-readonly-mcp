@@ -5,6 +5,7 @@ import { virtualFoldersPost, buildVirtualFoldersBody, VirtualFoldersViolation } 
 import { test } from 'node:test';
 import { buildSelect, previewPost, SelectViolation } from '../lib/data-preview.mjs';
 import { atcPost, buildRunBody, AtcViolation } from '../lib/atc.mjs';
+import { checkRunPost, buildCheckBody, SyntaxCheckViolation, CHECK_RUN_URL } from '../lib/syntax-check.mjs';
 
 import assert from 'node:assert/strict';
 import util from 'node:util';
@@ -283,6 +284,23 @@ test('the virtual folders are the third POST: one fixed path, a body built here,
   assert.equal(sent[0].url, '/sap/bc/adt/repository/informationsystem/virtualfolders/contents');
   assert.equal(sent[0].body, buildVirtualFoldersBody('ZDEMO_ROOT'));
   assert.match(sent[0].body, /<vfs:value>ZDEMO_ROOT<\/vfs:value>/);
+});
+
+test('the syntax check is the fourth POST: one fixed path, a body with no source, a bad URI never reaches a socket', async () => {
+  // docs/security.md, 2026-11-10: syntaxCheck stays off the allowlist; the POST goes through the raw
+  // transport with a fixed path, and its body names one class or program and one version.
+  const api = readOnly({ syntaxCheck: async () => [] });
+  assert.throws(() => api.syntaxCheck, ReadOnlyViolation);
+  const sent = [];
+  const raw = { httpClient: { request: async (url, cfg) => { sent.push({ url, ...cfg }); return { status: 200, body: '', headers: {} }; } } };
+  for (const bad of ['/sap/bc/adt/cts/transports', '/sap/bc/adt/programs/programs/z"/>', '/sap/bc/adt/oo/classes/zcl_x/source/main']) {
+    assert.throws(() => buildCheckBody(bad, 'active'), SyntaxCheckViolation, bad);
+  }
+  await assert.rejects(() => checkRunPost(raw, { xml: '<anything/>' }), SyntaxCheckViolation);
+  assert.equal(sent.length, 0, 'nothing left the client');
+  await checkRunPost(raw, buildCheckBody('/sap/bc/adt/oo/classes/zcl_demo', 'active'));
+  assert.deepEqual([sent[0].method, sent[0].url], ['POST', CHECK_RUN_URL]);
+  assert.doesNotMatch(sent[0].body, /artifact/);
 });
 
 test('the ATC run is the second POST: a variant outside the set or a bad URI never reaches a socket', async () => {

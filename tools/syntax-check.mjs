@@ -1,0 +1,138 @@
+// adt_syntax_check -- does the stored source of ONE class or program compile? The check the
+// editor runs after every save, on the version the system stores: active, or inactive.
+//
+// MEASURED 2026-11-10 (lib/syntax-check.mjs; docs/adt-api-reference.md, "Old versions, the
+// inactive version and the syntax check run"; decision in docs/security.md). No source text is
+// sent: the server checks what it holds. Nothing is left on the server, so a second call has no
+// further effect.
+//
+// The inactive check is asked only after the object document said an inactive version exists:
+// on an object with none, the server checks an empty source and reports an error that is not in
+// the program (measured). The answer then says there is no inactive version, and nothing is sent.
+
+import { record } from '../lib/audit.mjs';
+import { resolveObject } from '../lib/resolve.mjs';
+import { derivedGet, transportFor } from '../lib/adt-get.mjs';
+import { documentVersion } from '../lib/source-versions.mjs';
+import {
+  buildCheckBody,
+  checkRunPost,
+  parseCheckRun,
+  countByType,
+  CHECK_VERSIONS,
+  DRIFT_CODE,
+  SyntaxCheckViolation,
+} from '../lib/syntax-check.mjs';
+
+const asText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] });
+
+export function syntaxCheckTool(cfg, session, journal) {
+  return {
+    definition: {
+      name: 'adt_syntax_check',
+      description:
+        'Syntax check of ONE class or program on the source the system stores (active or ' +
+        'inactive): each message with type, text, include, line and column. No source is ' +
+        'sent and nothing is left on the server. An inactive check runs only when an inactive ' +
+        'version exists. One call (inactive: two).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          objectName: { type: 'string' },
+          objectType: { type: 'string', description: 'Optional ADT type: CLAS/OC or PROG/P' },
+          version: { type: 'string', enum: [...CHECK_VERSIONS], description: 'Default active' },
+        },
+        required: ['objectName'],
+      },
+    },
+    async handler({ objectName, objectType, version }) {
+      const v = version ?? 'active';
+      if (!session?.raw) throw new SyntaxCheckViolation('this session has no raw client: the check cannot be asked.');
+      const name = String(objectName ?? '').trim();
+      if (!name) throw new SyntaxCheckViolation('adt_syntax_check needs an objectName.');
+      const type = objectType ? String(objectType).trim().toUpperCase() : undefined;
+      const { hit, foundBy } = await resolveObject(session.api, name, type, 'metadata');
+      const uri = hit['adtcore:uri'];
+      const subject = `${hit['adtcore:type']} ${hit['adtcore:name']}`;
+      const object = { name: hit['adtcore:name'], type: hit['adtcore:type'], package: hit['adtcore:packageName'] ?? null, uri, foundBy };
+      // Refused before any read when it is not a class or a program.
+      const body = buildCheckBody(uri, v);
+
+      if (v === 'inactive') {
+        let said = null;
+        let out;
+        try {
+          out = await derivedGet(transportFor(session.raw), uri, uri, { kind: 'objectVersion', query: { version: 'inactive' } });
+          said = documentVersion(out.body);
+        } finally {
+          record(cfg, 'adt_syntax_check', `${subject} object?version=inactive`, out?.bytes ?? 0);
+        }
+        if (said !== 'inactive') {
+          return asText({
+            object,
+            version: v,
+            checked: false,
+            reason:
+              `no inactive version: the object document says '${said ?? 'nothing'}'. A check of ` +
+              'inactive would check an empty source (measured); ask version active.',
+          });
+        }
+      }
+
+      let res;
+      try {
+        res = await checkRunPost(session.raw, body);
+      } catch (e) {
+        journal?.gap?.({
+          code: 'SYNTAX_NOT_CHECKED',
+          subject,
+          detail: `${e.name ?? 'Error'}: ${e.message}`.slice(0, 300),
+          impact: 'nothing is said about whether this source compiles: this is NOT a clean check',
+          fallback: 'the syntax check of the IDE (Ctrl+F2)',
+        });
+        throw e;
+      } finally {
+        // One line per call: the object and the version, never a message or a line of source.
+        record(cfg, 'adt_syntax_check', `${subject} ${v}`, res?.bytes ?? 0);
+      }
+      const { reports, drift } = parseCheckRun(res.body);
+      if (drift.length) {
+        journal?.gap?.({
+          code: DRIFT_CODE,
+          subject: `${subject} check run`,
+          detail: drift.map((d) => (d.attribute ? `${d.node}/@${d.attribute}` : `<${d.node}>`)).join('; ').slice(0, 300),
+          impact: 'the answer stands, but the measured shape no longer describes this reply fully',
+          fallback: 're-read the raw reply and update lib/syntax-check.mjs and docs/adt-api-reference.md',
+        });
+      }
+      const report = reports.find((r) => r.reporter === 'abapCheckRun') ?? reports[0] ?? null;
+      if (!report || report.status !== 'processed') {
+        journal?.gap?.({
+          code: 'SYNTAX_NOT_CHECKED',
+          subject,
+          detail: report ? `status ${report.status}: ${report.statusText ?? ''}`.slice(0, 300) : 'no checkReport in the reply',
+          impact: 'nothing is said about whether this source compiles: this is NOT a clean check',
+          fallback: 'the syntax check of the IDE (Ctrl+F2)',
+        });
+        return asText({
+          object,
+          version: v,
+          checked: false,
+          status: report?.status ?? null,
+          statusText: report?.statusText ?? null,
+          reason: 'the server did not process the check: no statement is made about this source',
+        });
+      }
+      return asText({
+        object,
+        version: v,
+        checked: true,
+        clean: report.messages.length === 0,
+        count: report.messages.length,
+        byType: countByType(report.messages),
+        messages: report.messages,
+        ...(drift.length ? { drift } : {}),
+      });
+    },
+  };
+}

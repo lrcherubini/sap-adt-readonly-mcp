@@ -128,7 +128,7 @@ beforeEach(() => {
 
 // --- registration ------------------------------------------------------------
 
-test('fifteen tools are registered, each with a name and an input schema', () => {
+test('sixteen tools are registered, each with a name and an input schema', () => {
   const tools = toolsWith(fakeApi());
   assert.deepEqual(
     tools.map((t) => t.definition.name),
@@ -148,6 +148,7 @@ test('fifteen tools are registered, each with a name and an input schema', () =>
       'adt_runtime_errors',
       'adt_atc_run',
       'adt_launchpad',
+      'adt_syntax_check',
     ]
   );
   for (const t of tools) {
