@@ -70,6 +70,7 @@ test('the route table is closed, and these are the routes in it', () => {
     'flpPage',
     'gatewayErrors',
     'objectProperties',
+    'objectTransports',
     'odataMetadata',
     'odataMetadataV2Path',
     'odataMetadataV4',

@@ -39,6 +39,7 @@ import { isClasenh, clasenhGap, CLASENH_WHERE } from '../lib/object-properties.m
 import { parseVersionFeed, versionLinks, unionByTransport } from '../lib/object-versions.mjs';
 import { parseTransportDocument, unionObjects, DRIFT_CODE } from '../lib/transport-requests.mjs';
 import { parseRequestLog } from '../lib/request-logs.mjs';
+import { parseOpenRequests } from '../lib/open-requests.mjs';
 import {
   collectObjectKeys,
   MAX_KEY_LOOKUPS,
@@ -55,6 +56,46 @@ const NUMBER = /^[A-Z][A-Z0-9]{2}K[0-9]{6}$/;
 const MAX_VERSION_FEEDS = 8;
 
 export function transportTool(cfg, session, journal) {
+  // The OPEN requests that hold one object now: one GET, read beside the version history
+  // because the feed's version 00000 names only one holder and some objects publish no feed.
+  async function openRequestsOf(objectUri, subjectOf) {
+    const rule =
+      'open requests only (status D): the requests that hold this object now. Empty means ' +
+      'in no open request, never "never transported" -- transports answers that.';
+    let reply;
+    try {
+      reply = await namedGet(transportFor(session.raw), 'objectTransports', { uri: objectUri });
+    } catch (e) {
+      if (e?.name === 'RouteViolation') {
+        return { read: false, reason: `the object URI is outside the route's alphabet: ${e.message}`.slice(0, 200), rule };
+      }
+      // Not swallowed: the gap is filed and the part says it was not read.
+      if (journal?.enabled) {
+        journal.gap({
+          code: 'ADT_ERROR',
+          subject: `${subjectOf} open requests`,
+          detail: `HTTP ${e?.status ?? '?'} on ${e?.url ?? 'objectTransports'}`,
+          impact: 'which open requests hold this object is unknown -- NOT "in none"',
+          fallback: 'the object in SE03 ("Search for objects in requests/tasks") or in the IDE',
+        });
+      }
+      return { read: false, reason: String(e?.message ?? e).slice(0, 200), rule };
+    } finally {
+      record(cfg, 'adt_transport', `${subjectOf} open requests`, reply?.bytes ?? 0);
+    }
+    const parsed = parseOpenRequests(reply.body);
+    if (parsed.drift.length && journal?.enabled) {
+      journal.gap({
+        code: DRIFT_CODE,
+        subject: `${subjectOf} open requests`,
+        detail: parsed.drift.map((d) => (d.attribute ? `${d.node}/@${d.attribute} x${d.count}` : `<${d.node}> x${d.count}`)).join('; '),
+        impact: 'the answer stands, but something undeclared in the reply is being dropped',
+        fallback: 're-read the raw reply and update lib/open-requests.mjs and docs/adt-api-reference.md',
+      });
+    }
+    return { read: true, requests: parsed.requests, rule };
+  }
+
   // WHICH TRANSPORTS carried one object: the version feed(s) the server publishes for
   // it, read as raw Atom under the object's own URI. lib/object-versions.mjs carries
   // the three measured ways this feed lies; this function only sequences the reads.
@@ -112,6 +153,7 @@ export function transportTool(cfg, session, journal) {
         transports: [],
         copies: [],
         activeVersion: [],
+        openRequests: await openRequestsOf(objectUri, subjectOf),
         rule: 'no version feed is published for this object; nothing was read and no history is claimed',
       });
     }
@@ -181,6 +223,7 @@ export function transportTool(cfg, session, journal) {
       transports: history.transports,
       copies: history.copies,
       activeVersion: history.activeVersion,
+      openRequests: await openRequestsOf(objectUri, subjectOf),
       versionsWithoutTransport: history.withoutLink,
       truncated: { feeds: Math.max(0, links.length - wanted.length) },
       ...(drift.length ? { drift } : {}),
@@ -241,7 +284,8 @@ export function transportTool(cfg, session, journal) {
         '(the request with every task, owner, description; one call; `logs: true` adds its ' +
         'action and transport logs), `recent: true` (the ' +
         'server\'s list: released, last two weeks), or `object: {name, type}` (every request ' +
-        'that carried it, from its version history; one GET per version feed).',
+        'that carried it, from its version history; one GET per version feed; plus the open ' +
+        'requests holding it now, one GET).',
       inputSchema: {
         type: 'object',
         properties: {

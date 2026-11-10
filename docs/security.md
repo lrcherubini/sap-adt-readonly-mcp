@@ -1070,6 +1070,20 @@ path of the application server, and neither the log files nor the request-indepe
 followed. The texts name users, as the request document already does: they reach the answer, never
 the audit trail or the journal. A log that failed is `read: false` with a gap, never an empty log.
 
+### The open requests that hold an object: one route more -- 2026-11-10
+
+The object mode of `adt_transport` answers which requests carried an object from its version
+history. Version `00000` names one holder, and an object that publishes no version feed names
+none. `objectproperties/transports` answers the question directly: measured the same day, it
+lists the **modifiable** requests that hold the object (status `D`, owner, counts) and answers
+empty for an object that sits only in released requests.
+
+**What it admits.** One named route, `objectTransports`, GET, its one parameter an ADT object URI
+held to the same alphabet as `objectProperties`. The object mode reads it once, beside the
+history, except for a class or function-module enhancement, whose reads are already restricted.
+Empty is "in no open request now", never "never transported". The description and the owner
+reach the answer, never the trail. A failed read is `read: false` with a gap.
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:

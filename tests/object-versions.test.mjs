@@ -19,6 +19,9 @@ import {
 } from '../lib/object-versions.mjs';
 import { transportTool } from '../tools/transport.mjs';
 import { openJournal } from '../lib/journal.mjs';
+import { parseOpenRequests } from '../lib/open-requests.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // --- fixture builder, one entry at a time ------------------------------------------
 
@@ -221,7 +224,9 @@ test('an element or attribute the measurement did not declare is drift, not sile
 
 // --- the tool mode --------------------------------------------------------------------
 
-function toolFor({ structure, feeds, search = 'hit', fail = null }) {
+const NO_OPEN_REQUEST = '<?xml version="1.0" encoding="utf-8"?><tpr:transportProperties xmlns:tpr="http://www.sap.com/adt/ris/transportProperties"/>';
+
+function toolFor({ structure, feeds, search = 'hit', fail = null, open = NO_OPEN_REQUEST }) {
   const log = [];
   const journalLines = [];
   const cfg = {
@@ -230,6 +235,7 @@ function toolFor({ structure, feeds, search = 'hit', fail = null }) {
     journalSink: (stream, record) => journalLines.push({ stream, ...record }),
   };
   const seen = [];
+  const openSeen = [];
   const meta = structure.metaData;
   const session = {
     api: {
@@ -249,6 +255,11 @@ function toolFor({ structure, feeds, search = 'hit', fail = null }) {
     raw: {
       httpClient: {
         request: async (url, config) => {
+          if (url.includes('/objectproperties/transports?')) {
+            openSeen.push({ url, config });
+            if (open instanceof Error) throw open;
+            return { status: 200, body: open, headers: { 'content-type': 'application/vnd.sap.adt.repository.trproperties.result.v1+xml' } };
+          }
           seen.push({ url, config });
           if (fail && url.endsWith(fail)) {
             const e = new Error('Internal Server Error');
@@ -262,7 +273,7 @@ function toolFor({ structure, feeds, search = 'hit', fail = null }) {
       },
     },
   };
-  return { tool: transportTool(cfg, session, openJournal(cfg)), log, journalLines, seen };
+  return { tool: transportTool(cfg, session, openJournal(cfg)), log, journalLines, seen, openSeen };
 }
 
 const outOf = async (h, args) => JSON.parse((await h.tool.handler(args)).content[0].text);
@@ -303,7 +314,7 @@ test('a program and a domain publish one feed each, at different paths, and the 
 test('the audit trail names the object and the link, one line per feed, and never a transport description', async () => {
   const h = toolFor({ structure: CLASS_STRUCTURE, feeds: CLASS_FEEDS });
   await outOf(h, { object: { name: 'ZCL_DEMO' } });
-  const lines = h.log.filter((l) => l.tool === 'adt_transport');
+  const lines = h.log.filter((l) => l.tool === 'adt_transport' && !/open requests/.test(l.target));
   assert.equal(lines.length, 5);
   for (const l of lines) {
     assert.match(l.subject ?? l.target ?? JSON.stringify(l), /CLAS\/OC ZCL_DEMO versions includes\/\w+\/versions/);
@@ -359,4 +370,44 @@ test('a link the structure publishes outside the object is refused before any re
   await assert.rejects(() => h.tool.handler({ object: { name: 'ZDO_DEMO' } }), (e) => e.name === 'RouteViolation');
   assert.equal(h.seen.length, 0);
   assert.ok(!h.journalLines.some((l) => l.code === 'ADT_ERROR'), 'a refusal is not an ADT gap');
+});
+
+// --- the open requests that hold the object now ----------------------------------
+
+const OPEN = fs.readFileSync(path.join(import.meta.dirname, 'fixtures', 'open-requests.xml'), 'utf8');
+
+test('the open requests of an object: number, owner, status D and counts, as measured', () => {
+  const { requests, drift } = parseOpenRequests(OPEN);
+  assert.deepEqual(requests, [
+    { number: 'DEVK900124', description: 'demo change', owner: 'DEVUSER1', status: 'D', createdAt: '2026-11-10T08:38:00Z', changedAt: '2026-11-10T08:38:00Z', entries: 4, objects: 4 },
+  ]);
+  assert.deepEqual(drift, []);
+  assert.deepEqual(parseOpenRequests(NO_OPEN_REQUEST).requests, []);
+  const odd = parseOpenRequests(OPEN.replace('status="D"', 'status="D" lockedBy="DEVUSER2"'));
+  assert.deepEqual(odd.drift, [{ node: 'tpr:transport', attribute: 'lockedBy', count: 1 }]);
+});
+
+test('the object mode also names the open requests holding the object, with one more GET', async () => {
+  const h = toolFor({ structure: PROG_STRUCTURE, feeds: { 'source/main/versions': PROG_FEED }, open: OPEN });
+  const out = await outOf(h, { object: { name: 'ZDEMO_REPORT', type: 'PROG/P' } });
+  assert.equal(h.openSeen.length, 1);
+  assert.equal(h.openSeen[0].url, '/sap/bc/adt/repository/informationsystem/objectproperties/transports?uri=%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fzdemo_report');
+  assert.equal(h.openSeen[0].config.headers.Accept, 'application/vnd.sap.adt.repository.trproperties.result.v1+xml');
+  assert.equal(out.openRequests.read, true);
+  assert.deepEqual(out.openRequests.requests.map((r) => [r.number, r.status]), [['DEVK900124', 'D']]);
+  assert.match(out.openRequests.rule, /never "never transported"/);
+  assert.doesNotMatch(JSON.stringify(h.log), /demo change|DEVUSER1/, 'no description or owner in the trail');
+  // Read beside the history even where no feed is published.
+  const bare = { objectUrl: '/sap/bc/adt/ddic/tables/zdemo_t', metaData: { 'adtcore:name': 'ZDEMO_T', 'adtcore:type': 'TABL/DT' }, links: [] };
+  const t = await outOf(toolFor({ structure: bare, feeds: {} }), { object: { name: 'ZDEMO_T' } });
+  assert.deepEqual(t.openRequests.requests, []);
+});
+
+test('open requests that could not be read are read: false and a gap, never "in none"', async () => {
+  const h = toolFor({ structure: PROG_STRUCTURE, feeds: { 'source/main/versions': PROG_FEED }, open: Object.assign(new Error('Service unavailable'), { err: 503 }) });
+  const out = await outOf(h, { object: { name: 'ZDEMO_REPORT', type: 'PROG/P' } });
+  assert.equal(out.openRequests.read, false);
+  assert.equal(out.openRequests.requests, undefined);
+  assert.equal(out.transports.length, 2, 'the history still answers');
+  assert.ok(h.journalLines.some((l) => l.code === 'ADT_ERROR' && /open requests/.test(l.subject)));
 });
