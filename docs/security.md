@@ -1103,10 +1103,11 @@ Since 2026-09-11 every probe is born in **`scripts/probes/`**, which is git-igno
 (`/scripts/probes/` in `.gitignore`, asserted by `tests/journal.test.mjs` the same way `logs/`
 is). The rule used to depend on remembering to delete the file before committing; one probe
 was once committed by accident (and removed the next commit), and a folder the tree refuses
-to track is the version of the rule that does not need remembering. Two things stay outside
+to track is the version of the rule that does not need remembering. Three things stay outside
 the folder on purpose: `scripts/probe.mjs`, the permanent phase-0 probe that needs **no
-credential** (`npm run probe`), and `scripts/measure-*.mjs`, which are repeatable
-measurements with a fixed output and their own tests. A probe carries no secret — the
+credential** (`npm run probe`); `scripts/measure-*.mjs`, which are repeatable
+measurements with a fixed output and their own tests; and `scripts/probe-kit.mjs`, the
+skeleton every probe imports (below). A probe carries no secret — the
 password is prompted by `loadConfig`/`connect` like everywhere else — but it is still
 measurement, not code, and does not belong in the history.
 
@@ -1114,6 +1115,20 @@ Every run writes into a folder of its own, created by `newMeasurementDir` in `li
 `measurements/<name>-<UTC stamp>`. The function never reuses an existing folder. This became a
 rule on 2026-11-09, when two runs of one probe on the same day shared a dated folder and the
 second overwrote the first run's summary. `tests/measurement-dir.test.mjs` holds the rule.
+
+**Decided 2026-11-10: the probe skeleton is versioned, behind a fence.** The logon, the output
+folder, the transcript and the summary used to be copied into each probe, or kept in an
+ignored kit that any probe could change. Reuse is worth versioning, but the kit was also the one
+place in the tree that could send any method to any URL, outside the guard and the route table.
+`scripts/probe-kit.mjs` keeps the reuse and loses the door: `kit.get` sends **GET only**, to
+a relative path under `/sap/bc/adt/`, with no body and no header but `Accept`, and refuses
+anything else before a socket opens. There is no POST in it. A probe that measures a POST writes
+that one call by hand inside the ignored folder, and the POST still needs its own dated decision
+here before it becomes a route. Logon goes through `connectOrExit`, so a probe records a
+refused logon and warns about earlier ones like every other script. The probes themselves stay
+in `scripts/probes/`, ignored, and are deleted once transcribed. `tests/probe-kit.test.mjs`
+holds the fence and asserts that nothing under `lib/`, `tools/` or `server.mjs` imports
+the kit.
 
 ## The MCP port
 

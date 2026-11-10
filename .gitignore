@@ -24,7 +24,8 @@ config.json
 # docs/adt-api-reference.md and the file is deleted. Ignoring the folder makes "never
 # commit a probe" a property of the tree instead of a memory; a probe committed once by
 # accident is why. scripts/probe.mjs, the permanent credential-less phase-0
-# probe, stays outside this folder on purpose. tests/journal.test.mjs asserts this too.
+# probe, and scripts/probe-kit.mjs, the GET-only skeleton every probe imports, stay outside
+# this folder on purpose. tests/journal.test.mjs asserts this too.
 /scripts/probes/
 
 # Personal Claude Code notes for this checkout (see CLAUDE.md).
