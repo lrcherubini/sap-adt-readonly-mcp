@@ -39,9 +39,9 @@ Each needs a measurement on the system and a dated decision before it is built.
   from the IDE: a behaviour definition takes the same body (`bo/behaviordefinitions/<name>`) and a
   second reporter, `bdefImplementationCheck`, both answered in the measured shape (behaviour
   definitions are ready to build). A CDS view takes the same body (`ddic/ddl/sources/<name>`)
-  and `abapCheckRun` alone (ready to build). Still to read: one `abapCheckRun` body for a DDLX, a
-  service definition, an interface and a function module (Ctrl+F2 in each, the request body from
-  the log).
+  and `abapCheckRun` alone, and so does a DDLX (`ddic/ddlx/sources/<name>`, a namespace
+  percent-encoded): both ready to build. Still to read: one `abapCheckRun` body for a service
+  definition, an interface and a function module (Ctrl+F2 in each, the request body from the log).
 - **Quickfix proposals, never applied.** Measured 2026-11-10 (`adt-api-reference.md`, *Backlog
   reads*): the body is a constant empty element, the object, position and marker go in the query,
   and the server evaluates its stored source. Build: the fifth POST, its dated decision, a tool
@@ -60,6 +60,8 @@ Each needs a measurement on the system and a dated decision before it is built.
   embedded SAP GUI, not in an ADT editor, so the IDE log will not show its members. Measure next,
   with a GET probe: `checkuseaccess` (`/sap/bc/adt/packages/{package}/useaccesses/{interface}`).
   If it does not answer, the members are out of ADT's reach and the item closes with that.
+  Blocked: the measured system has no package with a declared use access, so there is nothing for
+  `checkuseaccess` to answer about. It waits for a system that declares one.
 - **The context an object consumes.** For one object, the public signature of each object it
   uses, with its API release state (`apiRelease`), instead of their full sources: what an agent
   needs to judge the object's Clean Core level. A composition of existing reads, no new route.

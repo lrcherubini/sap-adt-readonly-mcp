@@ -3541,6 +3541,9 @@ Content-Type: application/vnd.sap.adt.checkobjects+xml   Accept: application/vnd
   ```
 
   One second of server time, against a tenth for the behaviour definition.
+- A metadata extension (DDLX) is the same again with `ddic/ddlx/sources/<name>`, `abapCheckRun`
+  alone, the same processed report. A namespaced name travels percent-encoded in the URI, slashes
+  included: `ddic/ddlx/sources/%2Fdemo%2Fc_rate`, and the status text names `/DEMO/C_RATE`.
 
 ```
 POST /sap/bc/adt/atc/runs?worklistId=<id>&clientWait=false
