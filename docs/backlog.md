@@ -56,12 +56,14 @@ Each needs a measurement on the system and a dated decision before it is built.
   package document names its interfaces, but only by their SAP GUI URI, so their members were
   not read. The Relation Explorer's network (above) gives the package path of every object an
   object uses, so a use that crosses packages is visible; whether it goes through the other
-  package's interface still needs the interface's members. The IDE opens an interface in the
-  embedded SAP GUI, not in an ADT editor, so the IDE log will not show its members. Measure next,
-  with a GET probe: `checkuseaccess` (`/sap/bc/adt/packages/{package}/useaccesses/{interface}`).
-  If it does not answer, the members are out of ADT's reach and the item closes with that.
-  Blocked: the measured system has no package with a declared use access, so there is nothing for
-  `checkuseaccess` to answer about. It waits for a system that declares one.
+  package's interface still needs the interface's members. Measured since: the package document
+  lists the use accesses a package declares (interface, owning package, severity) and whether it
+  is encapsulated; `checkuseaccess` is a validation, not a read; the interface's members are not
+  reachable from ADT (the IDE opens the interface in SAP GUI). What is buildable: a use that
+  crosses into another package, with whether the user package declares a use access to an
+  interface of that package, and never "violation" (the members decide). Measure next: the
+  package check run (the package URI, no `reporters`) on a package with a known finding, to see
+  whether the system itself reports the violation.
 - **The context an object consumes.** For one object, the public signature of each object it
   uses, with its API release state (`apiRelease`), instead of their full sources: what an agent
   needs to judge the object's Clean Core level. A composition of existing reads, no new route.

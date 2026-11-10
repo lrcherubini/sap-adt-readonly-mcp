@@ -3420,8 +3420,36 @@ GET /sap/bc/adt/cts/transportrequests?targets=true&configUri=<that href, percent
   `Last-Modified`, as the other object documents do.
 - A quick search for `<package>*` with `objectType=PINF/KI` answered empty (109 bytes) **because the
   interface is not named after the package** — not because it is absent.
-- Discovery publishes `checkuseaccess` `/sap/bc/adt/packages/{packagename}/useaccesses/{packageinterfacename}`
-  (collection "Package"); not asked yet.
+- **The use accesses a package declares are in the same document** (IDE log, 2026-11-10, an SAP
+  package that declares 31 of them). Each names the interface used and, when the system knows
+  it, the package that owns the interface; the owner is empty for some:
+
+  ```
+  <pak:useAccesses pak:isVisible="true">
+    <pak:useAccess pak:severity="none">
+      <pak:packageInterfaceRef adtcore:uri="/sap/bc/adt/vit/wb/object_type/pinfki/object_name/SAI_TOOLS"
+                               adtcore:type="PINF/KI" adtcore:name="SAI_TOOLS"/>
+      <pak:packageRef adtcore:uri="/sap/bc/adt/packages/basis" adtcore:type="DEVC/K" adtcore:name="BASIS"/>
+    </pak:useAccess>
+    <pak:useAccess pak:severity="none">
+      <pak:packageInterfaceRef … adtcore:name="SXML_CORE_PUBLIC"/>
+      <pak:packageRef/>
+    </pak:useAccess>
+  </pak:useAccesses>
+  ```
+
+  `pak:severity` is the error severity the package check gives a use outside the declaration
+  (`none` in every row read). Namespaced names come lower-case and percent-encoded in the URI
+  (`%2fns%2fname`). An empty `<pak:useAccesses pak:isVisible="true"/>` is "declares none".
+- `checkuseaccess` (`GET /sap/bc/adt/packages/{package}/useaccesses/{interface}`, from discovery)
+  answered `400` "parameter errsever not found" (logon-language text, translated) for a pair with
+  a use access and for one without: it wants the severity as a parameter, so it reads as the
+  editor's validation of a use access being added, not as a read. Not used.
+- The interface's **members** (which objects it exposes) are still not reachable from ADT.
+- The IDE's "check" on a package is the check run with the package URI and no `reporters`:
+  `<chkrun:checkObject adtcore:uri="/sap/bc/adt/packages/<pkg>" chkrun:version="active"/>`, answered
+  by `abapCheckRun` "processed" with no message for a package with no finding. What it reports
+  for a package with a finding is not measured.
 - The document also carries `pak:attributes` (`isEncapsulated`, `languageVersion`), the software
   component and transport layer, and a link `supportsPackageCheckActions` to `/sap/bc/adt/checkruns{?reporters}`.
 
