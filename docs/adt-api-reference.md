@@ -1675,6 +1675,32 @@ POST /sap/bc/adt/checkruns?reporters=abapCheckRun
 - `GET /sap/bc/adt/checkruns/reporters` (12 KB, `application/vnd.sap.adt.reporters+xml`) lists the
   reporters and the object types each accepts.
 
+#### The outline of a class
+
+```
+GET <class>/objectstructure?version=active|inactive&withShortDescriptions=true     Accept: */*
+->  200 application/vnd.sap.adt.objectstructure.v2+xml      (1.6 KB for one constant, 26 KB for
+                                                          a class with 21 methods and a local class)
+```
+
+Nested `abapsource:objectStructureElement`, the class at the root. Census on the larger class:
+`CLAS/OM` 21 (global methods; an implemented interface method is named `INTF~NAME`), `CLAS/OB` 12
+(interface components), `CLAS/OA` 2 (attributes), `CLAS/OT` 2 (types), `CLAS/OR` 1 (the
+interface), `CLAS/OCL` 1 (a local class) with its `CLAS/OLD` methods (2) and `CLAS/OLA`
+attributes (2), `CLAS/OCX` 1 (the text elements). Attributes per element: `adtcore:name`,
+`adtcore:type`, `visibility`, `level` (`static` / `instance`), `description` (with
+`withShortDescriptions`), `clif_name` (the class a method belongs to, the local one for
+`CLAS/OLD`), `constructor="true"`.
+
+Each element carries up to four `atom:link`, `rel=http://www.sap.com/adt/relations/source/…`:
+`definitionIdentifier`, `implementationIdentifier`, `definitionBlock`, `implementationBlock`, as
+`./<include>#start=<line>,<col>;end=<line>,<col>` relative to the class. Global components point
+into `./source/main` (113 links), local ones into `./includes/implementations` (16). The
+`implementationBlock` of a method runs from `METHOD` to `ENDMETHOD`, in lines of that include in
+the **same** version the outline was read in. The text elements element is the one absolute link,
+`/sap/bc/adt/textelements/classes/<c>`. The inactive outline differed from the active one only in
+its `xml:base`.
+
 #### Text elements
 
 ```

@@ -80,6 +80,12 @@ test('the route table is closed, and these are the routes in it', () => {
     'serviceBindingDetailV4',
     'structureEnhancements',
     'tableEnhancements',
+    'textElementsClassHeadings',
+    'textElementsClassSelections',
+    'textElementsClassSymbols',
+    'textElementsProgramHeadings',
+    'textElementsProgramSelections',
+    'textElementsProgramSymbols',
     'transportDetail',
     'transportList',
     'transportObjectKeys',
@@ -680,6 +686,22 @@ test('the stored version is asked with a query from a closed list, written by th
   assert.equal(t.seen.length, 3, 'no refused read reached the transport');
 });
 
+test('the class outline is read under a class only, with both query values from closed lists', async () => {
+  const t = spyTransport({ body: '<abapsource:objectStructureElement/>' });
+  await derivedGet(t, CLASS_URI, `${CLASS_URI}/objectstructure`, { kind: 'classComponents', query: { version: 'active', withShortDescriptions: 'true' } });
+  assert.equal(t.seen[0].url, `${CLASS_URI}/objectstructure?version=active&withShortDescriptions=true`);
+  const refused = [
+    [PROG_URI, `${PROG_URI}/objectstructure`, { version: 'active', withShortDescriptions: 'true' }],
+    [CLASS_URI, `${CLASS_URI}/objectstructure`, { version: 'active', withShortDescriptions: 'false' }],
+    [CLASS_URI, `${CLASS_URI}/objectstructure`, { version: 'active' }],
+    [CLASS_URI, `${CLASS_URI}/source/main`, { version: 'active', withShortDescriptions: 'true' }],
+  ];
+  for (const [base, href, query] of refused) {
+    await assert.rejects(() => derivedGet(t, base, href, { kind: 'classComponents', query }), RouteViolation, href);
+  }
+  assert.equal(t.seen.length, 1);
+});
+
 test('a failing feed read carries the status, and a 4xx returned as a response is not read as success', async () => {
   const thrown = async () => {
     const e = new Error('Not Found');
@@ -749,6 +771,7 @@ test('an ENHO/XHB body is read at the object URI itself, with the one Accept, an
     'runtimeDumpText',
     'versionContent',
     'sourceVersion',
+    'classComponents',
     'objectVersion',
   ]);
   const XHB = '/sap/bc/adt/enhancements/enhoxhb/zdemo_badi_impl';

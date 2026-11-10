@@ -16,7 +16,8 @@ import { contractOf, sourceRefusal } from '../lib/type-contract.mjs';
 import { readServiceBinding } from '../lib/service-binding.mjs';
 import { virtualFoldersPost, parseVirtualFolders } from '../lib/virtual-folders.mjs';
 import { legacyKindOf, readLegacyObjects } from '../lib/legacy-objects.mjs';
-import { VERSION_PATTERN, readVersion, compareVersions, readerFor } from '../lib/source-versions.mjs';
+import { VERSION_PATTERN, readVersion, compareVersions, readerFor, documentVersion } from '../lib/source-versions.mjs';
+import { parseClassComponents, findMethod, sliceLines, methodLabel } from '../lib/class-components.mjs';
 import { valueHelpTool } from './value-help.mjs';
 import { cleanCoreScanTool } from './clean-core-scan.mjs';
 import { contractCheckTool } from './contract-check.mjs';
@@ -239,6 +240,96 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
     return { switchOf, switchNotes };
   };
 
+  // One method of a class, sliced from the include its outline names (lib/class-components.mjs,
+  // MEASURED 2026-11-10). The outline and the include are read in ONE version, active or inactive,
+  // or the lines do not match; both are derived GETs under the class, no library call.
+  const readMethod = async ({ hit, foundBy, warning, method, version }) => {
+    const uri = hit['adtcore:uri'];
+    const name = hit['adtcore:name'];
+    if (!/^\/sap\/bc\/adt\/oo\/classes\/[^/]+$/i.test(uri)) {
+      throw new Error(`method reads a method of a class; ${hit['adtcore:type']} ${name} is not one.`);
+    }
+    const v = version ?? 'active';
+    if (v !== 'active' && v !== 'inactive') {
+      throw new Error('method is read in the active or the inactive version, not in a history number.');
+    }
+    if (!session.raw) throw new Error('this session has no raw client: the class outline cannot be read.');
+    const read = readerFor(transportFor(session.raw), uri, (kind, out) =>
+      record(cfg, 'adt_read_source', `${name}->${method} ${kind}`, out?.bytes ?? 0)
+    );
+    if (v === 'inactive') {
+      const doc = await read('objectVersion', null, { version: 'inactive' });
+      if (documentVersion(doc.body) !== 'inactive') {
+        throw new Error(`${name} has no inactive version: read the method with version active.`);
+      }
+    }
+    const outline = await read('classComponents', `${uri}/objectstructure`, { version: v, withShortDescriptions: 'true' });
+    const found = findMethod(parseClassComponents(outline.body), method);
+    if (!found.method) {
+      throw new Error(
+        found.candidates.length
+          ? `'${method}' names several methods of ${name}: ${found.candidates.join(', ')}. Name one (LOCAL_CLASS->NAME for a local class).`
+          : `${name} has no method '${method}'. Its methods: ${found.known.slice(0, 40).join(', ')}${found.known.length > 40 ? ', ...' : ''}.`
+      );
+    }
+    const m = found.method;
+    const impl = m.positions.implementationBlock;
+    const pos = impl?.include ? impl : m.positions.definitionBlock;
+    if (!pos?.include) throw new Error(`the outline of ${name} gives no position for ${method}.`);
+    const src = await read('sourceVersion', `${uri}/${pos.include}`, { version: v });
+    const slice = sliceLines(src.body, pos.start.line, pos.end.line);
+    if (slice === null) {
+      journal?.gap?.({
+        code: 'VERSION_NOT_READ',
+        subject: `${hit['adtcore:type']} ${name}`,
+        detail: `${method}: lines ${pos.start.line}-${pos.end.line} are past the end of ${pos.include} (${v})`,
+        impact: 'the method was not sliced; this is NOT evidence that it is empty',
+        fallback: `adt_read_source({ objectName: '${name}' }) and read the whole include`,
+      });
+      throw new Error(`the outline of ${name} places ${method} past the end of ${pos.include}: the method was not sliced.`);
+    }
+    const which = impl?.include ? 'implementation' : 'definition (no implementation: abstract, or not written yet)';
+    const shown = methodLabel(m);
+    const header =
+      `* ${name} (${hit['adtcore:type']}) -- package ${hit['adtcore:packageName'] ?? '?'}\n` +
+      `* read live from ${cfg.host} client ${cfg.client} at ${new Date().toISOString()}\n` +
+      (warning ? `* WARNING: ${warning}\n` : '') +
+      `* method: ${shown} (${m.visibility ?? '?'}, ${m.level ?? '?'})${m.description ? ` -- ${m.description}` : ''}\n` +
+      `* ${which}: ${pos.include} lines ${pos.start.line}-${pos.end.line}, version ${v}\n\n`;
+    return { hit, foundBy, warning, header, source: slice, enhFooter: '' };
+  };
+
+  // The text elements of a program or a class, the three categories (MEASURED 2026-11-10). A
+  // failure is said in the footer and filed: "no text elements" and "not read" are not the same.
+  const readTextElements = async (hit) => {
+    const name = hit['adtcore:name'];
+    const m = String(hit['adtcore:uri'] ?? '').match(/^\/sap\/bc\/adt\/(oo\/classes|programs\/programs)\/([^/]+)$/i);
+    if (!m) return `\n\n* ===== text elements: only programs and classes have them here (${hit['adtcore:type']}) =====\n`;
+    if (!session.raw) return '\n\n* ===== text elements NOT read: this session has no raw client =====\n';
+    const kind = m[1].startsWith('oo') ? 'Class' : 'Program';
+    const lines = [`\n\n* ===== text elements of ${name} =====`];
+    for (const category of ['symbols', 'selections', 'headings']) {
+      const route = `textElements${kind}${category[0].toUpperCase()}${category.slice(1)}`;
+      let out;
+      try {
+        out = await namedGet(transportFor(session.raw), route, { name: m[2].toLowerCase() });
+        lines.push(`* --- ${category} ---`, out.body.trim() ? out.body.trimEnd() : '* (none)');
+      } catch (e) {
+        journal?.gap?.({
+          code: 'TEXT_ELEMENTS_NOT_READ',
+          subject: `${hit['adtcore:type']} ${name}`,
+          detail: `${category}: ${e.name ?? 'Error'}: ${e.message}`.slice(0, 300),
+          impact: `the ${category} of this object are unknown; this is NOT evidence that it has none`,
+          fallback: 'the text elements in the IDE (or SE38 / SE24)',
+        });
+        lines.push(`* --- ${category}: NOT read (${e.message}) -- this is not the same as "none" ---`);
+      } finally {
+        record(cfg, 'adt_read_source', `${name} text elements ${category}`, out?.bytes ?? 0);
+      }
+    }
+    return lines.join('\n') + '\n';
+  };
+
   // A stored version of one class or program, or two of them compared (lib/source-versions.mjs,
   // MEASURED 2026-11-10). Every read is a derived GET under the object, held to the two families
   // measured; the client library is not used for any of it.
@@ -314,7 +405,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
     }
   };
 
-  const readOne = async (objectName, { objectType, include, enhancements, enhancementSource, context, version, compareTo }) => {
+  const readOne = async (objectName, { objectType, include, enhancements, enhancementSource, context, version, compareTo, method, textElements }) => {
     const early = objectType ? sourceRefusal(objectType, objectName) : null;
     if (early) throw early;
     const resolved = await resolveObject(api, objectName, objectType, 'source', resolveOpts);
@@ -394,6 +485,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
     } else {
       sourceUrl = ADTClient.mainInclude(structure);
     }
+    if (method) return await readMethod({ hit, foundBy, warning, method, version });
     if (version || compareTo) {
       return await readStored({ hit, foundBy, warning, structure, sourceUrl, include, version, compareTo });
     }
@@ -482,7 +574,8 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           `${hit['adtcore:uri']} directly. Package unknown on this path.\n`
         : '') +
       `\n`;
-    return { hit, foundBy, warning, header, source, enhFooter, enhancedObject };
+    const textFooter = textElements ? await readTextElements(hit) : '';
+    return { hit, foundBy, warning, header, source, enhFooter: enhFooter + textFooter, enhancedObject };
   };
 
   const tools = [
@@ -646,11 +739,23 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
               pattern: VERSION_PATTERN,
               description: 'Unified diff from this version to `version` (default active).',
             },
+            method: {
+              type: 'string',
+              description: 'Class only: one method, NAME, INTF~NAME or LOCAL_CLASS->NAME (active/inactive).',
+            },
+            textElements: {
+              type: 'boolean',
+              description: 'Program or class: also its text symbols, selection texts and headings.',
+            },
           },
         },
       },
-      async handler({ objectName, objectNames, objectType, include, enhancements, enhancementSource, context, version, compareTo }) {
-        const flags = { objectType, include, enhancements, enhancementSource, context, version, compareTo };
+      async handler({ objectName, objectNames, objectType, include, enhancements, enhancementSource, context, version, compareTo, method, textElements }) {
+        const flags = { objectType, include, enhancements, enhancementSource, context, version, compareTo, method, textElements };
+        if (method && (compareTo || Array.isArray(objectNames) || enhancements || enhancementSource || include || textElements)) {
+          throw new Error('method reads one method of one class: no compareTo, objectNames, include, enhancements or textElements with it.');
+        }
+        if (textElements && (version || compareTo)) throw new Error('text elements are read as they are now: ask them without version/compareTo.');
         const versioned = version !== undefined && version !== null || compareTo !== undefined && compareTo !== null;
         if (versioned && Array.isArray(objectNames)) {
           throw new Error('version and compareTo read one object: pass objectName, not objectNames.');

@@ -968,6 +968,28 @@ reports an error that is not in the program. A report the server did not process
 never a clean one. Other object types (CDS, interfaces, function groups) were not measured and are
 refused before a socket opens. The audit line names the object and the version, never a message.
 
+### One method, and the text elements: the route table widened by six and one kind -- 2026-11-10
+
+The owner asked for less text per answer on a large class, and for the texts a report shows. Two
+reads, both GET, both measured the same day (`docs/adt-api-reference.md`, "The outline of a
+class" and "Text elements"):
+
+- **`classComponents`**, a derived kind under a class: `<class>/objectstructure` with
+  `version` (`active` | `inactive`) and `withShortDescriptions=true`, both written by the route
+  from closed lists. `adt_read_source({method})` reads it, finds the method and slices
+  `METHOD … ENDMETHOD` from the include it names, read in the **same** version through
+  `sourceVersion` -- or the lines would not match.
+- **`textElements{Program,Class}{Symbols,Selections,Headings}`**, six named routes:
+  `/sap/bc/adt/textelements/{programs|classes}/<name>/source/<category>`, the name held to the
+  segment alphabet every other object route uses, the `Accept` per category as measured.
+
+The client library's `classComponents` and `getTextElements` stay off the allowlist, which did not
+grow; its `setTextElements` stays denied. An outline that places a method past the end of its
+include is filed and the method is not sliced, never answered empty. A category of text elements
+that could not be read says so in the answer and files `TEXT_ELEMENTS_NOT_READ`; a category that
+answered 200 with no byte is "none". The audit line names the object, the method or the category,
+never a line of source and never a text.
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:
