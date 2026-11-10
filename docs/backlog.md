@@ -35,13 +35,10 @@ measured on the wire; and what `lib/guard.mjs` becomes once no client is left to
 
 Each needs a measurement on the system and a dated decision before it is built.
 
-- **The syntax check of every text object, not only classes and programs.** Measured 2026-11-10
-  from the IDE: a behaviour definition takes the same body (`bo/behaviordefinitions/<name>`) and a
-  second reporter, `bdefImplementationCheck`, both answered in the measured shape (behaviour
-  definitions are ready to build). A CDS view takes the same body (`ddic/ddl/sources/<name>`)
-  and `abapCheckRun` alone, and so does a DDLX (`ddic/ddlx/sources/<name>`, a namespace
-  percent-encoded): both ready to build. Still to read: one `abapCheckRun` body for a service
-  definition, an interface and a function module (Ctrl+F2 in each, the request body from the log).
+- **The syntax check of the remaining text objects.** Classes, programs, behaviour definitions,
+  CDS views and metadata extensions are checked (`adt_syntax_check`). Still to read: one
+  `abapCheckRun` body for a service definition, an interface and a function module (Ctrl+F2 in
+  each, the request body from the log).
 - **Quickfix proposals, never applied.** Measured 2026-11-10 (`adt-api-reference.md`, *Backlog
   reads*): the body is a constant empty element, the object, position and marker go in the query,
   and the server evaluates its stored source. Build: the fifth POST, its dated decision, a tool

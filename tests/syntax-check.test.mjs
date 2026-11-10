@@ -22,8 +22,17 @@ test('the body names one object and one version, and nothing else can be put in 
       'chkrun:version="inactive"/></chkrun:checkObjectList>',
   );
   assert.doesNotMatch(b.xml, /artifact|content/, 'no source is ever sent');
+  for (const good of [
+    '/sap/bc/adt/oo/classes/zcl_demo',
+    '/sap/bc/adt/bo/behaviordefinitions/zdemo_i_rate',
+    '/sap/bc/adt/ddic/ddl/sources/zdemo_a_rate',
+    '/sap/bc/adt/ddic/ddlx/sources/%2fdemo%2fc_rate',
+  ]) {
+    assert.equal(buildCheckBody(good, 'active').uri, good);
+  }
   for (const bad of [
-    '/sap/bc/adt/ddic/ddl/sources/zdemo_i',
+    '/sap/bc/adt/ddic/srvd/sources/zdemo_ui',
+    '/sap/bc/adt/oo/interfaces/zif_demo',
     '/sap/bc/adt/programs/programs/zdemo"/><x a="',
     '/sap/bc/adt/programs/programs/ZDEMO_UPPER',
     '/sap/bc/adt/programs/programs/zdemo/source/main',
@@ -127,10 +136,24 @@ test('a report not processed is no verdict and is filed; a failed POST is filed 
   assert.ok(failing.gaps.some((g) => g.code === 'SYNTAX_NOT_CHECKED'));
 });
 
-test('an object that is not a class or a program is refused before anything is sent', async () => {
-  const h = harness({ hitUri: '/sap/bc/adt/ddic/ddl/sources/zdemo_i', type: 'DDLS/DF', name: 'ZDEMO_I' });
-  await assert.rejects(() => h.tool.handler({ objectName: 'ZDEMO_I' }), SyntaxCheckViolation);
+test('an object of a family not measured is refused before anything is sent', async () => {
+  const h = harness({ hitUri: '/sap/bc/adt/ddic/srvd/sources/zdemo_ui', type: 'SRVD/SRV', name: 'ZDEMO_UI' });
+  await assert.rejects(() => h.tool.handler({ objectName: 'ZDEMO_UI' }), SyntaxCheckViolation);
   assert.equal(h.seen.length, 0);
+});
+
+test('a behaviour definition, a CDS view and a metadata extension are checked like a class', async () => {
+  for (const [hitUri, type, name] of [
+    ['/sap/bc/adt/bo/behaviordefinitions/zdemo_i_rate', 'BDEF/BDO', 'ZDEMO_I_RATE'],
+    ['/sap/bc/adt/ddic/ddl/sources/zdemo_a_rate', 'DDLS/DF', 'ZDEMO_A_RATE'],
+    ['/sap/bc/adt/ddic/ddlx/sources/zdemo_c_rate', 'DDLX/EX', 'ZDEMO_C_RATE'],
+  ]) {
+    const h = harness({ hitUri, type, name, reply: fixture('clean.xml') });
+    const out = json(await h.tool.handler({ objectName: name }));
+    assert.deepEqual(h.seen, [{ url: CHECK_RUN_URL, method: 'POST' }], type);
+    assert.equal(out.object.uri, hitUri);
+    assert.deepEqual([out.checked, out.clean], [true, true], type);
+  }
 });
 
 test('a reply with an undeclared attribute is answered and filed as drift; no session, no name, no call', async () => {

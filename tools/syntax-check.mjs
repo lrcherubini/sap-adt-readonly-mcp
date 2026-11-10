@@ -1,4 +1,5 @@
-// adt_syntax_check -- does the stored source of ONE class or program compile? The check the
+// adt_syntax_check -- does the stored source of ONE class, program, behaviour definition, CDS
+// view or metadata extension compile? The check the
 // editor runs after every save, on the version the system stores: active, or inactive.
 //
 // MEASURED 2026-11-10 (lib/syntax-check.mjs; docs/adt-api-reference.md, "Old versions, the
@@ -89,7 +90,8 @@ export function syntaxCheckTool(cfg, session, journal) {
     definition: {
       name: 'adt_syntax_check',
       description:
-        'Syntax check of ONE class or program on the source the system stores (active or ' +
+        'Syntax check of ONE class, program, behaviour definition, CDS view or metadata ' +
+        'extension on the source the system stores (active or ' +
         'inactive): each message with type, text, include, line and column. No source is ' +
         'sent and nothing is left on the server. An inactive check runs only when an inactive ' +
         'version exists. One call (inactive: two).',
@@ -97,7 +99,7 @@ export function syntaxCheckTool(cfg, session, journal) {
         type: 'object',
         properties: {
           objectName: { type: 'string' },
-          objectType: { type: 'string', description: 'Optional ADT type: CLAS/OC or PROG/P' },
+          objectType: { type: 'string', description: 'Optional ADT type: CLAS/OC, PROG/P, BDEF/BDO, DDLS/DF or DDLX/EX' },
           version: { type: 'string', enum: [...CHECK_VERSIONS], description: 'Default active' },
         },
         required: ['objectName'],
@@ -113,7 +115,7 @@ export function syntaxCheckTool(cfg, session, journal) {
       const uri = hit['adtcore:uri'];
       const subject = `${hit['adtcore:type']} ${hit['adtcore:name']}`;
       const object = { name: hit['adtcore:name'], type: hit['adtcore:type'], package: hit['adtcore:packageName'] ?? null, uri, foundBy };
-      // Refused before any read when it is not a class or a program.
+      // Refused before any read when it is not one of the measured families.
       const body = buildCheckBody(uri, v);
 
       if (v === 'inactive') {

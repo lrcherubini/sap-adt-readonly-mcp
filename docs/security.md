@@ -1014,6 +1014,14 @@ reports an error that is not in the program. A report the server did not process
 never a clean one. Other object types (CDS, interfaces, function groups) were not measured and are
 refused before a socket opens. The audit line names the object and the version, never a message.
 
+**Widened the same day to three more families.** The IDE's log showed the same body, with the
+object's own URI and nothing else, for a behaviour definition (`bo/behaviordefinitions/<name>`), a
+CDS view (`ddic/ddl/sources/<name>`) and a metadata extension (`ddic/ddlx/sources/<name>`, a
+namespace as `%2f`), each answered by `abapCheckRun` in the measured shape. The URI rule of the
+body admits those three and nothing more; the POST, its path and its reporter are unchanged. The
+behaviour definition's second reporter, `bdefImplementationCheck`, is not sent: one check run per
+call. Service definitions, interfaces and function groups stay refused until measured.
+
 ### One method, and the text elements: the route table widened by six and one kind -- 2026-11-10
 
 The owner asked for less text per answer on a large class, and for the texts a report shows. Two
