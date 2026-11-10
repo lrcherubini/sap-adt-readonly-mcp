@@ -53,15 +53,19 @@ Each needs a measurement on the system and a dated decision before it is built.
   package outside that package's declared interface (`PINF`): the dependency side of Clean Core,
   next to what `adt_clean_core_scan` says about consumed SAP objects. Measured 2026-11-10: the
   package document names its interfaces, but only by their SAP GUI URI, so their members were
-  not read. Measure next: `checkuseaccess` (`/sap/bc/adt/packages/{package}/useaccesses/{interface}`),
-  and whether any ADT resource lists an interface's members.
+  not read. The Relation Explorer's network (above) gives the package path of every object an
+  object uses, so a use that crosses packages is visible; whether it goes through the other
+  package's interface still needs the interface's members. Measure next: `checkuseaccess`
+  (`/sap/bc/adt/packages/{package}/useaccesses/{interface}`), and whether any ADT resource lists an
+  interface's members.
 - **The context an object consumes.** For one object, the public signature of each object it
   uses, with its API release state (`apiRelease`), instead of their full sources: what an agent
   needs to judge the object's Clean Core level. A composition of existing reads, no new route.
   Measure: the reads it costs on a real class against the read budget, and decide the depth.
-  Discovery (2026-11-10): for CDS the `graphdata` route already answers; for a class the
-  candidates are `/sap/bc/adt/objectrelations` (a POST body) and `objectsets/references/{id}`,
-  to be captured from the IDE's Relation Explorer.
+  Measured 2026-11-10 from the IDE: `POST /sap/bc/adt/objectrelations/network` with a body
+  naming the object answers, in context `ENV` ("Used Objects"), every object it uses with type,
+  package and package path; for CDS the `graphdata` route already answers. Build: that POST
+  (a dated decision: the body names one object, no source), then the composition.
 - **ATC on a package, for `adt_package_health`.** Measured 2026-11-10 from the IDE: one object
   reference, `virtualfolders?selection=package:<pkg>`, answered `201`; the worklist read with the
   LAST_RUN set holds the package's objects. Build: the object set into the ATC run body, its dated

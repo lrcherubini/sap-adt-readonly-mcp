@@ -3579,6 +3579,62 @@ ENDCLASS.
 - Not measured: whether the server answers without the body (an empty one), or with a body
   that differs from the stored source.
 
+**References going out of an object: the Relation Explorer** (IDE log, 2026-11-10, anonymised):
+
+```
+POST /sap/bc/adt/objectrelations/network
+Content-Type: application/vnd.sap.adt.objectrelations.request.v1+xml
+Accept: application/vnd.sap.adt.objectrelations.response.network.v1+xml
+
+<oro:request xmlns:adtcore="http://www.sap.com/adt/core" xmlns:oro="http://www.sap.com/adt/objectrelations">
+  <oro:reference adtcore:name="ZCL_DEMO_RATE_SERVICE" adtcore:type="CLAS/OC" adtcore:uri="/sap/bc/adt/oo/classes/zcl_demo_rate_service"/>
+</oro:request>
+
+-> 200  application/vnd.sap.adt.objectrelations.response.network.v1+xml   (1.0 s server time)
+<oro:networkResponse>
+  <oro:activeContext>ENV</oro:activeContext>
+  <oro:context oro:id="ENV" oro:displayName="Used Objects" oro:supportsReferences="true" oro:isDefault="true" oro:relevance="7" …/>
+  <oro:context oro:id="WUL" oro:displayName="Using Objects" oro:supportsReferences="true" oro:relevance="6" …/>
+  <oro:context oro:id="CDS" …/> <oro:context oro:id="BO" oro:supportsComponents="true" …/>
+  <oro:context oro:id="EXTING_OBJ" …/> <oro:context oro:id="EXTED_OBJ" …/> <oro:context oro:id="NONT" …/>
+  <oro:context oro:id="RONT" …/> <oro:context oro:id="CDS_ANALYTICS" …/>
+  <oro:relation oro:relationType="parentChild" oro:state="A">
+    <oro:object1>/sap/bc/adt/oo/classes/zcl_demo_rate_service</oro:object1>
+    <oro:object2>/sap/bc/adt/functions/groups/bus1093/fmodules/bapi_exchangerate_create</oro:object2>
+  </oro:relation>
+  …                                   (8 relations)
+  <oro:objectReference oro:displayName="BAPI_EXCHANGERATE_CREATE" oro:exists="true" oro:canHaveComponents="true" oro:version="active"
+      adtcore:uri="/sap/bc/adt/functions/groups/bus1093/fmodules/bapi_exchangerate_create" adtcore:type="FUGR/FF"
+      adtcore:name="BUS1093                                 BAPI_EXCHANGERATE_CREATE" adtcore:packageName="BCUR"
+      adtcore:description="Addition of Entry in Table of Exchange Rates">
+    <oro:packagePath>
+      <oro:packageReference adtcore:uri="/sap/bc/adt/packages/bcur" adtcore:type="DEVC/K" adtcore:name="BCUR"/>
+      <oro:packageReference … adtcore:name="ABA_MAIN_FIN"/> <oro:packageReference … adtcore:name="ABA_MAIN"/>
+      <oro:packageReference … adtcore:name="ABA"/>
+    </oro:packagePath>
+  </oro:objectReference>
+  …                                   (one objectReference per object, the starting class included)
+</oro:networkResponse>
+```
+
+- **The body names the object and nothing else: no source.** With no context in the request the
+  server chose `ENV`, "Used Objects", its default for a class: the objects the class uses, one
+  level deep. Measured on a class that used an exception class, an interface, two structures, two
+  function modules and a type group.
+- `oro:relation` pairs `object1` (the class) with `object2` (a used object); the same pair can
+  repeat (the type group `ABAP` came twice, as relation and as reference). `relationType` was
+  `parentChild` every time, so the reply does not say how an object is used (a call, a type, a
+  raised exception).
+- Each `oro:objectReference` carries type, name, package, description and **`oro:packagePath`**,
+  the package and its ancestors up to the root: the package boundary of every used object, in the
+  same reply.
+- ⚠️ A function module's `adtcore:name` is the function group and the module name padded with
+  blanks (`BUS1093<33 blanks>BAPI_EXCHANGERATE_CREATE`); the name is the last word.
+- Other contexts (`WUL` "Using Objects", `CDS`, `BO`, …) are listed with what they support. A
+  request with `<oro:preferredContext>BO</oro:preferredContext>` to `…/objectrelations/components`
+  (a behaviour definition) answered an empty `oro:componentsResponse`. How a context other than
+  the default is asked of `network` was not seen.
+
 ## How to reproduce
 
 The readings above used a **temporary** probe: `lib/ddic-probe.mjs` plus a four-line
