@@ -47,10 +47,6 @@ Each needs a measurement on the system and a dated decision before it is built.
   names it, e.g. `art.syntax:GTU`). Decide: it sends source to the server, so the body is the
   stored source just read, never text from the caller.
 - **Go to definition.** `POST /sap/bc/adt/navigation/target`. Same body question as quickfixes.
-- **Conditional reads by ETag.** Measured 2026-11-10 (`adt-api-reference.md`, *Backlog reads*):
-  class documents and sources, CDS sources and package documents send `ETag` and
-  `Last-Modified`; logs, search hits and the request tree do not. Decide: whether a session cache
-  of bodies is worth the state it adds; then measure whether `If-None-Match` answers `304`.
 - **Package boundary violations.** A customer object that uses an object of another customer
   package outside that package's declared interface (`PINF`): the dependency side of Clean Core,
   next to what `adt_clean_core_scan` says about consumed SAP objects. Measured 2026-11-10: the

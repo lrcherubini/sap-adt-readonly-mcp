@@ -3436,7 +3436,27 @@ template `{?uri,filter,fullname}`.
 | search configuration | yes (the stamp the list also carries) | no |
 | logs, search hits, `objectproperties/transports`, the request tree, discovery | no | no |
 
-No reply sent `Cache-Control`. Whether a conditional GET (`If-None-Match`) answers `304` was not asked.
+No reply sent `Cache-Control`.
+
+**Conditional GETs, from the IDE's communication log (same day).** The IDE revalidates object
+documents and the server answers `304` with no body: `GET /sap/bc/adt/ddic/ddl/sources/<view>`,
+`GET /sap/bc/adt/bo/behaviordefinitions/<bdef>` and the same with `?version=inactive`. In that log
+no `…/source/main` read was answered `304`; sources came back `200` in full. This server sends no
+conditional GET (decision in `docs/security.md`).
+
+**Check runs, quickfixes and ATC on a package, from the same log** (request lines and sizes only;
+the bodies are still to be read):
+
+- `POST /sap/bc/adt/checkruns?reporters=abapCheckRun` checks a CDS view (`ddic/ddl/sources/…`) as
+  it checks a class; a behaviour definition gets a second run in parallel,
+  `?reporters=bdefImplementationCheck`. Request bodies 0.29-0.30 KB for a saved object, 1.2 KB
+  while the editor holds unsaved text (the buffer travels then).
+- `POST /sap/bc/adt/quickfixes/evaluation?uri=<source URI percent-encoded with
+  #start=<l>,<c>;end=<l>,<c>>`, for a CDS view and a behaviour definition; with a marker,
+  `&markerId=art.syntax:<id>&markerIdIsFilter=true`. Request body 0.123 KB, reply 0.1-0.8 KB.
+- ATC on a package: `GET /sap/bc/adt/atc/customizing`, `POST /sap/bc/adt/atc/runs?worklistId=<id>&clientWait=false`
+  (`201`, request body 0.43 KB, 5 s), then `GET /sap/bc/adt/atc/worklists/<id>?includeExemptedFindings=false` (7.8 KB):
+  the sequence `adt_atc_run` already uses, with a different object set.
 
 ## How to reproduce
 

@@ -146,6 +146,15 @@ being reopened:
   (see *The SAP credential*), so no unattended pipeline can run it. `adt_atc_run` answers JSON
   an agent can turn into any report it needs.
 
+### Conditional reads: not built, measured -- 2026-11-10
+
+Class and CDS sources, object documents and package documents send `ETag` and `Last-Modified`,
+and the IDE's own log shows the server answering `304` to its revalidation of object documents
+(`docs/adt-api-reference.md`, *Backlog reads*). Using it would mean keeping the bodies already
+read in memory for the session, a cache this server does not have: every answer is read from the
+system when it is asked. The owner decided not to build it; the measurement stays recorded so the
+question is not reopened without a new reason.
+
 ### Business data: `runQuery` / `tableContents` stay blocked — closed, not pending
 
 Both were listed as "out of scope in this phase", which reads like a queue. It is a decision,
