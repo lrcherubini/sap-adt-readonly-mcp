@@ -1583,6 +1583,149 @@ capability and it is a different question from "which transports carry this obje
 in this repository follows that link; a reader built on this feed reports the version
 *header* — number, timestamp, author, transport, `isTestTransport` — and stops there.
 
+### Old versions, the inactive version and the syntax check run — MEASURED 2026-11-10
+
+One probe, two runs, on one class (`ZCL_DEMO_PROBE`, five versions, no inactive version) and four
+programs prepared for it: `ZDEMO_REPORT` (three versions, no inactive version), `ZDEMO_REPORT2`
+(an inactive version that differs from the active one), `ZDEMO_REPORT3` (an inactive version
+equal to the active one) and `ZDEMO_REPORT4` (a syntax error in both versions). The IDE's
+communication log, read the same day, shows the same requests behind "Compare with", the syntax
+check of the editor and the outline: every one of them in a **stateless** session, none after a
+lock.
+
+#### The content of a version
+
+```
+GET <atom:content/@src>        Accept: text/plain
+->  200  text/plain; charset=utf-8        (243 B for the class, 414 B for a program)
+
+class:   /sap/bc/adt/oo/classes/<c>/includes/main/versions/<stamp>/<id>/content
+program: /sap/bc/adt/programs/programs/<p>/source/main/versions/<stamp>/<id>/content
+```
+
+- **The stamp is not the version.** Every entry of a feed carries the **same** 14-digit stamp, and
+  it is the feed's own `atom:updated` (the last change), not the entry's. Two reads of one feed on
+  different days can therefore hand different URLs for the same version. A version is selected by
+  `atom:id` (`00000`, `00001`, …), and the URL is taken from the entry, never assembled.
+- **`00000` is the active version** (as measured 2026-09-10), and its content is **regenerated**:
+  the class's `00000` reads `CLASS ZCL_DEMO_PROBE IMPLEMENTATION.` where `source/main` reads
+  `CLASS zcl_demo_probe IMPLEMENTATION.`. A diff of an old version against `source/main` therefore
+  reports a change nobody made; against `00000` it does not. Compare versions with versions.
+- Between two program versions the content differed exactly where the editor changed it
+  (`DEFAULT 'str1'` → `'str2'`, one line). The class's `00004` and `00000` were byte-identical.
+
+#### The inactive version
+
+```
+GET <source>?version=active|inactive|workingArea      Accept: text/plain   -> 200
+GET <object>?version=active|inactive                   Accept: */*          -> 200
+```
+
+| object | `source/main` (no parameter) | `?version=inactive` | object `?version=inactive` → `adtcore:version` |
+|---|---|---|---|
+| class, no inactive version | = active | **= active, 200, no warning** | `active` |
+| program, no inactive version | = active | **= active, 200, no warning** | `active` |
+| program, inactive differs | = inactive (268 B vs 270 B) | the inactive | `inactive` |
+| program, inactive equal | = inactive | the inactive | `inactive` |
+
+- ⚠️ **`?version=inactive` never says there is no inactive version**: it answers the active one,
+  with the same status and the same type. The only discriminator found is the root
+  `adtcore:version` of the **object** read with `?version=inactive`: `inactive` exactly when one
+  exists. One extra GET, and the only honest way to say "this is the inactive version".
+- The bare source URL answers the inactive version when there is one (the working version), and
+  `workingArea` answered the same as `inactive` on all five objects.
+- The object document carries `adtcore:abapLanguageVersion` (`standard` on all five).
+
+#### The syntax check run
+
+```
+POST /sap/bc/adt/checkruns?reporters=abapCheckRun
+  Content-Type: application/vnd.sap.adt.checkobjects+xml
+  Accept:       application/vnd.sap.adt.checkmessages+xml
+
+<chkrun:checkObjectList xmlns:chkrun="http://www.sap.com/adt/checkrun"
+                        xmlns:adtcore="http://www.sap.com/adt/core">
+  <chkrun:checkObject adtcore:uri="/sap/bc/adt/programs/programs/zdemo_report4"
+                      chkrun:version="inactive"/>
+</chkrun:checkObjectList>
+
+-> 200 application/vnd.sap.adt.checkmessages+xml, 328-500 B
+<chkrun:checkRunReports>
+  <chkrun:checkReport chkrun:reporter="abapCheckRun" chkrun:triggeringUri="<object uri>"
+                      chkrun:status="processed" chkrun:statusText="<logon language>">
+    <chkrun:checkMessageList>
+      <chkrun:checkMessage chkrun:uri="<object uri>/source/main#start=8,0" chkrun:type="E"
+                           chkrun:shortText="The last statement is not complete (period missing)."/>
+```
+
+- **No source is sent.** The body names the object and the version; the server checks what it
+  stores. (The IDE sends the editor buffer as a base64 `chkrun:artifact` when it checks unsaved
+  text: about 0.85 KB instead of 0.28 KB in its log. That form is not used here.)
+- **Nothing is left behind**: no `Location`, no run id, no follow-up resource; the session stays
+  stateless. The IDE runs it after every save.
+- A clean object answers `status="processed"` and **no** `checkMessageList`. An object that does
+  not exist answers **200** with `status="notProcessed"`; `statusText` is in the logon language
+  ("object … was checked" / "resource … does not exist") and is never parsed.
+- `chkrun:type` was `E` in every message seen. Line and column come from `#start=<line>,<col>`.
+- ⚠️ **`version="inactive"` on an object with no inactive version checks an empty source.** On
+  `ZDEMO_REPORT` it answered *"The REPORT/PROGRAM statement is missing, or the program type is
+  INCLUDE"* at line 1 — an error that is not in the program. On the class it answered clean. The
+  check of an inactive version is asked only after the object document said `inactive`.
+- `GET /sap/bc/adt/checkruns/reporters` (12 KB, `application/vnd.sap.adt.reporters+xml`) lists the
+  reporters and the object types each accepts.
+
+#### Text elements
+
+```
+GET /sap/bc/adt/textelements/{programs|classes}/<name>/source/{symbols|selections|headings}
+    Accept: application/vnd.sap.adt.textelements.<category>.v1
+->  200 application/vnd.sap.adt.textelements.<category>.v1; charset=UTF-8
+```
+
+Plain text, one element per line, `KEY=text`, with `@` lines as markers:
+
+```
+symbols:     @MaxLength:15            selections:  P_TEST  =Test        headings:  listHeader=
+             001=demo                              @DDICReference                  columnHeader_1=
+                                                   S_TRKORR=Request/task           columnHeader_2=
+```
+
+- `@MaxLength:<n>` precedes the symbol it limits; `@DDICReference` precedes a selection text taken
+  from the dictionary.
+- A class with no symbols and no selection texts answered **200 with 0 bytes** for both; headings
+  always answer the template of five keys, empty values included.
+- The class outline links its text elements as an external reference: an element `CLAS/OCX` whose
+  `definitionIdentifier` is `/sap/bc/adt/textelements/classes/<c>`.
+
+#### The API release state of one object
+
+```
+GET /sap/bc/adt/apireleases/<object URI, percent-encoded>      Accept: */*
+->  200 application/vnd.sap.adt.apirelease.v10+xml, ~5 KB
+```
+
+`ars:apiRelease` carries, per contract, an `ars:c1Release` / `ars:c4Release` element (C0, C2 and
+C3 appeared only in `ars:behaviour`, with nothing released) with `ars:contract`,
+`ars:useInKeyUserApps`, `ars:useInSAPCloudPlatform`, `ars:status/@ars:state` (`RELEASED`,
+`NOT_RELEASED`, `DEPRECATED`, …, with `ars:stateDescription`), `ars:successors` and
+`ars:successorConceptName`, and `ars:apiCatalogData/@ars:isAnyContractReleased`. A released
+SAP class (`CL_ABAP_CONTEXT_INFO`) answered C1 `RELEASED`, usable in key-user apps and in cloud
+development, last changed by `SAP`; the Z class answered `NOT_RELEASED` for C1 and C4.
+`ars:behaviour` describes what the **caller** may do (create, update, delete a contract): it is
+about writing, and nothing reads it. The `atom:link` titles are in the logon language.
+
+#### Read and not used
+
+- `GET /sap/bc/adt/repository/informationsystem/objectproperties/transports?uri=<uri>` answered an
+  empty `tpr:transportProperties` (123 B) for both classes, one of them in five released requests.
+- `objectproperties/values` with `facet=abaplv` returned no `ABAPLV` property; the language version
+  is on the object document instead (above).
+- `GET /sap/bc/adt/repository/informationsystem/abaplanguageversions` lists three:
+  `keyUser`, `standard`, `cloudDevelopment`, with their descriptions.
+- `GET /sap/bc/adt/cts/transportrequests/searchconfiguration/configurations` answered the
+  configuration the IDE saved for the user (one entry); the IDE then lists the requests with
+  `?targets=true&configUri=<that configuration>` (830 KB in its log). Not measured here.
+
 ### `…/<object>/transports` — a read after all, and much narrower — MEASURED 2026-09-10
 
 `objectStructure` also publishes `href …/<object>/transports`, `rel
