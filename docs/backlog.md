@@ -63,7 +63,8 @@ Each needs a measurement on the system and a dated decision before it is built.
   crosses into another package, with whether the user package declares a use access to an
   interface of that package, and never "violation" (the members decide). The package check run
   (the package URI, no `reporters`) gave no message for a package built to violate, so it cannot
-  stand in for the members; whether the system enforces the package check is not known.
+  stand in for the members: the measured system has the package check switched off
+  (`PAKPARAM` `GLOBAL_SWITCH` = `OFF`), as customer systems often do.
 - **The context an object consumes.** For one object, the public signature of each object it
   uses, with its API release state (`apiRelease`), instead of their full sources: what an agent
   needs to judge the object's Clean Core level. A composition of existing reads, no new route.

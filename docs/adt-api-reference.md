@@ -3452,8 +3452,9 @@ GET /sap/bc/adt/cts/transportrequests?targets=true&configUri=<that href, percent
   for a package with a finding is not measured.
 - **An empty package check is not "no violation".** A customer package built on purpose with a
   use across packages and no use access was checked the same way and answered the same
-  "processed", no message. Whether the system enforces the package check at all (a system-wide
-  setting) was not read; until it is, the check run says nothing about package boundaries.
+  "processed", no message. The reason, read by the owner in SAP GUI: the system-wide switch, table
+  `PAKPARAM` key `GLOBAL_SWITCH`, is `OFF` there (`DEFAULT_SEVERITY` is `ERRO`). With the switch
+  off the package check reports nothing; what the check run says with it on is not measured.
 - The document also carries `pak:attributes` (`isEncapsulated`, `languageVersion`), the software
   component and transport layer, and a link `supportsPackageCheckActions` to `/sap/bc/adt/checkruns{?reporters}`.
 
