@@ -226,20 +226,15 @@ export function launchpadTool(cfg, session, journal) {
     definition: {
       name: 'adt_launchpad',
       description:
-        'The Fiori launchpad of the SAP system, read online through the SAP-standard /UI2 OData services. One `kind` per call: ' +
-        'catalogs (layer client|cross-client, origin customer|customer-no-prefix|sap-changed|sap|all, default all but sap; match; max) / ' +
-        'catalog {id} -- tiles and target mappings normalized, with the intents they serve; ' +
-        'groups / group {id} -- the tiles a group shows and the catalog each comes from; ' +
-        'spaces / space {id}; pages {skip} (50 per call) / page {id}; ' +
-        'semobjs / semobj {id} -- registered as customer (/UI2/SEMOBJC), sap (/UI2/SEMOBJ) or none; ' +
-        'roleCatalogs {name} -- the catalogs FDM resolves for a role. ' +
-        'No user name ever comes back. ' +
-        'Read-only: one to three GETs (semobj: up to three data-preview POSTs, read-only by semantics).',
+        'The Fiori launchpad via the standard /UI2 OData services. One `kind` per call: ' +
+        'catalogs {layer, origin (default all but sap), match, max} / catalog {id} (tiles, target ' +
+        'mappings, intents); groups / group {id}; spaces / space {id}; pages {skip} / page {id}; ' +
+        'semobjs / semobj {id}; roleCatalogs {name} (catalogs of a PFCG role). 1-3 calls.',
       inputSchema: {
         type: 'object',
         properties: {
           kind: { type: 'string', enum: KINDS },
-          id: { type: 'string', description: 'catalog (bare ZDEMO_CAT or X-SAP-UI2-CATALOGPAGE:ZDEMO_CAT), group, space, page or semantic object id' },
+          id: { type: 'string', description: 'catalog (bare or X-SAP-UI2-CATALOGPAGE:<id>), group, space, page or semobj id' },
           name: { type: 'string', description: 'a PFCG role name (roleCatalogs)' },
           layer: { type: 'string', enum: ['client', 'cross-client'] },
           origin: { type: 'string', enum: [...ORIGINS, 'all'] },

@@ -17,6 +17,7 @@ import { buildTools, argumentErrors } from '../tools/index.mjs';
 import { resetBudget } from '../lib/audit.mjs';
 import { installAtcVariants, ATC_VARIANTS as ATC_VARIANTS_LIVE } from '../lib/atc.mjs';
 import { loadSystemVariant } from '../tools/atc.mjs';
+import { CUSTOMIZING_TABLES as CUSTOMIZING_TABLES_LIVE } from '../lib/data-preview.mjs';
 import { openJournal } from '../lib/journal.mjs';
 import { RUN_REPLY as ATC_RUN_REPLY, WORKLIST as ATC_WORKLIST, CUSTOMIZING as ATC_CUSTOMIZING } from './atc.test.mjs';
 
@@ -153,6 +154,33 @@ test('fifteen tools are registered, each with a name and an input schema', () =>
     assert.equal(typeof t.handler, 'function', `${t.definition.name} has a handler`);
     assert.equal(t.definition.inputSchema.type, 'object');
   }
+});
+
+// The model reads every description in every session, so the text is a token budget. A cap per
+// tool, not a total, so a new tool brings its own room. The lists an installation extends (its
+// customizing tables, its ATC variants) are left out of the count. Lower these caps when the
+// text shrinks; never raise them to fit a sentence that belongs in docs/ instead.
+const TOOL_TEXT_CAP = 600;
+const PARAM_TEXT_CAP = 120;
+
+test('tool and parameter descriptions stay inside their caps', () => {
+  const lists = [
+    [...CUSTOMIZING_TABLES_LIVE.keys()].join(', '),
+    [...ATC_VARIANTS_LIVE].map(([name, why]) => `${name} (${why})`).join('; '),
+  ];
+  const params = [];
+  const walk = (schema, where) => {
+    if (!schema || typeof schema !== 'object') return;
+    if (typeof schema.description === 'string') params.push([where, schema.description.length]);
+    for (const [k, v] of Object.entries(schema.properties ?? {})) walk(v, `${where}.${k}`);
+    if (schema.items) walk(schema.items, `${where}[]`);
+  };
+  for (const { definition: d } of toolsWith(fakeApi())) {
+    const own = lists.reduce((text, list) => text.replace(list, ''), d.description);
+    assert.ok(own.length <= TOOL_TEXT_CAP, `${d.name}: ${own.length} > ${TOOL_TEXT_CAP} characters`);
+    for (const [k, v] of Object.entries(d.inputSchema.properties ?? {})) walk(v, `${d.name}.${k}`);
+  }
+  for (const [where, n] of params) assert.ok(n <= PARAM_TEXT_CAP, `${where}: ${n} > ${PARAM_TEXT_CAP}`);
 });
 
 // --- adt_search --------------------------------------------------------------

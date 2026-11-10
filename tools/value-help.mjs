@@ -622,11 +622,9 @@ export function valueHelpTool(cfg, api, sources, journal) {
     definition: {
       name: 'adt_value_help',
       description:
-        'Which RELEASED value help CDS entity fits a field, with the element to bind and the ' +
-        'annotation to paste. Resolves each field to its data element and domain in the system, ' +
-        'filters candidates against the Clean Core catalogue before calling SAP, classifies them ' +
-        'A/B/C with the evidence, refuses annotation keys that are not released in this release, ' +
-        'and checks that the entity is exposed in the service definition. Read-only.',
+        'Which RELEASED value-help CDS entity fits a field: the element to bind and the ' +
+        'annotation to paste, classified A/B/C with evidence, keys validated for this release, ' +
+        'exposure in the service definition checked. Needs the Clean Core catalogue.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -634,7 +632,7 @@ export function valueHelpTool(cfg, api, sources, journal) {
           fields: {
             type: 'array',
             items: { type: 'string' },
-            description: 'Only these fields (default: every field of the entity, up to maxFields)',
+            description: 'Only these fields (default: all, up to maxFields)',
           },
           field: { type: 'string', description: 'A single field name' },
           dataElement: { type: 'string', description: 'Look up by data element instead, e.g. WERKS_D' },
@@ -642,26 +640,15 @@ export function valueHelpTool(cfg, api, sources, journal) {
           maxFields: { type: 'integer', description: 'Fields resolved (default 25)' },
           maxCalls: {
             type: 'integer',
-            description:
-              'Ceiling on the DISCRETIONARY calls -- candidate verification, the ' +
-              'concept search, the precedent lookup (default 40). Resolving the field ' +
-              'to its data element and domain is not discretionary and is charged but ' +
-              'not gated, so adtCalls can exceed this by the setup cost; when it does, ' +
-              'the reply says so in adtCallsNote.',
+            description: 'Cap on optional calls (default 40); field resolution is extra.',
           },
           readAnnotations: {
             type: 'boolean',
-            description:
-              "Read the entity's source (3 calls) for @Semantics annotations. Off by default: " +
-              'the DDIC type already answers UNIT/CUKY/LANG for free. Worth it for calculated ' +
-              'elements, which have no data element at all.',
+            description: 'Read @Semantics from the source (3 calls); for calculated elements.',
           },
           deepSearch: {
             type: 'boolean',
-            description:
-              'When name matching finds nothing, ask the system: a type-filtered search on ' +
-              'the concept (1 call), then the domain value table via where-used (2 calls). ' +
-              'Default true; pass false to skip it. Bounded by maxCalls.',
+            description: 'If names match nothing, search the concept and value table. Default true.',
           },
           searchConcepts: {
             type: 'integer',
@@ -669,19 +656,15 @@ export function valueHelpTool(cfg, api, sources, journal) {
           },
           precedent: {
             type: 'boolean',
-            description:
-              'Ask the system who else binds the recommended entity, to copy their additionalBinding ' +
-              '(2+ extra ADT calls). Default false.',
+            description: 'Find who else binds the entity, to copy its binding (2+ calls).',
           },
           exposure: {
             type: 'boolean',
-            description:
-              'Check that the recommended entities are exposed in the service definitions that use the ' +
-              'entity (1 + up to 3 ADT calls). Default true.',
+            description: 'Check exposure in the using service definitions (1-4 calls). Default true.',
           },
           validate: {
             type: 'boolean',
-            description: "Validate the emitted keys against the system's annotation definitions (1 call). Default true.",
+            description: 'Validate emitted keys against the annotation definitions. Default true.',
           },
         },
       },

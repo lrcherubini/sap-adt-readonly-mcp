@@ -295,13 +295,9 @@ export function contractCheckTool(cfg, api, journal, session = null) {
     definition: {
       name: 'adt_contract_check',
       description:
-        'OData contract of one service definition, read from the system: every expose alias and the ' +
-        'EntitySet/EntityType it generates -- the names consumers address by hand and a rename breaks ' +
-        'silently -- plus an entity exposed under two aliases. With `apps`, each named Fiori app is read ' +
-        'from the UI5 repository and its hand-written references (controller reads and function calls, ' +
-        'bindings, local annotations, manifest pages) are checked against the LIVE $metadata of its ' +
-        'services, V2 or V4; a reference the service no longer publishes is a finding. Apps are named, ' +
-        'never searched. One ADT call, plus about 15-30 per app.',
+        'OData contract of one service definition: each expose alias and the EntitySet/EntityType ' +
+        'it generates (a rename breaks consumers silently). With `apps`, the named Fiori apps\' ' +
+        'references are checked against the live $metadata. One call, plus ~15-30 per app.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -310,7 +306,7 @@ export function contractCheckTool(cfg, api, journal, session = null) {
             type: 'array',
             items: { type: 'string' },
             maxItems: MAX_APPS,
-            description: `Deployed UI5 apps (BSP names, as in /UI5/UI5_REPOSITORY_LOAD or SE80) to check against their live services; at most ${MAX_APPS}`,
+            description: `Deployed UI5 apps (BSP names); at most ${MAX_APPS}`,
           },
         },
         required: ['service'],

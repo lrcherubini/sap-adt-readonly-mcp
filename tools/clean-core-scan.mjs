@@ -163,16 +163,15 @@ export function cleanCoreScanTool(cfg, api, journal) {
     definition: {
       name: 'adt_clean_core_scan',
       description:
-        'Clean Core scan of one package: reads its CDS sources from the system (one call per DDLS), ' +
-        'and classifies every entity, table and function they read as A/B/C/D against SAP\'s two ' +
-        'release catalogues, with the released successor SAP names. Needs the catalogue ' +
-        '(npm run sync:catalog). Answers what it could not read (scope.complete).',
+        'Clean Core level A/B/C/D of what a package\'s CDS sources consume, against SAP\'s ' +
+        'release catalogues, with the released successor. One call per DDLS: keep the package ' +
+        'small. Needs the catalogue (npm run sync:catalog).',
       inputSchema: {
         type: 'object',
         properties: {
           package: { type: 'string', description: 'Package to scan, e.g. ZDEMO_SALES' },
           recursive: { type: 'boolean', description: 'Include sub-packages (default true)' },
-          entity: { type: 'string', description: 'Only the CDS entity with this name, e.g. ZI_DemoAssortment (one read)' },
+          entity: { type: 'string', description: 'Only this CDS entity (one read)' },
           minLevel: {
             type: 'string',
             enum: ['A', 'B', 'C', 'D'],

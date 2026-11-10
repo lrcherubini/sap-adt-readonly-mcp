@@ -96,18 +96,11 @@ export function atcTool(cfg, session, journal) {
     definition: {
       name: 'adt_atc_run',
       description:
-        'Run the ABAP Test Cockpit on ONE object, with up to three check variants, and return the ' +
-        'findings of each: priority, check, message, source position (include + line), quickfix info ' +
-        'and the documentation link. Variants of this installation: ' +
+        'Run ATC on ONE object with up to three variants: per finding priority, check, message, ' +
+        'include + line, quickfix flags, documentation. Variants: ' +
         [...ATC_VARIANTS].map(([name, why]) => `${name} (${why})`).join('; ') +
-        `. Default ${DEFAULT_VARIANT}. Three ADT calls per variant: ` +
-        'POST a worklist for the variant, POST the run with the object, GET the worklist ' +
-        '(measured: 3.7-5 s per run, findings in the reply). Each run leaves an ATC ' +
-        'result worklist on the server and nothing else -- no lock, no transport, no object ' +
-        `changed. maxFindings 1..${MAX_VERDICTS} (default ${DEFAULT_VERDICTS}) caps the findings ` +
-        'listed, most severe first; count and byPriority always cover them all. includeExempted ' +
-        'adds findings under an approved exemption. A class/interface enhancement (ENHO/XH) is ' +
-        'refused (its URI dumps the server). ABAP Unit is NOT run here.',
+        `. Default ${DEFAULT_VARIANT}. ~4 s per variant; each leaves an ATC result worklist, ` +
+        'nothing else. `maxFindings` caps the list, never the counts. ENHO/XH is refused.',
       inputSchema: {
         type: 'object',
         properties: {

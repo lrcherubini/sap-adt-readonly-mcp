@@ -410,11 +410,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
       definition: {
         name: 'adt_search',
         description:
-          'Search ABAP repository objects in the SAP system by name pattern (e.g. "ZCL_SD*"). ' +
-          'Returns name, type, package and ADT URI. Read-only. For an application log object ' +
-          '(objectType APLO) or a check variant (CHKV) it also answers `legacy`: the ones created ' +
-          'in SLG0 or transaction SCI, which the ADT does not publish, read from their standard ' +
-          'tables, with guidance on where they live and how to work with them.',
+          'Find repository objects by name or pattern (e.g. "ZCL_SD*"): name, type, package, ' +
+          'URI. For APLO and CHKV it also returns `legacy`: objects created in SLG0/SCI, which ' +
+          'the ADT does not list.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -428,9 +426,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             },
             max: {
               type: 'integer',
-              description:
-                'Max results (default 50, hard cap 200). The search has no paging: an answer ' +
-                'of exactly `max` hits says truncated: "possible" and may be cut',
+              description: 'Default 50, cap 200. No paging: exactly `max` hits may be truncated.',
             },
           },
           required: ['query'],
@@ -524,16 +520,10 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
       definition: {
         name: 'adt_read_source',
         description:
-          'Read the real source of an object from the SAP system, including standard objects ' +
-          'that exist in no local abapGit repo. With enhancements: true it also returns the ' +
-          'enhancement implementations bound to it -- customer code inside a standard object, ' +
-          'which no Z-namespace sweep and no abapGit repo shows; they are listed whatever their ' +
-          'Switch Framework switch says, so bound is not running. Pass objectNames (up to 25) ' +
-          'instead of objectName to read a batch: one item per name, a failed item never ' +
-          'stops the others. An ENHO has no source of its own: the answer names the enhanced ' +
-          'object to read instead. A form-based type has no source and is refused with the call ' +
-          'that answers it: data element, domain, service binding, table type, search help ' +
-          '(adt_object_info) and package (adt_package_tree). Read-only.',
+          'Source of an object as the system holds it, standard objects included. ' +
+          '`enhancements: true` adds the enhancement implementations bound to it (bound is not ' +
+          'running: the switch state is reported). `objectNames` reads up to 25 at once. Types ' +
+          'without source (DTEL, DOMA, SRVB, TTYP, SHLP, DEVC) are refused with the tool to use.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -542,10 +532,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
               type: 'array',
               items: { type: 'string' },
               maxItems: 25,
-              description:
-                'Batch: read these names (max 25) with the same objectType/include/enhancement ' +
-                'flags. Never together with objectName. The reply is JSON, one item per name, ' +
-                'with source or error each.',
+              description: 'Batch instead of objectName: one item per name, source or error.',
             },
             objectType: {
               type: 'string',
@@ -559,22 +546,15 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             enhancements: {
               type: 'boolean',
               description:
-                'Also list the enhancement implementations bound to this object: the ENHO, the ' +
-                'enhancement-point path, whether it REPLACES the point, the line it sits at, and ' +
-                'the stored state (on / stand-by / off) of the Switch Framework switch its package ' +
-                'hangs on. Costs 1 extra ADT call, plus 3 data-preview reads when any is listed.',
+                'List bound ENHOs: point, REPLACES, line, switch state. 1 call, +3 if any.',
             },
             enhancementSource: {
               type: 'boolean',
-              description:
-                'Include the ABAP source of each enhancement (implies enhancements). The reply ' +
-                'grows with it, so it is separate.',
+              description: 'Also the source of each enhancement (implies enhancements).',
             },
             context: {
               type: 'string',
-              description:
-                'ADT path of the containing program, for a PROG/I include that belongs to more ' +
-                'than one program. Only used with enhancements.',
+              description: 'Containing program URI, for a PROG/I include used by several.',
             },
           },
         },
@@ -632,20 +612,10 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
       definition: {
         name: 'adt_object_info',
         description:
-          'Metadata of an object as the system holds it: package, responsible, created/changed, ' +
-          'API/release state when the kernel exposes it, plus structure. For tables ' +
-          'and CDS views it also returns the field list with data element, type and annotations, ' +
-          'which source text cannot give (a projection field inherits its type); any other type, ' +
-          'a structure included (read its source with adt_read_source), answers `fieldsNote` ' +
-          'saying why no field list was asked. A package ' +
-          '(DEVC/K) also answers its ancestry (`packagePath`, root first, and `parentPackage`); ' +
-          'a BAdI implementation (ENHO/XHB) answers `badi`: spot, BAdI definition, implementing ' +
-          'class and referenced objects. A service binding (SRVB/SVB) answers `binding`: OData ' +
-          'V2/V4 or SQL, UI or Web API, contract, and per service version its release state, SRVD, ' +
-          'published state, service URL and entity sets (the root `published` does not speak for ' +
-          'every version). A data element (DTEL/DE) answers `dataElement`: its ' +
-          'domain, type, value table and the domain FIXED VALUES (`fixValueList`); a domain ' +
-          '(DOMA/DD) answers `domain` with the same. Read-only.',
+          'Metadata of an object: package, responsible, dates, release state, structure. Tables ' +
+          'and CDS views add the field list (data element, type, annotations). By type: DEVC ' +
+          '`packagePath`; ENHO/XHB `badi`; SRVB `binding` (per service version: SRVD, ' +
+          'published, URL, entity sets); DTEL `dataElement` and DOMA `domain` (fixed values).',
         inputSchema: {
           type: 'object',
           properties: {
@@ -653,8 +623,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             objectType: { type: 'string' },
             fields: {
               type: 'boolean',
-              description:
-                'Fetch the DDIC field list (data element, type, annotations). Default true.',
+              description: 'Fetch the DDIC field list. Default true.',
             },
           },
           required: ['objectName'],
@@ -973,8 +942,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
       definition: {
         name: 'adt_where_used',
         description:
-          'Who calls this object, according to the system (ADT usage references). Answers ' +
-          '"is there another caller?", which the local working tree cannot. Read-only.',
+          'Who uses this object, according to the system (ADT usage references).',
         inputSchema: {
           type: 'object',
           properties: {
@@ -987,7 +955,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             allowStandard: {
               type: 'boolean',
               description:
-                'Required for a non-Z/Y SAP standard object: such a search is expensive for the SAP system.',
+                'Required for a non-Z/Y object: such a search is expensive for the system.',
             },
           },
           required: ['objectName'],
@@ -1038,32 +1006,24 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
       definition: {
         name: 'adt_package_tree',
         description:
-          'What a development package actually contains in the system: sub-packages and objects ' +
-          'by type, with counts. Read-only. The tree resource sends its short descriptions ' +
-          'MISALIGNED by one row (measured), so they are returned as ' +
-          '`treeDescription`, not as the description of the row; pass `describe: true` to ' +
-          'get each sub-package\'s correct description and the number of objects below it ' +
-          '(`objectsBelow`) from the virtual folders, one call per package.',
+          'Contents of a package: sub-packages and objects by type, with counts. The tree\'s ' +
+          'descriptions are shifted one row, so they come as `treeDescription`; `describe: true` ' +
+          'reads the correct ones and `objectsBelow`.',
         inputSchema: {
           type: 'object',
           properties: {
             packageName: { type: 'string' },
             depth: {
               type: 'integer',
-              description: 'Sub-package recursion depth (default 1, hard cap 3; 5 with compact)',
+              description: 'Sub-package depth: default 1, cap 3 (5 with compact)',
             },
             compact: {
               type: 'boolean',
-              description:
-                'Hierarchy only: each node carries byType, total and subPackages, no object ' +
-                'list (YDEMO_ROOT at depth 3 is 2.9 MB otherwise). Raises the depth cap to 5.',
+              description: 'Counts and hierarchy, no object list (a deep tree is MBs otherwise).',
             },
             describe: {
               type: 'boolean',
-              description:
-                'Also read the correct description of each sub-package and the objects below it ' +
-                '(one virtual-folders call per package; the search per sub-package if that fails). ' +
-                'Off by default.',
+              description: 'One virtual-folders call per package. Default false.',
             },
           },
           required: ['packageName'],

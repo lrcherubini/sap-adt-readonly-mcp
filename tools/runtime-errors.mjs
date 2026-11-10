@@ -234,23 +234,12 @@ export function runtimeErrorsTool(cfg, session, journal) {
     definition: {
       name: 'adt_runtime_errors',
       description:
-        'What dumped (ST22), what the gateway logged and what ATC found, as the Eclipse Feed ' +
-        'Reader shows it. Three modes, never two, no default: `feeds: true` lists the monitoring ' +
-        'feeds the system offers and the attributes each accepts as a filter; `list: {feed: ' +
-        '"dumps"|"gateway"|"atc", filters?: [{attribute, op?, value}], max?, skip?, report?}` ' +
-        `reads one page of one feed (max 1..${MAX_MAX}, default ${DEFAULT_MAX}; up to ${MAX_CLAUSES} filters, ANDed -- ` +
-        'generated into the catalogue\'s own $query grammar in the comma form, measured to filter on ' +
-        '2026-09-14 (the side-by-side form dumped the server and is never produced) -- attributes for dumps: ' +
-        `${FEED_ATTRIBUTES.get('dumps').join(', ')}; for atc: ${FEED_ATTRIBUTES.get('atc').join(', ')}; ` +
-        `ops: ${FEED_OPERATORS.join(', ')}); ` +
-        '`detail: {id, max?, full?}` returns ONE dump by the id a list gave: header, what ' +
-        'happened, error analysis, where terminated, source extract with the failing line ' +
-        'marked, the call stack with the ADT position of each frame, plus the dump resource ' +
-        '(links and the chapter index with line numbers) and, with `full: true`, the whole ' +
-        'ST22 report as text (chosen variables included). A dump entry carries its report, so ' +
-        '`report: true` on a list gives every entry in full (about 17 KB each, measured). The ' +
-        'gateway and ATC entry shapes are not yet measured (both feeds answered no entry): ' +
-        'their entries come back generic and flagged. Read-only: one GET per call (detail: up to three).',
+        'ST22 dumps, the gateway error log and ATC findings, as the Feed Reader shows them. One ' +
+        'mode per call: `feeds: true` (feeds and their filter attributes), `list` (one page of ' +
+        `one feed, up to ${MAX_CLAUSES} filters ANDed; dump attributes: ` +
+        `${FEED_ATTRIBUTES.get('dumps').join(', ')}), or \`detail: {id}\` (one dump: analysis, ` +
+        'source extract, call stack; `full: true` adds the whole report). `report: true` on a ' +
+        'list is ~17 KB per dump. Gateway and ATC entries are not yet measured: returned generic.',
       inputSchema: {
         type: 'object',
         properties: {

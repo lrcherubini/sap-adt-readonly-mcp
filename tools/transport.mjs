@@ -190,35 +190,24 @@ export function transportTool(cfg, session, journal) {
     definition: {
       name: 'adt_transport',
       description:
-        'Ask the SAP system which objects moved together in a transport request -- the question ' +
-        'no abapGit checkout answers, because a repository serialises state and never ' +
-        'change. Costs one ADT call. Give `number` for one request in full (its own ' +
-        'objects PLUS every task, which is where an unreleased task keeps its objects), ' +
-        'or `recent: true` for the list the server offers, which is released requests of ' +
-        'the last two weeks only and includes requests owned by other people in which ' +
-        'you hold a task. Workbench and customizing both. Reports the object list, the ' +
-        'per-task attribution, the owner and the description. Or the REVERSE question: ' +
-        '`object: {name, type}` reads the version history of one object -- every ' +
-        'transport request that ever carried it, released or open, with transports of ' +
-        'copies set apart on the server\'s own flag -- one search plus one GET per ' +
-        'version feed the server publishes (a class has five).',
+        'Which objects moved together in a transport request. One mode per call: `number` ' +
+        '(the request with every task, owner, description; one call), `recent: true` (the ' +
+        'server\'s list: released, last two weeks), or `object: {name, type}` (every request ' +
+        'that carried it, from its version history; one GET per version feed).',
       inputSchema: {
         type: 'object',
         properties: {
           number: {
             type: 'string',
-            description:
-              'One transport request, e.g. DEVK900123. Mutually exclusive with `recent`.',
+            description: 'One transport request, e.g. DEVK900123.',
           },
           recent: {
             type: 'boolean',
-            description:
-              'The recent list. The scope is the server\'s, not yours: released only, ' +
-              'last two weeks, no paging, no date filter. Mutually exclusive with `number`.',
+            description: 'The server\'s scope: released only, two weeks, no paging or filter.',
           },
           maxRequests: {
             type: 'number',
-            description: `List mode only. Local cut applied after the reply arrives (default ${MAX_REQUESTS}).`,
+            description: `List mode: local cut (default ${MAX_REQUESTS}).`,
           },
           maxObjectsPerRequest: {
             type: 'number',
@@ -227,12 +216,8 @@ export function transportTool(cfg, session, journal) {
           keys: {
             type: 'boolean',
             description:
-              'Detail mode only. Also read WHICH ROWS moved: the E071K table keys of each ' +
-              'object, decoded field by field against the key layout the CTS declares. ' +
-              'This is what answers "what did this customizing entry actually change" -- ' +
-              'the object list only names the maintenance object. Costs one extra ADT ' +
-              `call per object, so it is capped at ${MAX_KEY_LOOKUPS} lookups by default ` +
-              'and the objects left unasked are reported.',
+              'With `number`: also the E071K table keys of each object, decoded (which rows ' +
+              `moved). One call per object, ${MAX_KEY_LOOKUPS} by default.`,
           },
           maxKeyLookups: {
             type: 'number',
@@ -240,10 +225,7 @@ export function transportTool(cfg, session, journal) {
           },
           object: {
             type: 'object',
-            description:
-              'Version history of ONE object: which transports carried it, and which one ' +
-              'holds it now. `{name, type}` with the ADT facet (CLAS/OC, PROG/P, DOMA/DD, ' +
-              '...); type optional. Mutually exclusive with `number` and `recent`.',
+            description: 'One object: `{name, type?}`, type an ADT facet (CLAS/OC, PROG/P, ...).',
             properties: {
               name: { type: 'string' },
               type: { type: 'string' },

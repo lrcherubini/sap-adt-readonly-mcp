@@ -36,12 +36,8 @@ export function annotationChainTool(cfg, session, journal) {
     definition: {
       name: 'adt_annotation_chain',
       description:
-        'Ask the SAP system which annotations reached an element of a CDS entity and which ' +
-        'layer of the chain contributed them -- the diagnosis for a field that vanishes ' +
-        'from a Fiori app with no error, where propagated annotations conflict. ' +
-        'Costs one ADT call. Reports, per annotation, the value that actually reaches ' +
-        'the app and which source contributed it, and flags any key written by more ' +
-        'than one source or silenced entirely.',
+        'The system\'s own annotation chain for one CDS element: the value that reaches the ' +
+        'app, which layer set it, and keys written twice or silenced. One call.',
       inputSchema: {
         type: 'object',
         properties: {

@@ -223,24 +223,22 @@ export function annotationScanTool(cfg, api, journal) {
     definition: {
       name: 'adt_annotation_scan',
       description:
-        'Which annotations reach a CDS element and from which layer, read from the system: the ' +
-        'package\'s DDLS (inline annotations) and DDLX (metadata extensions), merged with the source ' +
-        'of each key, plus the upstream views they select from (within a cap). With `element`, lists ' +
-        'them. Without, runs the detectors and reports elements whose layers contradict each other. ' +
-        'One ADT call per source read; the index is kept 10 minutes for follow-up lookups.',
+        'Annotations of a package\'s CDS (DDLS + DDLX + upstream views), per layer. With ' +
+        '`element`: every annotation reaching it. Without: elements whose layers contradict. ' +
+        'One call per source: keep the package small. Index kept 10 minutes.',
       inputSchema: {
         type: 'object',
         properties: {
           package: { type: 'string', description: 'Package whose CDS sources are read, e.g. ZDEMO_SALES' },
           recursive: { type: 'boolean', description: 'Include sub-packages (default true)' },
-          entity: { type: 'string', description: 'CDS entity name, e.g. ZC_DemoStock. Only used with `element`.' },
+          entity: { type: 'string', description: 'CDS entity name. With `element` only.' },
           element: {
             type: 'string',
-            description: 'Element name, e.g. Plant. Switches the tool to lookup mode: every annotation reaching it, own layers first then upstream.',
+            description: 'Element name, e.g. Plant: lookup mode.',
           },
           key: {
             type: 'string',
-            description: 'Only annotations whose key starts with this, e.g. "UI." or "Consumption.valueHelpDefinition". Case-insensitive. Only used with `element`.',
+            description: 'Key prefix, e.g. "UI." (case-insensitive). With `element` only.',
           },
           max: { type: 'integer', minimum: 1, maximum: 1000, description: 'Max rows reported (default 200)' },
           maxObjects: { type: 'integer', minimum: 1, maximum: MAX_OBJECTS, description: `Max package sources read, one ADT call each (default ${DEFAULT_MAX_OBJECTS})` },

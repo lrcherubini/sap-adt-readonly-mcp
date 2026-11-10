@@ -41,15 +41,9 @@ export function customizingTool(cfg, session, journal) {
       description:
         'Rows of ONE customizing table from a closed allow-list (' +
         [...CUSTOMIZING_TABLES.keys()].join(', ') +
-        '), read through the ADT data preview. Answers where a VOFM routine is used (T683S ' +
-        'KOBED/KOFRM/KOFRA, TVCPA/TVCPF/TVCPL GRBED/GRU*) and what a pricing procedure holds; DDHEADANNO answers which CDS carry a header annotation (NAME in upper case, e.g. ANALYTICS.DATAEXTRACTION.ENABLED). ' +
-        'T052/T052U say whether a payment term (ZTERM) exists and what it means; TVARVC holds STVARV parameters -- filter by NAME, and ' +
-        'read an empty answer as "not in this system", never as "not in QAS/PRD": TVARVC is kept per system, not transported. ' +
-        `where: [{field, op: "="|"<>"|"IN", value}] (AND only); rows 1..${MAX_ROWS} ` +
-        `(default ${DEFAULT_ROWS}); totalRows in the reply is the count WITHOUT the cap. ` +
-        'NUMC columns compare at full width: routine 953 in T683S is "0000953", in TVCPA "953". ' +
-        'Any other table is refused before the request is sent. Costs one ADT call (a POST, ' +
-        'read-only by semantics: nothing is locked, nothing is transported, measured).',
+        '), via the data preview. `where` is ANDed; `totalRows` counts without the row cap. ' +
+        'NUMC compares at full width (routine 953 is "0000953" in T683S). An empty TVARVC ' +
+        'answer means "not in this system" only: it is not transported. One call.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -62,7 +56,7 @@ export function customizingTool(cfg, session, journal) {
               properties: {
                 field: { type: 'string' },
                 op: { type: 'string', enum: ['=', '<>', 'IN', 'LIKE'] },
-                value: { description: 'string; array of strings for IN; for LIKE a name with * wildcards (Z*, *LOG*), never SQL' },
+                value: { description: 'string; array for IN; for LIKE a name with * wildcards' },
               },
               required: ['field', 'value'],
             },
