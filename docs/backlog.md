@@ -55,6 +55,27 @@ ABAP Unit is not a candidate: it stays with the IDE (`docs/security.md`).
 
 ---
 
+## 3. Reads seen in the IDE's communication log and not built
+
+Read on 2026-11-10 while the IDE compared versions, checked syntax and released requests. The
+write requests of that log (lock, source PUT, activation, transport checks and release, the
+background run that releases) are out by design and are not listed.
+
+- **The requests a saved search configuration lists.** The IDE lists transport requests with
+  `GET /sap/bc/adt/cts/transportrequests?targets=true&configUri=<configuration>` (about 830 KB):
+  modifiable requests too, not only the released ones of the last two weeks that `recent` gets.
+  The configuration is one the IDE saved for the user. Measure: the reply with a configuration
+  this server did not create, and what a missing configuration answers; decide whether reading a
+  user's saved search is admissible.
+- **The logs of one request.** `GET /sap/bc/adt/cts/transportrequests/<number>/actionlogs` and
+  `/transportlogs` (2-4 KB each): what happened to a request and its import. Measure the shapes.
+- **The open requests that hold an object.**
+  `/repository/informationsystem/objectproperties/transports?uri=<object>` answered an empty
+  `tpr:transportProperties` for two classes in released requests only. Measure an object that
+  sits in an open request before deciding anything.
+
+---
+
 An accepted limit is not an item: it is a decision, and it lives where the behaviour is (the
 per-target gap that cannot retire itself is explained in `lib/report.mjs`, `classifyStaleness`).
 What was closed is in the git history, not here.
