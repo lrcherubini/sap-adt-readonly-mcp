@@ -120,7 +120,8 @@ and for whoever reads a future pull request:
 | abapGit | `gitPullRepo`, `pushRepo`, `unlinkRepo` |
 | Out of scope by decision | `unitTestRun`, `rapGen*` |
 | **ATC** (2026-09-08 decision **reversed for one run resource**, 2026-09-14, below) | `atcCustomizing`, `atcCheckVariant`, `createAtcRun`, `atcWorklists` stay denied as library methods -- the run is two fixed POSTs + one named GET route of its own; `atcExemptProposal`, `atcRequestExemption`, `atcChangeContact` are governance writes and stay denied by every path |
-| Out of scope in this phase | debugger, traces |
+| Out of scope in this phase | debugger |
+| **Closed decision** (2026-11-10, below) | traces: reading, creating and configuring them |
 | **Closed decision** (2026-09-08), **reopened for a closed list of customizing tables** (2026-09-12, below) | `runQuery`, `tableContents` stay denied; the one data-preview POST is a route of its own, not a library method |
 
 Two structural points matter more than the list:
@@ -129,6 +130,21 @@ Two structural points matter more than the list:
    is defence in depth.
 2. **The session is forced stateless.** A stateful ADT session is what holds locks and
    enqueues. Assigning `stateful` through the proxy is refused at runtime.
+
+### Traces and an ATC report for CI: not built -- closed, 2026-11-10
+
+Two candidates from the comparison with other ADT MCP servers, decided by the owner so they stop
+being reopened:
+
+- **ABAP traces stay out, reading included.** A trace records what a program did to the
+  database, and its statements can carry the values they ran with: business data, which this
+  server does not read (see the next section). Creating or configuring a trace was already a
+  write. `tracesCreateConfiguration`, `tracesDeleteConfiguration`, `tracesDelete` and
+  `tracesSetParameters` stay denied, and no route reads `/sap/bc/adt/runtime/traces`.
+- **No SARIF or JUnit output of an ATC run.** It was meant as a CI gate per transport, and that
+  consumer cannot exist here: the server needs a password typed in a terminal at every start
+  (see *The SAP credential*), so no unattended pipeline can run it. `adt_atc_run` answers JSON
+  an agent can turn into any report it needs.
 
 ### Business data: `runQuery` / `tableContents` stay blocked — closed, not pending
 

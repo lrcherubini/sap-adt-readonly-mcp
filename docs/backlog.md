@@ -35,9 +35,6 @@ measured on the wire; and what `lib/guard.mjs` becomes once no client is left to
 
 Each needs a measurement on the system and a dated decision before it is built.
 
-- **Existing ABAP traces, read only.** `GET /sap/bc/adt/runtime/traces/abaptraces` and the
-  hit list, DB accesses and statements of one trace. Creating or configuring a trace is a write
-  and stays out. Measure: the shapes, and whether reading changes the trace state.
 - **The syntax check of every text object, not only classes and programs.** Quickfixes, and the
   check run behind them, exist for any source-based object: CDS (DDLS, DDLX, DCLS), RAP behaviour
   definitions, service definitions, interfaces, function modules, includes. `adt_syntax_check`
@@ -50,8 +47,6 @@ Each needs a measurement on the system and a dated decision before it is built.
   names it, e.g. `art.syntax:GTU`). Decide: it sends source to the server, so the body is the
   stored source just read, never text from the caller.
 - **Go to definition.** `POST /sap/bc/adt/navigation/target`. Same body question as quickfixes.
-- **SARIF / JUnit output of an ATC run**, for a CI gate per transport (`adt_transport` objects into
-  `adt_atc_run`). Decide whether it is a format option or a separate tool.
 - **Conditional reads by ETag.** The IDE log shows 304 answers; a source read again within the
   session could ask with `If-None-Match`. Measure which resources send an ETag.
 - **Package boundary violations.** A customer object that uses an object of another customer
