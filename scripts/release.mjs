@@ -6,7 +6,7 @@
 //
 // IT WRITES NOTHING WITHOUT --apply. With it, it sets the version in package.json and
 // package-lock.json and puts the entry at the top of CHANGELOG.md. It never commits, tags or
-// pushes: it prints those commands, and the owner runs them.
+// pushes: it prints those commands, and the release procedure (CLAUDE.md) runs them.
 //
 // Runs in the current directory, which npm sets to the package root.
 

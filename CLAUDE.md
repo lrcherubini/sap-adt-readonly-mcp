@@ -15,7 +15,7 @@ used. This file covers how to change it without breaking what it promises.
   system, need a TTY and a typed password, and a failed logon can lock the user. Ask the owner to
   run them and paste the result.
 - Release, only when the owner asks: `npm run release` (dry run), then `-- --apply`, then commit
-  the three files as `chore(release): vX.Y.Z`. The owner creates the tag; never tag or push.
+  the three files as `chore(release): vX.Y.Z`, then `git tag vX.Y.Z` on that commit. Never push.
 
 ## How work is done: PDCA cycles
 
