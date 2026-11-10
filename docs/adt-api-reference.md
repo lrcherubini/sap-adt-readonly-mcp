@@ -3556,6 +3556,29 @@ GET /sap/bc/adt/atc/worklists/<worklist id>?includeExemptedFindings=false   Acce
 answered `ETag` (stamp + media type + hash) and `Last-Modified`; the IDE sent `Cache-Control: no-cache`
 on that read, so it was not revalidated.
 
+**Go to definition** (IDE log, 2026-11-10, anonymised; F3 on a method call):
+
+```
+POST /sap/bc/adt/navigation/target?uri=%2Fsap%2Fbc%2Fadt%2Foo%2Fclasses%2Fzcl_demo_probe%2Fsource%2Fmain%23start%3D26%2C10&filter=definition
+Content-Type: text/plain   Accept: application/xml
+
+CLASS zcl_demo_probe DEFINITION
+  PUBLIC FINAL CREATE PUBLIC .
+  …                                   (the whole main source, 37 lines, as the editor holds it)
+ENDCLASS.
+
+-> 200  application/xml
+<adtcore:objectReference adtcore:uri="/sap/bc/adt/oo/classes/zcl_demo_probe/source/main#start=10,18"/>
+```
+
+- **Unlike the quickfix evaluation, the body is the source**: the editor's text of the object
+  named in `uri`, sent as `text/plain`. The position is in `uri` (`#start=<line>,<col>`), and
+  `filter=definition` is the F3 case (discovery also declares `fullname`).
+- The reply is one `adtcore:objectReference`: the target's source URI with the position of the
+  definition, here a method declaration in the same class.
+- Not measured: whether the server answers without the body (an empty one), or with a body
+  that differs from the stored source.
+
 ## How to reproduce
 
 The readings above used a **temporary** probe: `lib/ddic-probe.mjs` plus a four-line
