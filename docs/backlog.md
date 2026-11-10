@@ -58,6 +58,23 @@ Each needs a measurement on the system and a dated decision before it is built.
   must find after logon, so a configuration pointed at the wrong system stops before any read.
 - **Conditional reads by ETag.** The IDE log shows 304 answers; a source read again within the
   session could ask with `If-None-Match`. Measure which resources send an ETag.
+- **State the status of the ADT API.** Other ADT MCP servers warn that SAP treats the ADT REST
+  API as an internal interface for its own tools, used at the operator's risk, and advise
+  development and test systems only. Neither the README nor `docs/security.md` says so. Decide:
+  the wording, dated in `docs/security.md`, and one line in the README that points to it. No
+  measurement.
+- **Package boundary violations.** A customer object that uses an object of another customer
+  package outside that package's declared interface (`PINF`): the dependency side of Clean Core,
+  next to what `adt_clean_core_scan` says about consumed SAP objects. Measure: how the ADT
+  exposes a package interface and its members, and whether `adt_where_used` and
+  `adt_package_tree` together see every use, or only enough to report `complete: false`.
+- **The context an object consumes.** For one object, the public signature of each object it
+  uses, with its API release state (`apiRelease`), instead of their full sources: what an agent
+  needs to judge the object's Clean Core level. A composition of existing reads, no new route.
+  Measure: the reads it costs on a real class against the read budget, and decide the depth.
+- **Package health report.** One summary per package of the Clean Core level, the ATC and
+  syntax check results and what could not be read, from the gaps already filed. Decide whether
+  it is a mode of `npm run report` (local, no new call) or a tool.
 
 ABAP Unit is not a candidate: it stays with the IDE (`docs/security.md`).
 
