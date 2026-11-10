@@ -115,6 +115,7 @@ npm run probe -- --host my-sap-host --port 44300   # reachability + auth scheme,
    npm run config -- set host my-sap-host.example.com
    npm run config -- set client 001
    npm run config -- set user MYUSER
+   npm run config -- set system DEV   # the system id the host must answer as
    ```
 
    Or copy [`config.example.json`](config.example.json), replace the invented values and load
@@ -226,7 +227,7 @@ in the file (or in `table add`) is skipped with a warning, since it needs no reg
 
 | Group | Keys (default) | Used by |
 |---|---|---|
-| connection | `host`, `port` (44300), `client` (none — always your choice), `user`, `language` (EN), `system` (a label only), `allowUnauthorizedTls` (false; prefer `NODE_EXTRA_CA_CERTS` for an internal CA) | the session |
+| connection | `host`, `port` (44300), `client` (none — always your choice), `user`, `language` (EN), `system` (none — required: the host must answer as this system id, asked without credentials before the password prompt), `allowUnauthorizedTls` (false; prefer `NODE_EXTRA_CA_CERTS` for an internal CA) | the session |
 | server | `mcpPort` (2237), `budget.reads` (200, a notice, not a cap), `shutdownMs` (5000) | `server.mjs`, the audit |
 | catalogue | `catalog.release` (none — `Latest`, `PCELatest`, `PCE2025_2`, `PCE2023_0`, …) | `adt_clean_core_scan`, `adt_value_help`, `sync:catalog` |
 | fences | customizing tables (`table add`), ATC variants (`atc add`, `atc.defaultVariant`) | `adt_customizing`, `adt_atc_run` |
@@ -547,6 +548,7 @@ tag, `v0.1.0`, on the last commit that belongs to that version.
 | `lib/source-versions.mjs`, `lib/line-diff.mjs` | a stored version of a class or program (active, inactive, a history number) and the local unified diff of two |
 | `lib/class-components.mjs` | the outline of a class (components and their positions) and the slice of one method |
 | `lib/api-release.mjs` | the API release state of one object, per contract, and its parser |
+| `lib/system-check.mjs` | the system confirmed before the password prompt: one GET without credentials, the SID and client its 401 names |
 | `tools/` | the 16 MCP tools |
 | `lib/` | the guard (`guard.mjs`), the named GET routes (`adt-get.mjs`), package reads (`package-sources.mjs`), the session, the store and its validation (`store.mjs`, `environment.mjs`), the catalogue and its sync, parsers and the journal |
 | `scripts/` | the npm scripts above, each with its usage in its header comment |

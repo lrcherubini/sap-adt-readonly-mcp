@@ -250,6 +250,7 @@ test('the CLI speaks the JSON contract a driving tool reads, and refuses before 
   assert.equal('ownership' in exported, false);
   const issues = run('doctor').data.issues;
   assert.ok(issues.some((i) => i.key === 'host'), 'doctor names what is missing');
+  assert.ok(issues.some((i) => i.key === 'system'), 'the expected system id is mandatory too');
 });
 
 test('an import is validated whole: one bad value and nothing is written', () => {

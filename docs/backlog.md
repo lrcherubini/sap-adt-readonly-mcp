@@ -52,8 +52,6 @@ Each needs a measurement on the system and a dated decision before it is built.
 - **Go to definition.** `POST /sap/bc/adt/navigation/target`. Same body question as quickfixes.
 - **SARIF / JUnit output of an ATC run**, for a CI gate per transport (`adt_transport` objects into
   `adt_atc_run`). Decide whether it is a format option or a separate tool.
-- **Refuse an unexpected system.** An installation value naming the system and client the server
-  must find after logon, so a configuration pointed at the wrong system stops before any read.
 - **Conditional reads by ETag.** The IDE log shows 304 answers; a source read again within the
   session could ask with `If-None-Match`. Measure which resources send an ETag.
 - **Package boundary violations.** A customer object that uses an object of another customer

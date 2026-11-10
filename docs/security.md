@@ -26,6 +26,27 @@ back off and try later. Repeated failed logons lock the SAP user; a locked user 
 IDE, abapGit and transports with it. The correct recovery is a human checking the password
 in the IDE or SU01 and starting the server again.
 
+### The system is confirmed before the password is asked -- 2026-11-10
+
+`system` was a label and decided nothing. It now decides whether the server starts, and it is
+required. Before the user and password prompts, `lib/system-check.mjs` sends **one GET with no
+`Authorization` header** to `/sap/bc/adt/discovery?sap-client=<client>`, built from validated
+settings only. An ADT node answers it `401`, and that 401 names the system twice: the
+`sap-system` header and the Basic realm `[<SID>/<client>]` (measured, `docs/phase0-report.md`,
+section 1; `npm run probe` has always read the same answer). The server goes on only when the
+SID and the realm's client match `system` and `client`. Anything else stops it before a
+password is typed, saying what was found: another SID or client, no expected `system` (the
+message names the SID the host answered), no answer, a status other than 401, or a 401 that
+names no system.
+
+Why this is safe. No credential is sent, so the request is not a logon and cannot count towards
+`login/fails_to_user_lock`. It runs outside `lib/guard.mjs` and the route table because there is
+no session yet; it is a fixed GET, its body is drained unread, and only the status and the two
+headers are kept. TLS is verified as for the session (`allowUnauthorizedTls` alone relaxes it).
+Not measured: whether the realm echoes the requested client or the system's default one. The
+check compares what the realm says; if it echoes, the client comparison is weaker than the SID
+one, never wrong. Pinned by `tests/system-check.test.mjs`.
+
 ## Read-only: how it is enforced
 
 Not by reviewing each call site — by removing the capability.
