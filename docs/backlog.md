@@ -47,17 +47,23 @@ Each needs a measurement on the system and a dated decision before it is built.
   names it, e.g. `art.syntax:GTU`). Decide: it sends source to the server, so the body is the
   stored source just read, never text from the caller.
 - **Go to definition.** `POST /sap/bc/adt/navigation/target`. Same body question as quickfixes.
-- **Conditional reads by ETag.** The IDE log shows 304 answers; a source read again within the
-  session could ask with `If-None-Match`. Measure which resources send an ETag.
+- **Conditional reads by ETag.** Measured 2026-11-10 (`adt-api-reference.md`, *Backlog reads*):
+  class documents and sources, CDS sources and package documents send `ETag` and
+  `Last-Modified`; logs, search hits and the request tree do not. Decide: whether a session cache
+  of bodies is worth the state it adds; then measure whether `If-None-Match` answers `304`.
 - **Package boundary violations.** A customer object that uses an object of another customer
   package outside that package's declared interface (`PINF`): the dependency side of Clean Core,
-  next to what `adt_clean_core_scan` says about consumed SAP objects. Measure: how the ADT
-  exposes a package interface and its members, and whether `adt_where_used` and
-  `adt_package_tree` together see every use, or only enough to report `complete: false`.
+  next to what `adt_clean_core_scan` says about consumed SAP objects. Measured 2026-11-10: the
+  package document names its interfaces, but only by their SAP GUI URI, so their members were
+  not read. Measure next: `checkuseaccess` (`/sap/bc/adt/packages/{package}/useaccesses/{interface}`),
+  and whether any ADT resource lists an interface's members.
 - **The context an object consumes.** For one object, the public signature of each object it
   uses, with its API release state (`apiRelease`), instead of their full sources: what an agent
   needs to judge the object's Clean Core level. A composition of existing reads, no new route.
   Measure: the reads it costs on a real class against the read budget, and decide the depth.
+  Discovery (2026-11-10): for CDS the `graphdata` route already answers; for a class the
+  candidates are `/sap/bc/adt/objectrelations` (a POST body) and `objectsets/references/{id}`,
+  to be captured from the IDE's Relation Explorer.
 - **ATC on a package, for `adt_package_health`.** The tool runs the Clean Core scan and the
   syntax check; ATC stays out because `adt_atc_run` checks one object. Measure, from the IDE's
   communication log: an ATC run on a package (the object set the run takes, the worklist it
@@ -73,18 +79,15 @@ Read on 2026-11-10 while the IDE compared versions, checked syntax and released 
 write requests of that log (lock, source PUT, activation, transport checks and release, the
 background run that releases) are out by design and are not listed.
 
-- **The requests a saved search configuration lists.** The IDE lists transport requests with
-  `GET /sap/bc/adt/cts/transportrequests?targets=true&configUri=<configuration>` (about 830 KB):
-  modifiable requests too, not only the released ones of the last two weeks that `recent` gets.
-  The configuration is one the IDE saved for the user. Measure: the reply with a configuration
-  this server did not create, and what a missing configuration answers; decide whether reading a
-  user's saved search is admissible.
-- **The logs of one request.** `GET /sap/bc/adt/cts/transportrequests/<number>/actionlogs` and
-  `/transportlogs` (2-4 KB each): what happened to a request and its import. Measure the shapes.
-- **The open requests that hold an object.**
-  `/repository/informationsystem/objectproperties/transports?uri=<object>` answered an empty
-  `tpr:transportProperties` for two classes in released requests only. Measure an object that
-  sits in an open request before deciding anything.
+- **The requests a saved search configuration lists.** Admitted read-only by the owner
+  (2026-11-10); measured the same day (`adt-api-reference.md`, *Backlog reads*): the list is the
+  logged-on user's requests, modifiable and released, with every object inline (874 KB for 858
+  objects). Decide: what the answer keeps of it, since the size is the trap.
+- **The logs of one request.** Measured 2026-11-10: `actionlogs` flat, `transportlogs` a tree of
+  systems and steps. Build: a request mode of `adt_transport`, with its dated decision.
+- **The open requests that hold an object.** Measured 2026-11-10: for an object in a modifiable
+  request `objectproperties/transports` names it (number, owner, status `D`, counts). Build: part
+  of the `object` mode of `adt_transport`, with its dated decision.
 
 ---
 

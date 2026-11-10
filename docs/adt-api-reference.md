@@ -3323,6 +3323,121 @@ The full discovery document has 676 collections. The only ones that match
 helps, togglable object types and name validation). Those are feature toggles, not Switch
 Framework switches or business functions. Nothing over the ADT says whether an `SFW_SWITCH` is on.
 
+### Backlog reads: request logs, open requests of an object, the saved search, package interfaces, caching headers — MEASURED 2026-11-10
+
+One probe run, GET only, 13 replies, all `200`. Names below are anonymised; the logon language of
+the measured system was not English, and its texts are translated here.
+
+**The logs of one request.** Both answer `application/vnd.sap.adt.logs+xml` for a released request:
+
+```
+GET /sap/bc/adt/cts/transportrequests/DEVK900120/actionlogs      ->  200  2 434 bytes
+GET /sap/bc/adt/cts/transportrequests/DEVK900120/transportlogs   ->  200  4 320 bytes
+
+<log:log xmlns:log="http://www.sap.com/adt/logs/">
+  <atom:link href="/sap/bc/adt/cts/transportrequests/devk900120/actionlogs" rel="self" type="application/vnd.sap.adt.logs+xml"/>
+  <log:type>LOG_TYPE_ACT_DDIC</log:type><log:name/>
+  <log:entry id="000004" severity="information"><log:message>
+    <log:messageText language="" key="TK(185)">10.11.2026 09:01:18 DEVUSER1 created the request/task</log:messageText>
+    <atom:link href="/sap/bc/adt/messageclass/TK/messages/185/longtext?language=&amp;msgv1=…&amp;msgv2=DEVUSER1"
+               rel="http://www.sap.com/adt/relations/longtext" type="text/html"/>
+  </log:message></log:entry>
+  …
+</log:log>
+```
+
+- `actionlogs` is flat: one `log:entry` per action (created, linked to its task, release started),
+  text in the logon language with the message key `TK(nnn)` and a long-text link carrying the
+  message variables. Dates are in the user's format inside the text, not as attributes.
+- `transportlogs` is a **tree**: `log:entry` nests `log:entry` (the request, then each system, then
+  each step: OS-level checks, export preprocessing, export, import marking). A step line carries
+  its date, time and return code in the text (`(0) Ended successfully`) and an `atom:link`
+  `rel=…/relations/ddic/activationlog` to `/sap/bc/adt/logs/file/<the transport log file path,
+  percent-encoded>`; a system node links `…/transportlogs/independentlogs?systemName=<SID>`.
+- Both name users and both carry the transport directory path of the application server: answer
+  content, never fixture content unanonymised.
+
+**The open requests that hold an object.** For a program sitting in a **modifiable** request,
+`objectproperties/transports` answers what it answered empty for released ones:
+
+```
+GET /sap/bc/adt/repository/informationsystem/objectproperties/transports?uri=%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fzdemo_report5
+->  200  application/vnd.sap.adt.repository.trproperties.result.v1+xml  543 bytes
+
+<tpr:transportProperties xmlns:tpr="http://www.sap.com/adt/ris/transportProperties">
+  <tpr:transport number="DEVK900124" description="demo change" owner="DEVUSER1" status="D"
+                 createdAt="2026-11-10T08:38:00Z" changedAt="2026-11-10T08:38:00Z"
+                 numberOfEntries="4" numberOfObjects="4">
+    <atom:link href="/sap/bc/adt/cts/transportrequests/DEVK900124" rel="http://www.sap.com/adt/relations/objects" title="ADT Object Reference"/>
+  </tpr:transport>
+</tpr:transportProperties>
+```
+
+So the resource lists **open** requests only (`status="D"`); empty means "in no open request",
+which is a statement about modifiable requests, never about history (the version feed answers that).
+
+**The saved search of the IDE, and the list it drives.**
+
+```
+GET /sap/bc/adt/cts/transportrequests/searchconfiguration/configurations
+->  200  application/vnd.sap.adt.configurations.v1+xml  700 bytes
+    one configuration:configuration (createdBy, createdAt, changedBy, changedAt, client) with an
+    atom:link href=".../searchconfiguration/configurations/<32 hex>" type="application/vnd.sap.adt.configuration.v1+xml" etag="<stamp>"
+GET <that href>
+->  200  application/vnd.sap.adt.configuration.v1+xml  1 494 bytes
+    the ten properties already known (WorkbenchRequests … User=DEVUSER1, DateFilter=1, FromDate, ToDate)
+GET /sap/bc/adt/cts/transportrequests?targets=true&configUri=<that href, percent-encoded>
+    Accept application/vnd.sap.adt.transportorganizertree.v1+xml
+->  200  874 308 bytes
+```
+
+- The tree: `tm:root` → `tm:workbench` / `tm:customizing` → `tm:target` → `tm:modifiable` /
+  `tm:released` → `tm:request` → `tm:task` → `tm:abap_object`. Measured counts: 23 requests, 35
+  tasks, 858 objects, 2 398 links; statuses `D` 47, `R` 11. Category and status labels
+  (`tm:category`, `tm:status` on the folder) are in the logon language.
+- The configuration filters on `User` = the logged-on user: the list is that user's requests,
+  modifiable **and** released, not the system's.
+- Size is the trap: the objects of every request come inline. 858 objects made 874 KB.
+
+**Package interfaces.** The package document (`GET /sap/bc/adt/packages/<pkg>`,
+`application/vnd.sap.adt.packages.v2+xml`, 3.8 KB) names them:
+
+```
+<pak:useAccesses pak:isVisible="true"/>
+<pak:packageInterfaces pak:isVisible="true">
+  <pak:packageInterfaceRef adtcore:uri="/sap/bc/adt/vit/wb/object_type/pinfki/object_name/ZDEMO_PKI"
+                           adtcore:type="PINF/KI" adtcore:name="ZDEMO_PKI" adtcore:description="…"/>
+</pak:packageInterfaces>
+```
+
+- The interface's URI is the **SAP GUI representation** (`/vit/wb/…`), not an ADT document: its
+  members were not read.
+- A quick search for `<package>*` with `objectType=PINF/KI` answered empty (109 bytes) **because the
+  interface is not named after the package** — not because it is absent.
+- Discovery publishes `checkuseaccess` `/sap/bc/adt/packages/{packagename}/useaccesses/{packageinterfacename}`
+  (collection "Package"); not asked yet.
+- The document also carries `pak:attributes` (`isEncapsulated`, `languageVersion`), the software
+  component and transport layer, and a link `supportsPackageCheckActions` to `/sap/bc/adt/checkruns{?reporters}`.
+
+**References going out of an object** (discovery, not asked): `/sap/bc/adt/objectrelations`
+(accepts `…objectrelations.request.sets.v1+xml`, so a POST body) and
+`/sap/bc/adt/repository/informationsystem/objectsets/references/{id}`. For CDS,
+`ddic/ddl/dependencies/graphdata` is already a route. `/sap/bc/adt/navigation/target` publishes a
+template `{?uri,filter,fullname}`.
+
+**Caching headers.** The probe kit records `ETag`, `Last-Modified` and `Cache-Control`:
+
+| Resource | `ETag` | `Last-Modified` |
+|---|---|---|
+| class document (`oo/classes/<c>`) | yes, a change stamp plus a counter | yes |
+| class source (`…/source/main`) | yes, a different counter than the document | yes, same instant |
+| CDS source | yes | yes |
+| package document | yes, stamp + media type + hash | yes |
+| search configuration | yes (the stamp the list also carries) | no |
+| logs, search hits, `objectproperties/transports`, the request tree, discovery | no | no |
+
+No reply sent `Cache-Control`. Whether a conditional GET (`If-None-Match`) answers `304` was not asked.
+
 ## How to reproduce
 
 The readings above used a **temporary** probe: `lib/ddic-probe.mjs` plus a four-line
