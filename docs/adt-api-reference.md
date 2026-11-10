@@ -3525,6 +3525,16 @@ Content-Type: application/vnd.sap.adt.checkobjects+xml   Accept: application/vnd
   The message's marker is the `markerId` the quickfix evaluation above was asked with.
 - `bdefImplementationCheck` is a second reporter: whether the behaviour implementation class
   matches the definition. A processed report with no message list means "no message".
+- A CDS view takes the same body with its source collection URI, and `abapCheckRun` alone:
+
+  ```
+  <chkrun:checkObject adtcore:uri="/sap/bc/adt/ddic/ddl/sources/zdemo_a_rate" chkrun:version="active"/>
+
+  -> 200  <chkrun:checkReport chkrun:reporter="abapCheckRun" chkrun:triggeringUri="/sap/bc/adt/ddic/ddl/sources/zdemo_a_rate"
+          chkrun:status="processed" chkrun:statusText="Object ZDEMO_A_RATE has been checked"/>
+  ```
+
+  One second of server time, against a tenth for the behaviour definition.
 
 ```
 POST /sap/bc/adt/atc/runs?worklistId=<id>&clientWait=false
