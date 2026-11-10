@@ -1054,6 +1054,22 @@ no contract and an object that does not exist answer the same. `ars:behaviour`, 
 may do to a contract, is a write side and is not read. A read that failed is `read: false`, never
 "not released".
 
+### The logs of one request: the route table widened by two -- 2026-11-10
+
+`adt_transport` already reads one request by number. Its two logs answer what the request
+document cannot: what was done to it and when (`actionlogs`), and how it moved, system by system
+and step by step, with each step's return code (`transportlogs`). Both were measured on a
+released request the same day (`adt-api-reference.md`, *Backlog reads*).
+
+**What it admits.** Two named routes, `transportActionLogs` and `transportLogs`, GET, under the
+same number-shaped segment as `transportDetail`, each with a literal suffix and no parameter. They
+are read only with `logs: true` on a request named by `number`, never for the list or an object.
+The answer keeps each entry's text, message key, severity and return code. It drops every link:
+the long-text links repeat the message variables, the log-file links carry the transport directory
+path of the application server, and neither the log files nor the request-independent steps are
+followed. The texts name users, as the request document already does: they reach the answer, never
+the audit trail or the journal. A log that failed is `read: false` with a gap, never an empty log.
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:

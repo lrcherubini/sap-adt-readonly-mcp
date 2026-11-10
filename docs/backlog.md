@@ -81,8 +81,6 @@ Each needs a measurement on the system and a dated decision before it is built.
   (2026-11-10); measured the same day (`adt-api-reference.md`, *Backlog reads*): the list is the
   logged-on user's requests, modifiable and released, with every object inline (874 KB for 858
   objects). Decide: what the answer keeps of it, since the size is the trap.
-- **The logs of one request.** Measured 2026-11-10: `actionlogs` flat, `transportlogs` a tree of
-  systems and steps. Build: a request mode of `adt_transport`, with its dated decision.
 - **The open requests that hold an object.** Measured 2026-11-10: for an object in a modifiable
   request `objectproperties/transports` names it (number, owner, status `D`, counts). Build: part
   of the `object` mode of `adt_transport`, with its dated decision.

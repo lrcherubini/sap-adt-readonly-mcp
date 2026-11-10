@@ -38,6 +38,7 @@ import { resolveObject } from '../lib/resolve.mjs';
 import { isClasenh, clasenhGap, CLASENH_WHERE } from '../lib/object-properties.mjs';
 import { parseVersionFeed, versionLinks, unionByTransport } from '../lib/object-versions.mjs';
 import { parseTransportDocument, unionObjects, DRIFT_CODE } from '../lib/transport-requests.mjs';
+import { parseRequestLog } from '../lib/request-logs.mjs';
 import {
   collectObjectKeys,
   MAX_KEY_LOOKUPS,
@@ -186,12 +187,59 @@ export function transportTool(cfg, session, journal) {
     });
   }
 
+  // The two logs of one request, one GET each. A log that could not be read says so with
+  // `read: false`; it never reads as an empty log.
+  async function requestLogs(transport, number, drift) {
+    const out = {
+      rule:
+        'actions: what was done to the request (flat). transport: how it moved, per system ' +
+        'and step, with the return code read from each step text (rc). Separator lines, ' +
+        'empty spacer entries and every link are dropped; the links to the log files and ' +
+        'to the request-independent steps are not followed.',
+    };
+    for (const [part, route] of [
+      ['actions', 'transportActionLogs'],
+      ['transport', 'transportLogs'],
+    ]) {
+      let reply;
+      try {
+        reply = await namedGet(transport, route, { number });
+      } catch (e) {
+        if (e?.name === 'RouteViolation') throw e;
+        // Not swallowed: the gap is filed and the part says it was not read.
+        if (journal?.enabled) {
+          journal.gap({
+            code: 'ADT_ERROR',
+            subject: `transport ${number} ${part} log`,
+            detail: `HTTP ${e?.status ?? '?'} on ${e?.url ?? route}`,
+            impact: `the ${part} log of this request is unknown -- NOT an empty log`,
+            fallback: 'the request in SE09/SE10 (Goto -> Logs), or the Transport Organizer in the IDE',
+          });
+        }
+        out[part] = { read: false, reason: String(e?.message ?? e).slice(0, 200) };
+        continue;
+      } finally {
+        record(cfg, 'adt_transport', `${number} ${route}`, reply?.bytes ?? 0);
+      }
+      const parsed = parseRequestLog(reply.body);
+      for (const d of parsed.drift) drift.push({ ...d, where: `${route} ${number}` });
+      out[part] = {
+        read: true,
+        bytes: reply.bytes,
+        entries: parsed.entries,
+        ...(part === 'transport' ? { highestReturnCode: parsed.highestReturnCode } : {}),
+      };
+    }
+    return out;
+  }
+
   return {
     definition: {
       name: 'adt_transport',
       description:
         'Which objects moved together in a transport request. One mode per call: `number` ' +
-        '(the request with every task, owner, description; one call), `recent: true` (the ' +
+        '(the request with every task, owner, description; one call; `logs: true` adds its ' +
+        'action and transport logs), `recent: true` (the ' +
         'server\'s list: released, last two weeks), or `object: {name, type}` (every request ' +
         'that carried it, from its version history; one GET per version feed).',
       inputSchema: {
@@ -218,6 +266,10 @@ export function transportTool(cfg, session, journal) {
             description:
               'With `number`: also the E071K table keys of each object, decoded (which rows ' +
               `moved). One call per object, ${MAX_KEY_LOOKUPS} by default.`,
+          },
+          logs: {
+            type: 'boolean',
+            description: 'With `number`: also its action log and transport log (two more calls).',
           },
           maxKeyLookups: {
             type: 'number',
@@ -257,7 +309,14 @@ export function transportTool(cfg, session, journal) {
             'nobody asked for.'
         );
       }
+      const wantsLogs = args.logs === true;
       if (wantsObject) {
+        if (wantsLogs) {
+          throw new Error(
+            'adt_transport reads the logs of a request you name by `number`; the object ' +
+              'history carries none.'
+          );
+        }
         if (args.keys === true) {
           throw new Error(
             'adt_transport reads table keys for a request you name by `number`; the ' +
@@ -265,6 +324,12 @@ export function transportTool(cfg, session, journal) {
           );
         }
         return objectHistory(args.object);
+      }
+      if (wantsLogs && !wantsDetail) {
+        throw new Error(
+          'adt_transport reads the logs of a request you name by `number`; the recent list ' +
+            'and the object history carry none.'
+        );
       }
       const wantsKeys = args.keys === true;
       if (wantsKeys && !wantsDetail) {
@@ -457,6 +522,8 @@ export function transportTool(cfg, session, journal) {
         };
       }
 
+      const logs = wantsLogs ? await requestLogs(transport, String(args.number).trim(), drift) : null;
+
       if (drift.length && journal?.enabled) {
         journal.gap({
           code: DRIFT_CODE,
@@ -493,6 +560,7 @@ export function transportTool(cfg, session, journal) {
         measured: out.shapeObserved,
         mode: wantsDetail ? 'detail' : 'recent',
         ...(keySweep ? { keys: keySweep } : {}),
+        ...(logs ? { logs } : {}),
         resource: doc.resource,
         // Structured, not a footnote: what this answer does and does not cover is part of
         // the data, because a list that silently omits open requests reads exactly like a
