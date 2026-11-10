@@ -175,8 +175,8 @@ export function transportTool(cfg, session, journal) {
         'a transport of copies, never a request that moved the object on. activeVersion ' +
         'is version 00000 of each feed; its holder is the OPEN request the object sits ' +
         'in now, null when it is not in one. Every entry carries the URI of that ' +
-        'version\'s content (contentSrc in the raw feed); this server reports the ' +
-        'header and does not follow it.',
+        'version\'s content (contentSrc in the raw feed); adt_read_source reads it ' +
+        '(`version`, `compareTo`).',
       transports: history.transports,
       copies: history.copies,
       activeVersion: history.activeVersion,

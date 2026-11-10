@@ -570,7 +570,8 @@ Three boundaries are held, each by construction and each with a test:
   and is sent as GET with the one `Accept` the resource takes. `TEMPLATES` did not grow, and
   the library's `revisions()` -- which labels the transport as the version and never reads
   the copies flag -- is **not** in the allowlist.
-- **The content of an old version is not read.** Every entry carries
+- **The content of an old version is not read** (reversed for `adt_read_source` on 2026-11-10,
+  *Stored versions*, below). Every entry carries
   `atom:content/@src`, the URI of *that version's source*. It is a real capability and a
   different question; `derivedGet` refuses any href past `/versions`, so this server reports
   the version **header** (number, timestamp, author, transport, the server's own
@@ -915,6 +916,33 @@ What keeps these routes narrow:
   published version's service URL is mapped to one of the four `$metadata` routes only when the
   URL has a form they measured (`sap` and other namespaces, V2 `;v=N`). Any other form is
   reported as unmapped, with the reason.
+
+### Stored versions: the content of an old version, and the inactive one -- 2026-11-10
+
+The owner asked for the comparisons the IDE makes: what changed between two versions of an
+object, and what the inactive version holds. The decision of 2026-09-12 ("the content of an old
+version is not read") is **reversed for `adt_read_source`**, for classes and programs, and for
+nothing else. The reason it was closed was scope, not risk: an old version is repository source,
+the same kind of text the server already reads, never business data.
+
+**What it admits.** Three derived reads (`lib/adt-get.mjs`, `DERIVED_KINDS`), all GET, all held
+to classes and programs, the two families measured:
+
+- `versionContent`: the `atom:content/@src` of one entry of the version feed, which itself is
+  read as before. The URL is the entry's, never assembled; it must end in
+  `/versions/<14 digits>/<5 digits>/content` under the object.
+- `sourceVersion`: the object's source with `?version=active` or `?version=inactive`. The query
+  is written by the route from that closed list; a caller cannot add a parameter.
+- `objectVersion`: the object document with `?version=`, because the source alone cannot say
+  whether an inactive version exists (it answers the active one, 200, when there is none).
+
+The guard did not grow: none of this goes through the client library. The diff of two versions is
+computed here (`lib/line-diff.mjs`); the ADT has no compare resource.
+
+**What it keeps out.** Any other object type (a domain's history is XML, not source, and a CDS
+inactive version was not measured); the IDE's working area (`workingArea` answered like
+`inactive` on all five objects, so it adds nothing); and the trail: one audit line per read names
+the object, the include and the kind of read, never a line of source.
 
 ### Self-contained: every source is read from the system -- 2026-11-08
 

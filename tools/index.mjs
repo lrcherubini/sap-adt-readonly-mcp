@@ -16,6 +16,7 @@ import { contractOf, sourceRefusal } from '../lib/type-contract.mjs';
 import { readServiceBinding } from '../lib/service-binding.mjs';
 import { virtualFoldersPost, parseVirtualFolders } from '../lib/virtual-folders.mjs';
 import { legacyKindOf, readLegacyObjects } from '../lib/legacy-objects.mjs';
+import { VERSION_PATTERN, readVersion, compareVersions, readerFor } from '../lib/source-versions.mjs';
 import { valueHelpTool } from './value-help.mjs';
 import { cleanCoreScanTool } from './clean-core-scan.mjs';
 import { contractCheckTool } from './contract-check.mjs';
@@ -237,7 +238,82 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
     return { switchOf, switchNotes };
   };
 
-  const readOne = async (objectName, { objectType, include, enhancements, enhancementSource, context }) => {
+  // A stored version of one class or program, or two of them compared (lib/source-versions.mjs,
+  // MEASURED 2026-11-10). Every read is a derived GET under the object, held to the two families
+  // measured; the client library is not used for any of it.
+  const STORED_FAMILY = /^\/sap\/bc\/adt\/(oo\/classes|programs\/programs)\/[^/]+$/i;
+  const readStored = async ({ hit, foundBy, warning, structure, sourceUrl, include, version, compareTo }) => {
+    const objectUri = hit['adtcore:uri'];
+    const name = hit['adtcore:name'];
+    if (!STORED_FAMILY.test(objectUri)) {
+      throw new Error(
+        `version and compareTo are measured for classes and programs only; ${hit['adtcore:type']} ${name} ` +
+          'is not one. Read the current source without them, or compare in the IDE.'
+      );
+    }
+    if (!session.raw) throw new Error('this session has no raw client: a stored version cannot be read.');
+    const read = readerFor(transportFor(session.raw), objectUri, (kind, out) =>
+      record(cfg, 'adt_read_source', `${name}#${include ?? 'main'} ${kind}`, out?.bytes ?? 0)
+    );
+    const ctx = { read, structure, sourceUrl, include };
+    const header =
+      `* ${name} (${hit['adtcore:type']}) -- package ${hit['adtcore:packageName'] ?? '?'}\n` +
+      `* read live from ${cfg.host} client ${cfg.client} at ${new Date().toISOString()}\n` +
+      (warning ? `* WARNING: ${warning}\n` : '');
+    try {
+      if (compareTo) {
+        const r = await compareVersions(ctx, version ?? 'active', compareTo);
+        const json = {
+          object: { name, type: hit['adtcore:type'], include: include ?? 'main', foundBy },
+          from: { version: r.from.version, label: r.from.label, exists: r.from.exists, ...(r.from.entry ? { entry: r.from.entry } : {}) },
+          to: { version: r.to.version, label: r.to.label, exists: r.to.exists, ...(r.to.entry ? { entry: r.to.entry } : {}) },
+          ...(r.diff
+            ? {
+                added: r.diff.added,
+                removed: r.diff.removed,
+                hunks: r.diff.hunks,
+                complete: r.diff.complete,
+                ...(r.diff.reason ? { reason: r.diff.reason } : {}),
+                identical: r.diff.complete && r.diff.added === 0 && r.diff.removed === 0,
+                diff: r.diff.text,
+              }
+            : { complete: false, diff: null }),
+          ...(r.notes.length ? { notes: r.notes } : {}),
+        };
+        return { hit, foundBy, warning, json };
+      }
+      const one = await readVersion({ ...ctx, version });
+      if (!one.exists) {
+        return {
+          hit,
+          foundBy,
+          warning,
+          header:
+            header +
+            `* version: ${one.label}\n` +
+            '* NO INACTIVE VERSION: the system holds only the active one. Nothing is shown here; ' +
+            'read it with version: active.\n',
+          source: '',
+          enhFooter: '',
+        };
+      }
+      return { hit, foundBy, warning, header: `${header}* version: ${one.label}\n\n`, source: one.source, enhFooter: '' };
+    } catch (e) {
+      // A request that names nothing to read (the same version twice, a malformed number) is
+      // the caller's mistake and is answered as one; only a read that could not be made is filed.
+      if (e?.name === 'VersionNotRead' && !e.code) throw e;
+      journal?.gap?.({
+        code: 'VERSION_NOT_READ',
+        subject: `${hit['adtcore:type']} ${name}`,
+        detail: `${e.name ?? 'Error'}: ${e.message}`.slice(0, 300),
+        impact: 'nothing is said about that version; this is NOT evidence that it does not differ',
+        fallback: 'adt_transport({ object }) lists the versions; the IDE compares them (Compare With > History)',
+      });
+      throw e;
+    }
+  };
+
+  const readOne = async (objectName, { objectType, include, enhancements, enhancementSource, context, version, compareTo }) => {
     const early = objectType ? sourceRefusal(objectType, objectName) : null;
     if (early) throw early;
     const resolved = await resolveObject(api, objectName, objectType, 'source', resolveOpts);
@@ -316,6 +392,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
       }
     } else {
       sourceUrl = ADTClient.mainInclude(structure);
+    }
+    if (version || compareTo) {
+      return await readStored({ hit, foundBy, warning, structure, sourceUrl, include, version, compareTo });
     }
     const source = await api.getObjectSource(sourceUrl);
 
@@ -556,11 +635,28 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
               type: 'string',
               description: 'Containing program URI, for a PROG/I include used by several.',
             },
+            version: {
+              type: 'string',
+              pattern: VERSION_PATTERN,
+              description: 'Class or program: active, inactive, or a history number (00000 = active).',
+            },
+            compareTo: {
+              type: 'string',
+              pattern: VERSION_PATTERN,
+              description: 'Unified diff from this version to `version` (default active).',
+            },
           },
         },
       },
-      async handler({ objectName, objectNames, objectType, include, enhancements, enhancementSource, context }) {
-        const flags = { objectType, include, enhancements, enhancementSource, context };
+      async handler({ objectName, objectNames, objectType, include, enhancements, enhancementSource, context, version, compareTo }) {
+        const flags = { objectType, include, enhancements, enhancementSource, context, version, compareTo };
+        const versioned = version !== undefined && version !== null || compareTo !== undefined && compareTo !== null;
+        if (versioned && Array.isArray(objectNames)) {
+          throw new Error('version and compareTo read one object: pass objectName, not objectNames.');
+        }
+        if (versioned && (enhancements || enhancementSource)) {
+          throw new Error('enhancements describe the object as it is now: ask them without version/compareTo.');
+        }
         if (Array.isArray(objectNames)) {
           if (objectName) throw new Error('Pass objectName or objectNames, never both.');
           if (!objectNames.length) throw new Error('objectNames is empty.');
@@ -603,6 +699,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         }
         if (!objectName) throw new Error('objectName (or objectNames) is required.');
         const one = await readOne(objectName, flags);
+        if (one.json) return asText(one.json);
         return asText(one.header + one.source + one.enhFooter);
       },
     },

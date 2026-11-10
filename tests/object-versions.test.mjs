@@ -311,12 +311,12 @@ test('the audit trail names the object and the link, one line per feed, and neve
   }
 });
 
-test('the version content URI is reported in the raw feed and never followed', async () => {
+test('adt_transport reports the version content URI and never follows it: adt_read_source does', async () => {
   const h = toolFor({ structure: DOMA_STRUCTURE, feeds: { versions: DOMA_FEED } });
   const out = await outOf(h, { object: { name: 'ZDO_DEMO' } });
   assert.equal(h.seen.length, 1);
   assert.ok(h.seen.every((s) => !/\/content$/.test(s.url)));
-  assert.match(out.rule, /does not follow it/);
+  assert.match(out.rule, /adt_read_source reads it/);
 });
 
 test('an object whose structure publishes no versions link is a gap, not an empty history', async () => {

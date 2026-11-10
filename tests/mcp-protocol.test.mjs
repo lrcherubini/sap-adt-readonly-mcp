@@ -137,6 +137,10 @@ test('the schema check covers type, enum, ranges, items and unknown keys, and ne
   assert.match(errs.join('\n'), /unknown argument 'extra' in argument 'nested'/);
   assert.deepEqual(schemaErrors(schema, { n: 9 }), ["argument 'n' must be <= 3, got 9"]);
   assert.deepEqual(schemaErrors(schema, { n: 1, other: null }), [], 'null is absent, as clients send it');
+  // A pattern an input schema advertises is enforced, like every other keyword.
+  const versioned = { type: 'object', properties: { v: { type: 'string', pattern: '^(active|[0-9]{5})$' } } };
+  assert.deepEqual(schemaErrors(versioned, { v: '00012' }), []);
+  assert.deepEqual(schemaErrors(versioned, { v: '12' }), ["argument 'v' must match ^(active|[0-9]{5})$, got '12'"]);
 });
 
 test('structuredContent only for one JSON object; text stays text', () => {

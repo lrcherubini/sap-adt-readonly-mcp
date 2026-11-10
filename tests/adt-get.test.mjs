@@ -616,6 +616,70 @@ test('a link the server did not publish cannot be read: outside the object, past
   assert.equal(t.seen.length, 0, 'nothing reached the transport');
 });
 
+// --- the reads behind a version comparison (MEASURED 2026-11-10) --------------------
+
+const PROG_URI = '/sap/bc/adt/programs/programs/zdemo_report';
+const CONTENT = `${PROG_URI}/source/main/versions/20261110083724/00002/content`;
+
+test('a version content link is read as GET text/plain, under its object, nothing appended', async () => {
+  const t = spyTransport({ body: 'REPORT zdemo_report.' });
+  const out = await derivedGet(t, PROG_URI, CONTENT, { kind: 'versionContent' });
+  assert.deepEqual([t.seen[0].url, t.seen[0].method, t.seen[0].headers], [CONTENT, 'GET', { Accept: 'text/plain' }]);
+  assert.equal(out.url, CONTENT);
+  await derivedGet(t, CLASS_URI, 'includes/main/versions/20261110082425/00004/content', { kind: 'versionContent' });
+  assert.equal(t.seen[1].url, `${CLASS_URI}/includes/main/versions/20261110082425/00004/content`);
+});
+
+test('a version content link is refused off its shape, off its object, or with a query', async () => {
+  const t = spyTransport();
+  const refused = [
+    [PROG_URI, `${PROG_URI}/source/main/versions`],
+    [PROG_URI, `${PROG_URI}/source/main/versions/2026111008372/00002/content`],
+    [PROG_URI, `${PROG_URI}/source/main/versions/20261110083724/0002/content`],
+    [PROG_URI, `${CONTENT}?x=1`],
+    [PROG_URI, '/sap/bc/adt/programs/programs/zother/source/main/versions/20261110083724/00002/content'],
+    [PROG_URI, `${PROG_URI}/source/main/versions/20261110083724/00002/content/more`],
+    // Only the families measured: a domain's versions are XML, not source.
+    ['/sap/bc/adt/ddic/domains/zdo_demo', '/sap/bc/adt/ddic/domains/zdo_demo/versions/20261110083724/00001/content'],
+  ];
+  for (const [base, href] of refused) {
+    await assert.rejects(() => derivedGet(t, base, href, { kind: 'versionContent' }), RouteViolation, href);
+  }
+  await assert.rejects(
+    () => derivedGet(t, PROG_URI, CONTENT, { kind: 'versionContent', query: { version: 'active' } }),
+    /takes no query/,
+  );
+  assert.equal(t.seen.length, 0, 'nothing reached the transport');
+});
+
+test('the stored version is asked with a query from a closed list, written by the route', async () => {
+  const t = spyTransport({ body: 'REPORT zdemo_report.' });
+  await derivedGet(t, PROG_URI, `${PROG_URI}/source/main`, { kind: 'sourceVersion', query: { version: 'inactive' } });
+  await derivedGet(t, CLASS_URI, 'includes/testclasses', { kind: 'sourceVersion', query: { version: 'active' } });
+  await derivedGet(t, PROG_URI, PROG_URI, { kind: 'objectVersion', query: { version: 'inactive' } });
+  assert.deepEqual(
+    t.seen.map((r) => [r.url, r.headers.Accept]),
+    [
+      [`${PROG_URI}/source/main?version=inactive`, 'text/plain'],
+      [`${CLASS_URI}/includes/testclasses?version=active`, 'text/plain'],
+      [`${PROG_URI}?version=inactive`, '*/*'],
+    ],
+  );
+  const refused = [
+    ['sourceVersion', PROG_URI, `${PROG_URI}/source/main`, { version: 'workingArea' }],
+    ['sourceVersion', PROG_URI, `${PROG_URI}/source/main`, undefined],
+    ['sourceVersion', PROG_URI, `${PROG_URI}/source/main`, { version: 'active', context: 'x' }],
+    ['sourceVersion', PROG_URI, `${PROG_URI}/source/main?version=active`, { version: 'active' }],
+    ['sourceVersion', PROG_URI, `${PROG_URI}/versions`, { version: 'active' }],
+    ['objectVersion', PROG_URI, `${PROG_URI}/source/main`, { version: 'inactive' }],
+    ['objectVersion', '/sap/bc/adt/ddic/ddl/sources/zdemo', '/sap/bc/adt/ddic/ddl/sources/zdemo', { version: 'inactive' }],
+  ];
+  for (const [kind, base, href, query] of refused) {
+    await assert.rejects(() => derivedGet(t, base, href, { kind, query }), RouteViolation, `${kind} ${href}`);
+  }
+  assert.equal(t.seen.length, 3, 'no refused read reached the transport');
+});
+
 test('a failing feed read carries the status, and a 4xx returned as a response is not read as success', async () => {
   const thrown = async () => {
     const e = new Error('Not Found');
@@ -678,7 +742,15 @@ test('quickSearch refuses what is not a name and a facet: leading wildcards, pat
 
 test('an ENHO/XHB body is read at the object URI itself, with the one Accept, and nothing else passes as that kind', async () => {
   const { DERIVED_KINDS } = await import('../lib/adt-get.mjs');
-  assert.deepEqual(Object.keys(DERIVED_KINDS), ['versions', 'enhoxhb', 'runtimeDump', 'runtimeDumpText']);
+  assert.deepEqual(Object.keys(DERIVED_KINDS), [
+    'versions',
+    'enhoxhb',
+    'runtimeDump',
+    'runtimeDumpText',
+    'versionContent',
+    'sourceVersion',
+    'objectVersion',
+  ]);
   const XHB = '/sap/bc/adt/enhancements/enhoxhb/zdemo_badi_impl';
   const t = spyTransport({ body: '<enho:objectData/>', headers: { 'content-type': DERIVED_KINDS.enhoxhb.accept } });
   const out = await derivedGet(t, XHB, XHB, { kind: 'enhoxhb' });

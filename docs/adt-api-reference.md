@@ -1576,12 +1576,13 @@ only when it resolves under the object's own URI and ends in `/versions`; the pa
 three rules above live in `lib/object-versions.mjs`, and the caller is
 `adt_transport({object: {name, type}})`.
 
-#### A boundary this resource opens, and which is not crossed
+#### A boundary this resource opens, crossed by another tool
 
 `atom:content/@src` returns **the source of an old version** of a Z object. That is a real
-capability and it is a different question from "which transports carry this object". Nothing
-in this repository follows that link; a reader built on this feed reports the version
-*header* — number, timestamp, author, transport, `isTestTransport` — and stops there.
+capability and it is a different question from "which transports carry this object", so the
+transport reader reports the version *header* — number, timestamp, author, transport,
+`isTestTransport` — and stops there. Since 2026-11-10 `adt_read_source` follows the link
+(`version`, `compareTo`), measured in the next section.
 
 ### Old versions, the inactive version and the syntax check run — MEASURED 2026-11-10
 
