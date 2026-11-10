@@ -1331,6 +1331,14 @@ Sources: [NVD CVE-2026-82417](https://nvd.nist.gov/vuln/detail/CVE-2026-82417) Â
 - **This server is meant for a development system.** It reads what a developer reads; pointing
   it at a quality or production system is outside its design, and nothing in it is tuned for
   the load or the data of one.
+- **The ADT REST API is not a published interface** (decided 2026-11-10). It is the protocol
+  of SAP's own development tools. SAP publishes no endpoint reference and no stability promise
+  for it (`docs/adt-api-reference.md`, opening and Sources), and other ADT MCP servers report
+  that SAP treats it as an interface for its own tools. This server uses it the way the IDE
+  does, under the logged-on user's authorisations, and every shape it relies on is measured
+  rather than assumed. Whether that use is admissible under an installation's SAP contract is
+  the operator's question, not something this repository can answer: confirm it with your SAP
+  contact before adopting the server, and keep it on a development system.
 - `adt_where_used` refuses SAP standard objects unless `allowStandard: true` is passed â€” that
   search is the most expensive call this server can make against the SAP system.
 - A read budget (200 calls per session by default) warns when crossed.

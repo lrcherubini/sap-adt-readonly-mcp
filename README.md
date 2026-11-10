@@ -455,6 +455,9 @@ Every call is also written to `%LOCALAPPDATA%\sap-adt\audit.log` — tool, targe
 
 - It is meant for a **development** system. Pointing it at quality or production is outside its
   design.
+- The ADT REST API is the protocol of SAP's own tools, not a published interface. Confirm with
+  your SAP contact that this use is admissible before adopting the server (`docs/security.md`,
+  *Scope limits that are also safety limits*).
 - **One SAP system per installation** (one store, one session). The server always reads the
   store in the state directory; `--db` exists only on the configuration CLI.
 - **Basic authentication over HTTPS only.** No SSO, SAML, X.509 or OAuth, so no SAP BTP ABAP

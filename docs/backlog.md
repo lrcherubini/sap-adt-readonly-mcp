@@ -58,11 +58,6 @@ Each needs a measurement on the system and a dated decision before it is built.
   must find after logon, so a configuration pointed at the wrong system stops before any read.
 - **Conditional reads by ETag.** The IDE log shows 304 answers; a source read again within the
   session could ask with `If-None-Match`. Measure which resources send an ETag.
-- **State the status of the ADT API.** Other ADT MCP servers warn that SAP treats the ADT REST
-  API as an internal interface for its own tools, used at the operator's risk, and advise
-  development and test systems only. Neither the README nor `docs/security.md` says so. Decide:
-  the wording, dated in `docs/security.md`, and one line in the README that points to it. No
-  measurement.
 - **Package boundary violations.** A customer object that uses an object of another customer
   package outside that package's declared interface (`PINF`): the dependency side of Clean Core,
   next to what `adt_clean_core_scan` says about consumed SAP objects. Measure: how the ADT
