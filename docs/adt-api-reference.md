@@ -3450,6 +3450,10 @@ GET /sap/bc/adt/cts/transportrequests?targets=true&configUri=<that href, percent
   `<chkrun:checkObject adtcore:uri="/sap/bc/adt/packages/<pkg>" chkrun:version="active"/>`, answered
   by `abapCheckRun` "processed" with no message for a package with no finding. What it reports
   for a package with a finding is not measured.
+- **An empty package check is not "no violation".** A customer package built on purpose with a
+  use across packages and no use access was checked the same way and answered the same
+  "processed", no message. Whether the system enforces the package check at all (a system-wide
+  setting) was not read; until it is, the check run says nothing about package boundaries.
 - The document also carries `pak:attributes` (`isEncapsulated`, `languageVersion`), the software
   component and transport layer, and a link `supportsPackageCheckActions` to `/sap/bc/adt/checkruns{?reporters}`.
 
