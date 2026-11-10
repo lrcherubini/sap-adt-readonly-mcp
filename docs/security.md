@@ -1109,6 +1109,24 @@ none it says so with a gap instead of answering "no requests". Every object of t
 inline (874 KB measured) and is counted, never listed: the objects of one request are asked by
 `number`. Descriptions and owners reach the answer, never the trail.
 
+### ATC over a package: the run body names a package -- 2026-11-10
+
+`adt_atc_run` checks one object. The IDE checks a package with the same run, its object set one
+object reference: the virtual-folders URI with `selection=package%3a<PKG>` (IDE log, measured the
+same day, `adt-api-reference.md`, *Backlog reads*). `adt_package_health` now offers that run, so
+the package's Clean Core summary can carry the ATC verdict the IDE would show.
+
+**What it admits.** The run body of the second ATC POST may carry, instead of an object URI, that
+one virtual-folders URI, built here from a package name held to the customer alphabet
+(`[A-Z][A-Z0-9_]{0,29}`): no namespace and no `$` package, neither measured, and no other facet
+(the IDE's `owner:` facet is not sent). Everything else is the run `adt_atc_run` sends: a worklist
+created for this run, which holds that run alone, the default variant, the result read from the
+worklist. It is opt-in (`atc: true`), because it is the slowest part and it leaves a result
+worklist on the server, like `adt_atc_run`. The IDE sent the run with `clientWait=false` and got
+`201`; this server sends it as `adt_atc_run` does and waits for the reply. The first real call on
+a package confirms that the reply keeps the measured shape. A run that failed is `read: false`
+with its gap, never a clean package.
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:

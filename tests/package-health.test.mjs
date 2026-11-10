@@ -8,6 +8,18 @@ import path from 'node:path';
 import { runPackageHealth, packageHealthTool, MAX_CHECKS } from '../tools/package-health.mjs';
 import { resetBudget } from '../lib/audit.mjs';
 
+const WL = '0123456789ABCDEF0123456789ABCDEF';
+const RUN_REPLY =
+  '<?xml version="1.0" encoding="utf-8"?><atcworklist:worklistRun xmlns:atcworklist="http://www.sap.com/abapxml/atc/worklist">' +
+  `<atcworklist:worklistId>${WL}</atcworklist:worklistId><atcworklist:worklistTimestamp>2026-11-10T12:00:00Z</atcworklist:worklistTimestamp>` +
+  '<atcworklist:infos><atcinfo:info xmlns:atcinfo="http://www.sap.com/abapxml/atc/info"><atcinfo:type>FINDING_STATS</atcinfo:type><atcinfo:description>0,1,0</atcinfo:description></atcinfo:info></atcworklist:infos></atcworklist:worklistRun>';
+const WORKLIST =
+  `<?xml version="1.0" encoding="utf-8"?><atcworklist:worklist xmlns:atcworklist="http://www.sap.com/abapxml/atc/worklist" atcworklist:id="${WL}" atcworklist:timestamp="2026-11-10T12:00:00Z" atcworklist:usedObjectSet="99999999999999999999999999999999" atcworklist:objectSetIsComplete="true">` +
+  '<atcworklist:objectSets><atcworklist:objectSet atcworklist:name="99999999999999999999999999999999" atcworklist:title="Last Check Run" atcworklist:kind="LAST_RUN"/></atcworklist:objectSets>' +
+  '<atcworklist:objects><atcobject:object xmlns:atcobject="http://www.sap.com/abapxml/atc/object" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:uri="/sap/bc/adt/atc/objects/R3TR/PROG/ZDEMO_REPORT" adtcore:type="PROG" adtcore:name="ZDEMO_REPORT" adtcore:packageName="ZDEMO_PKG" atcobject:author="DEVUSER1"><atcobject:findings>' +
+  `<atcfinding:finding xmlns:atcfinding="http://www.sap.com/abapxml/atc/finding" adtcore:uri="/sap/bc/adt/atc/worklists/${WL}/findings/1" atcfinding:location="/sap/bc/adt/programs/programs/zdemo_report/source/main#start=3,0" atcfinding:processor="" atcfinding:lastChangedBy="" atcfinding:priority="2" atcfinding:checkId="SELECT" atcfinding:checkTitle="Check SELECT" atcfinding:messageId="0002" atcfinding:messageTitle="SELECT * without WHERE" atcfinding:exemptionApproval="" atcfinding:exemptionKind="" atcfinding:checksum="1" atcfinding:quickfixInfo=""></atcfinding:finding>` +
+  '</atcobject:findings></atcobject:object></atcworklist:objects><atcworklist:infos/></atcworklist:worklist>';
+
 const checkrun = (name) => fs.readFileSync(path.join(import.meta.dirname, 'fixtures', 'checkrun', name), 'utf8');
 
 /** ZDEMO_PKG: one view, two classes, one program, and a class the listing gives no URI. */
@@ -35,6 +47,17 @@ function fakeSession({ calls = [], replies = {}, failing = new Set() } = {}) {
   const raw = {
     httpClient: {
       request: async (url, req) => {
+        if (url.startsWith('/sap/bc/adt/atc/')) {
+          calls.push(`atc ${req.method} ${url.split('?')[0]}`);
+          if (failing.has('atc')) throw Object.assign(new Error('Service unavailable'), { err: 503 });
+          if (url.startsWith('/sap/bc/adt/atc/worklists?')) return { status: 200, body: WL };
+          if (url.startsWith('/sap/bc/adt/atc/runs')) {
+            calls.push(`atc body ${/adtcore:uri="([^"]+)"/.exec(req.body)?.[1]}`);
+            return { status: 200, body: RUN_REPLY };
+          }
+          if (url.startsWith('/sap/bc/adt/atc/checkvariants')) throw Object.assign(new Error('Not Found'), { err: 404 });
+          return { status: 200, body: WORKLIST, headers: {} };
+        }
         const uri = /adtcore:uri="([^"]+)"/.exec(req.body ?? '')?.[1];
         calls.push(`check ${uri}`);
         if (failing.has(uri)) throw Object.assign(new Error('Service unavailable'), { err: 503 });
@@ -78,7 +101,9 @@ test('one listing feeds both parts; each class and program is checked on its sto
   assert.deepEqual(out.syntax.notChecked, [{ object: 'CLAS/OC ZCL_DEMO_NOURI', package: 'ZDEMO_PKG', reason: 'the package listing gave no URI for it' }]);
   assert.equal(out.syntax.complete, false, 'an object not checked is not clean');
   assert.equal(out.complete, false);
-  assert.equal(out.atc.read, false, 'ATC is not run, and the answer says so');
+  assert.equal(out.atc.read, false, 'ATC is not run unless asked, and the answer says so');
+  assert.match(out.atc.reason, /atc: true/);
+  assert.equal(calls.some((c) => c.startsWith('atc')), false);
 });
 
 test('the cap on checks is a gap and an incomplete answer, never a smaller clean package', async () => {
@@ -127,4 +152,27 @@ test('the tool refuses without a package or a raw client, and answers JSON', asy
   await assert.rejects(() => packageHealthTool(cfgFor(), { api: {} }, journal).handler({ package: 'ZDEMO_PKG' }), /no raw client/);
   const res = await tool.handler({ package: 'ZDEMO_PKG' });
   assert.equal(JSON.parse(res.content[0].text).package, 'ZDEMO_PKG');
+});
+
+test('atc: true runs the default variant once over the whole package and summarises its findings', async () => {
+  const calls = [];
+  const out = await runPackageHealth(cfgFor(), fakeSession({ calls }), { package: 'ZDEMO_PKG', atc: true }, journal);
+  assert.ok(calls.includes('atc body /sap/bc/adt/repository/informationsystem/virtualfolders?selection=package%3aZDEMO_PKG'));
+  assert.equal(calls.filter((c) => c === 'atc POST /sap/bc/adt/atc/runs').length, 1, 'one run, not one per object');
+  assert.equal(out.atc.read, true);
+  assert.equal(out.atc.complete, true);
+  assert.equal(out.atc.worklistId, WL);
+  assert.equal(out.atc.count, 1);
+  assert.equal(out.atc.findings[0].checkId, 'SELECT');
+});
+
+test('a failed ATC run is read: false and a gap, never a clean package', async () => {
+  const out = await runPackageHealth(cfgFor(), fakeSession({ failing: new Set(['atc']) }), { package: 'ZDEMO_PKG', atc: true }, journal);
+  assert.equal(out.atc.read, false);
+  assert.match(out.atc.reason, /503/);
+  assert.equal(out.complete, false);
+  assert.ok(gaps.some((g) => g.code === 'ATC_NOT_RUN' && g.subject === 'DEVC/K ZDEMO_PKG'));
+  const ns = await runPackageHealth(cfgFor(), { ...fakeSession(), api: { nodeContents: async () => ({ nodes: [] }) } }, { package: '/DEMO/PKG', atc: true }, journal);
+  assert.equal(ns.atc.read, false);
+  assert.match(ns.atc.reason, /namespaces/);
 });

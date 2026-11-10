@@ -148,7 +148,7 @@ export function atcTool(cfg, session, journal) {
         }
         progress(i, list.length, `ATC ${v} on ${subject}`);
         try {
-          runs.push(await runVariant(v, { subject, body, includeExempted }));
+          runs.push(await runVariant(cfg, session, journal, v, { subject, body, includeExempted }));
         } catch (e) {
           if (list.length === 1) throw e;
           // One variant failing must not hide the others: its gap is already journaled, and
@@ -168,144 +168,147 @@ export function atcTool(cfg, session, journal) {
       });
     },
   };
+}
 
-  /**
-   * What the variant that just ran contains, read once after its run and never in its way: a
-   * failure here leaves the findings standing. A 404 is the documented answer for a variant
-   * created in transaction SCI (the ATC just ran it, so it exists): said, not filed as a gap.
-   */
-  async function describeVariant(v) {
-    let out;
-    try {
-      out = await namedGet(transportFor(session.raw), 'atcCheckVariant', { name: String(v).toLowerCase() });
-    } catch (e) {
-      if (e?.status === 404) return { variantKind: 'SCI', variantNote: SCI_VARIANT_NOTE };
-      journal?.gap?.({
-        code: 'ATC_VARIANT_NOT_READ',
-        subject: `check variant ${v}`,
-        detail: `HTTP ${e?.status ?? '?'}: ${e?.message}`,
-        impact: 'the run and its findings stand; which checks the variant contains could not be read',
-        fallback: 'open the variant in Eclipse ADT (search type:chkv) or in transaction SCI',
-      });
-      return { variantNote: `check list not read: ${e?.name ?? 'Error'}: ${e?.message}` };
-    } finally {
-      record(cfg, 'adt_atc_run', `${v}#variant`, out?.bytes ?? 0);
-    }
-    const parsed = parseCheckVariant(out.body);
-    if (parsed.drift.length && journal?.enabled) {
-      journal.gap({
-        code: DRIFT_CODE,
-        subject: `check variant ${v}`,
-        detail: parsed.drift.map((d) => `<${d.node}> x${d.count}`).join('; '),
-        impact: 'the checks listed stand; the measured shape of the check variant has aged',
-        fallback: 're-measure (docs/adt-api-reference.md, "Check variants, broad round")',
-      });
-    }
-    const notes = [];
-    if (parsed.referencedVariant) {
-      notes.push(`references ${parsed.referencedVariant}: its checks are not merged here (no variant with a reference was measured)`);
-    }
-    if (!parsed.checks.length) notes.push('the variant lists no check');
-    return {
-      variantKind: 'CHKV',
-      variantChecks: parsed.checks,
-      ...(notes.length ? { variantNote: notes.join('; ') } : {}),
-    };
+/**
+ * What the variant that just ran contains, read once after its run and never in its way: a
+ * failure here leaves the findings standing. A 404 is the documented answer for a variant
+ * created in transaction SCI (the ATC just ran it, so it exists): said, not filed as a gap.
+ */
+export async function describeVariant(cfg, session, journal, v, tool = 'adt_atc_run') {
+  let out;
+  try {
+    out = await namedGet(transportFor(session.raw), 'atcCheckVariant', { name: String(v).toLowerCase() });
+  } catch (e) {
+    if (e?.status === 404) return { variantKind: 'SCI', variantNote: SCI_VARIANT_NOTE };
+    journal?.gap?.({
+      code: 'ATC_VARIANT_NOT_READ',
+      subject: `check variant ${v}`,
+      detail: `HTTP ${e?.status ?? '?'}: ${e?.message}`,
+      impact: 'the run and its findings stand; which checks the variant contains could not be read',
+      fallback: 'open the variant in Eclipse ADT (search type:chkv) or in transaction SCI',
+    });
+    return { variantNote: `check list not read: ${e?.name ?? 'Error'}: ${e?.message}` };
+  } finally {
+    record(cfg, tool, `${v}#variant`, out?.bytes ?? 0);
+  }
+  const parsed = parseCheckVariant(out.body);
+  if (parsed.drift.length && journal?.enabled) {
+    journal.gap({
+      code: DRIFT_CODE,
+      subject: `check variant ${v}`,
+      detail: parsed.drift.map((d) => `<${d.node}> x${d.count}`).join('; '),
+      impact: 'the checks listed stand; the measured shape of the check variant has aged',
+      fallback: 're-measure (docs/adt-api-reference.md, "Check variants, broad round")',
+    });
+  }
+  const notes = [];
+  if (parsed.referencedVariant) {
+    notes.push(`references ${parsed.referencedVariant}: its checks are not merged here (no variant with a reference was measured)`);
+  }
+  if (!parsed.checks.length) notes.push('the variant lists no check');
+  return {
+    variantKind: 'CHKV',
+    variantChecks: parsed.checks,
+    ...(notes.length ? { variantNote: notes.join('; ') } : {}),
+  };
+}
+
+/**
+ * One variant on one object set: worklist, run, result. Throws (after journaling) on a failed
+ * step. Shared by adt_atc_run (one object) and adt_package_health (one package).
+ */
+export async function runVariant(cfg, session, journal, v, { subject, body, includeExempted, tool = 'adt_atc_run' }) {
+  // 1. the worklist for the variant
+  let worklistId;
+  let created;
+  try {
+    created = await atcPost(session.raw, 'worklist', { variant: v });
+    worklistId = created.body.trim();
+  } catch (e) {
+    journal?.gap?.({
+      code: 'ATC_NOT_RUN',
+      subject,
+      detail: `worklist for ${v}: HTTP ${e?.status ?? '?'}: ${e?.message}`,
+      impact: 'no ATC verdict exists for this object from this call -- NOT a clean object',
+      fallback: 'run the ATC in Eclipse ADT (Ctrl+Shift+F2) or SE80',
+    });
+    throw e;
+  } finally {
+    record(cfg, tool, `${v} ${subject}#worklist`, created?.bytes ?? 0);
   }
 
-  /** One variant on one object: worklist, run, result. Throws (after journaling) on a failed step. */
-  async function runVariant(v, { subject, body, includeExempted }) {
-    // 1. the worklist for the variant
-    let worklistId;
-    let created;
-    try {
-      created = await atcPost(session.raw, 'worklist', { variant: v });
-      worklistId = created.body.trim();
-    } catch (e) {
-      journal?.gap?.({
-        code: 'ATC_NOT_RUN',
-        subject,
-        detail: `worklist for ${v}: HTTP ${e?.status ?? '?'}: ${e?.message}`,
-        impact: 'no ATC verdict exists for this object from this call -- NOT a clean object',
-        fallback: 'run the ATC in Eclipse ADT (Ctrl+Shift+F2) or SE80',
-      });
-      throw e;
-    } finally {
-      record(cfg, 'adt_atc_run', `${v} ${subject}#worklist`, created?.bytes ?? 0);
-    }
-
-    // 2. the run
-    let run;
-    try {
-      run = await atcPost(session.raw, 'run', { worklistId, body });
-    } catch (e) {
-      journal?.gap?.({
-        code: 'ATC_NOT_RUN',
-        subject,
-        detail: `run on worklist ${worklistId}: HTTP ${e?.status ?? '?'}: ${e?.message}`,
-        impact: 'no ATC verdict exists for this object from this call -- NOT a clean object',
-        fallback: 'run the ATC in Eclipse ADT (Ctrl+Shift+F2) or SE80',
-      });
-      throw e;
-    } finally {
-      record(cfg, 'adt_atc_run', `${worklistId}#run`, run?.bytes ?? 0);
-    }
-    const runReply = parseRunReply(run.body);
-
-    // 3. the result
-    let out;
-    try {
-      out = await namedGet(transportFor(session.raw), 'atcWorklist', {
-        id: worklistId,
-        ...(includeExempted ? { includeExemptedFindings: 'true' } : {}),
-      });
-    } catch (e) {
-      journal?.gap?.({
-        code: 'ATC_RESULT_NOT_READ',
-        subject,
-        detail: `worklist ${worklistId}: HTTP ${e?.status ?? '?'}: ${e?.message}`,
-        impact: `the run happened (${runReply.infos.map((i) => `${i.type} ${i.description}`).join('; ') || 'no stats'}) but its findings were not read -- NOT zero findings`,
-        fallback: 'open the ATC Result Browser in Eclipse ADT with the worklist id',
-      });
-      throw e;
-    } finally {
-      record(cfg, 'adt_atc_run', `${worklistId}#worklist`, out?.bytes ?? 0);
-    }
-    const parsed = parseWorklist(out.body);
-    if (parsed.drift.length && journal?.enabled) {
-      journal.gap({
-        code: DRIFT_CODE,
-        subject: `ATC worklist ${worklistId}`,
-        detail: parsed.drift.map((d) => `<${d.node}> x${d.count} (${d.where})`).join('; '),
-        impact: 'the findings stand; the measured shape of the worklist has aged and the parser may be dropping something',
-        fallback: 'compare with the ATC Result Browser in Eclipse ADT; re-measure (docs/adt-api-reference.md)',
-      });
-    }
-    // The server ignores maximumVerdicts (measured 2026-11-09): the worklist holds every finding,
-    // so the cap is applied here, most severe first. `count` is what the worklist holds; the run
-    // stats are the server's own total, and a worklist holding fewer is cut too.
-    const definition = await describeVariant(v);
-    const stats = runReply.byPriority;
-    const statsTotal = stats ? stats[1] + stats[2] + stats[3] : 0;
-    const shown = [...parsed.findings].sort((a, b) => (a.priority ?? 9) - (b.priority ?? 9)).slice(0, body.maxVerdicts);
-    return {
-      variant: v,
-      variantWhy: ATC_VARIANTS.get(v),
-      worklistId,
-      timestamp: runReply.timestamp,
-      runMs: run.ms,
-      runStats: stats,
-      count: parsed.findings.length,
-      shown: shown.length,
-      byPriority: parsed.byPriority,
-      truncated: shown.length < Math.max(parsed.findings.length, statsTotal),
-      objectSetIsComplete: parsed.objectSetIsComplete,
-      findings: shown,
-      ...definition,
-      rule:
-        'a run leaves a result worklist on the server and nothing else; the findings above are the ' +
-        `verdict of variant ${v} on this one object, read from that worklist (measured)`,
-      ...(parsed.drift.length ? { drift: parsed.drift } : {}),
-    };
+  // 2. the run
+  let run;
+  try {
+    run = await atcPost(session.raw, 'run', { worklistId, body });
+  } catch (e) {
+    journal?.gap?.({
+      code: 'ATC_NOT_RUN',
+      subject,
+      detail: `run on worklist ${worklistId}: HTTP ${e?.status ?? '?'}: ${e?.message}`,
+      impact: 'no ATC verdict exists for this object from this call -- NOT a clean object',
+      fallback: 'run the ATC in Eclipse ADT (Ctrl+Shift+F2) or SE80',
+    });
+    throw e;
+  } finally {
+    record(cfg, tool, `${worklistId}#run`, run?.bytes ?? 0);
   }
+  const runReply = parseRunReply(run.body);
+
+  // 3. the result
+  let out;
+  try {
+    out = await namedGet(transportFor(session.raw), 'atcWorklist', {
+      id: worklistId,
+      ...(includeExempted ? { includeExemptedFindings: 'true' } : {}),
+    });
+  } catch (e) {
+    journal?.gap?.({
+      code: 'ATC_RESULT_NOT_READ',
+      subject,
+      detail: `worklist ${worklistId}: HTTP ${e?.status ?? '?'}: ${e?.message}`,
+      impact: `the run happened (${runReply.infos.map((i) => `${i.type} ${i.description}`).join('; ') || 'no stats'}) but its findings were not read -- NOT zero findings`,
+      fallback: 'open the ATC Result Browser in Eclipse ADT with the worklist id',
+    });
+    throw e;
+  } finally {
+    record(cfg, tool, `${worklistId}#worklist`, out?.bytes ?? 0);
+  }
+  const parsed = parseWorklist(out.body);
+  if (parsed.drift.length && journal?.enabled) {
+    journal.gap({
+      code: DRIFT_CODE,
+      subject: `ATC worklist ${worklistId}`,
+      detail: parsed.drift.map((d) => `<${d.node}> x${d.count} (${d.where})`).join('; '),
+      impact: 'the findings stand; the measured shape of the worklist has aged and the parser may be dropping something',
+      fallback: 'compare with the ATC Result Browser in Eclipse ADT; re-measure (docs/adt-api-reference.md)',
+    });
+  }
+  // The server ignores maximumVerdicts (measured 2026-11-09): the worklist holds every finding,
+  // so the cap is applied here, most severe first. `count` is what the worklist holds; the run
+  // stats are the server's own total, and a worklist holding fewer is cut too.
+  const definition = await describeVariant(cfg, session, journal, v, tool);
+  const stats = runReply.byPriority;
+  const statsTotal = stats ? stats[1] + stats[2] + stats[3] : 0;
+  const shown = [...parsed.findings].sort((a, b) => (a.priority ?? 9) - (b.priority ?? 9)).slice(0, body.maxVerdicts);
+  return {
+    variant: v,
+    variantWhy: ATC_VARIANTS.get(v),
+    worklistId,
+    timestamp: runReply.timestamp,
+    runMs: run.ms,
+    runStats: stats,
+    count: parsed.findings.length,
+    shown: shown.length,
+    byPriority: parsed.byPriority,
+    truncated: shown.length < Math.max(parsed.findings.length, statsTotal),
+    objectSetIsComplete: parsed.objectSetIsComplete,
+    findings: shown,
+    ...definition,
+    rule:
+      'a run leaves a result worklist on the server and nothing else; the findings above are the ' +
+      `verdict of variant ${v} on this one object, read from that worklist (measured)`,
+    ...(parsed.drift.length ? { drift: parsed.drift } : {}),
+  };
 }

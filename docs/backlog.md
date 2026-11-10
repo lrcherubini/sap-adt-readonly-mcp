@@ -70,10 +70,6 @@ Each needs a measurement on the system and a dated decision before it is built.
   naming the object answers, in context `ENV` ("Used Objects"), every object it uses with type,
   package and package path; for CDS the `graphdata` route already answers. Build: that POST
   (a dated decision: the body names one object, no source), then the composition.
-- **ATC on a package, for `adt_package_health`.** Measured 2026-11-10 from the IDE: one object
-  reference, `virtualfolders?selection=package:<pkg>`, answered `201`; the worklist read with the
-  LAST_RUN set holds the package's objects. Build: the object set into the ATC run body, its dated
-  decision, and the part of `adt_package_health` that runs it.
 
 ---
 

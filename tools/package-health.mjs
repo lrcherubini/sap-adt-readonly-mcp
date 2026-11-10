@@ -9,8 +9,10 @@
 //              own run, so its findings and gaps are the same)
 //   syntax     the stored active version of each class and program, checked (adt_syntax_check's
 //              own check run), at most `maxChecks` of them
-//   atc        NOT run: whether an ATC run accepts a package as its object set is not measured
-//              (docs/backlog.md); adt_atc_run checks one object
+//   atc        with `atc: true`, one ATC run of the default variant over the whole package, as
+//              the IDE runs it (the package as one virtual-folders object reference, measured
+//              2026-11-10); the run leaves a result worklist, like adt_atc_run. Off by default:
+//              it is the slowest part and the one that leaves something on the server
 //
 // Nothing is summarised about what was not read. `complete` is true only when every part read
 // everything it was asked to read; a part that could not run says why and counts as incomplete,
@@ -20,8 +22,10 @@ import { listPackage } from '../lib/package-sources.mjs';
 import { buildCheckBody } from '../lib/syntax-check.mjs';
 import { CatalogMissing } from '../lib/catalog.mjs';
 import { progressOf } from '../lib/tool-meta.mjs';
+import { buildPackageRunBody, DEFAULT_VARIANT } from '../lib/atc.mjs';
 import { runCleanCoreScan } from './clean-core-scan.mjs';
 import { checkStored } from './syntax-check.mjs';
+import { runVariant } from './atc.mjs';
 
 export const CHECK_TYPES = Object.freeze(['CLAS/OC', 'PROG/P']);
 export const DEFAULT_MAX_CHECKS = 20;
@@ -81,6 +85,35 @@ export async function checkPackage(cfg, session, journal, listing, { max, signal
   return out;
 }
 
+/** The ATC half: one run of the default variant over the package, summarised. Never "clean" unread. */
+export async function atcPackage(cfg, session, journal, pkg) {
+  let body;
+  try {
+    body = buildPackageRunBody({ packageName: pkg });
+  } catch (e) {
+    // Not swallowed: the part says why it did not run (a package name the run is not measured on).
+    return { read: false, complete: false, reason: e.message };
+  }
+  let run;
+  try {
+    run = await runVariant(cfg, session, journal, DEFAULT_VARIANT, { subject: `DEVC/K ${pkg}`, body, tool: TOOL });
+  } catch (e) {
+    // Not swallowed: runVariant filed ATC_NOT_RUN or ATC_RESULT_NOT_READ before throwing.
+    return { read: false, complete: false, reason: String(e?.message ?? e).slice(0, 200) };
+  }
+  return {
+    read: true,
+    complete: run.objectSetIsComplete === true,
+    variant: run.variant,
+    worklistId: run.worklistId,
+    count: run.count,
+    byPriority: run.byPriority,
+    findings: run.findings.slice(0, FINDINGS_SHOWN),
+    ...(run.count > FINDINGS_SHOWN ? { moreFindings: run.count - FINDINGS_SHOWN } : {}),
+    note: 'the findings of one run over the package, read from the worklist it left (adt_atc_run reads one object)',
+  };
+}
+
 export async function runPackageHealth(cfg, session, args = {}, journal = null, extra = {}) {
   const pkg = String(args.package ?? '').trim().toUpperCase();
   if (!pkg) throw new Error('adt_package_health needs a package.');
@@ -114,19 +147,22 @@ export async function runPackageHealth(cfg, session, args = {}, journal = null, 
   }
 
   const syntax = await checkPackage(cfg, session, journal, listing, { max, signal: extra.signal, progress });
+  const atc =
+    args.atc === true
+      ? extra.signal?.aborted
+        ? { read: false, complete: false, reason: 'cancelled before the ATC run' }
+        : await atcPackage(cfg, session, journal, pkg)
+      : { read: false, reason: 'not asked: pass atc: true for one ATC run over the package (it leaves a result worklist)' };
   const listed = !listing.notListed.length;
   return {
     package: pkg,
     packages: listing.packages.length,
     objects: listing.objects.length,
     ...(listed ? {} : { notListed: listing.notListed }),
-    complete: listed && cleanCore.complete && syntax.complete,
+    complete: listed && cleanCore.complete && syntax.complete && (args.atc !== true || atc.complete),
     cleanCore,
     syntax,
-    atc: {
-      read: false,
-      reason: 'not run: whether an ATC run accepts a package as its object set is not measured; adt_atc_run checks one object',
-    },
+    atc,
     reminder:
       'complete false means a part did not read everything: what was not read is not clean. ' +
       'Level B is reported, not recommended. The syntax part checks the stored active version.',
@@ -141,7 +177,8 @@ export function packageHealthTool(cfg, session, journal) {
         'Clean Core health of a package in one answer, on one listing: the Clean Core level of ' +
         'what its CDS views consume (as adt_clean_core_scan) and the syntax check of the stored ' +
         'active version of its classes and programs (as adt_syntax_check). One call per view ' +
-        'and per check: keep the package small. ATC is not run. Needs the catalogue for the ' +
+        'and per check: keep the package small. `atc: true` adds one ATC run over the package ' +
+        '(default variant; leaves a result worklist). Needs the catalogue for the ' +
         'Clean Core part; without it that part says so and the rest still runs.',
       inputSchema: {
         type: 'object',
@@ -149,6 +186,7 @@ export function packageHealthTool(cfg, session, journal) {
           package: { type: 'string', description: 'Package, e.g. ZDEMO_SALES' },
           recursive: { type: 'boolean', description: 'Include sub-packages (default true)' },
           maxObjects: { type: 'integer', minimum: 1, maximum: 300, description: 'Max CDS sources read (default 100)' },
+          atc: { type: 'boolean', description: 'Also one ATC run over the package (default false)' },
           maxChecks: {
             type: 'integer',
             minimum: 1,

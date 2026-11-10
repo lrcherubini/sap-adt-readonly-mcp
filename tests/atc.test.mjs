@@ -12,6 +12,8 @@ import {
   WORKLIST_ID,
   assertVariant,
   buildRunBody,
+  buildPackageRunBody,
+  atcPost,
   parseRunReply,
   parseWorklist,
   parseCustomizing,
@@ -219,4 +221,19 @@ test('atcPost carries the status of a failed request whichever field the transpo
   assert.equal(out.body, '');
   assert.equal(out.bytes, 0);
   assert.equal(out.contentType, null);
+});
+
+test('a package is one object reference, the virtual-folders selection the IDE sends, and only that', async () => {
+  const b = buildPackageRunBody({ packageName: 'zdemo_pkg' });
+  assert.equal(b.uri, '/sap/bc/adt/repository/informationsystem/virtualfolders?selection=package%3aZDEMO_PKG');
+  assert.match(b.xml, /adtcore:uri="\/sap\/bc\/adt\/repository\/informationsystem\/virtualfolders\?selection=package%3aZDEMO_PKG"\/>/);
+  for (const bad of ['/DEMO/PKG', '$TMP', 'ZDEMO PKG', 'ZDEMO_PKG%20owner%3aDEVUSER1', '', 'Z'.repeat(31)]) {
+    assert.throws(() => buildPackageRunBody({ packageName: bad }), AtcViolation, bad);
+  }
+  const sent = [];
+  const raw = { httpClient: { request: async (url, opts) => { sent.push({ url, body: opts.body }); return { status: 200, body: RUN_REPLY }; } } };
+  await atcPost(raw, 'run', { worklistId: '0123456789ABCDEF0123456789ABCDEF', body: b });
+  assert.equal(sent[0].body, b.xml);
+  // A body that only looks built is still refused.
+  await assert.rejects(() => atcPost(raw, 'run', { worklistId: '0123456789ABCDEF0123456789ABCDEF', body: { uri: b.uri, xml: b.xml, maxVerdicts: b.maxVerdicts } }), AtcViolation);
 });
