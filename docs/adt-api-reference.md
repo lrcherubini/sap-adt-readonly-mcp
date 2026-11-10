@@ -2282,11 +2282,21 @@ and one behind a switch with no stored row:
 | `FSH_DET_PROCESS` | `SFSW_FASHION` | F |
 | `ITMF_SAPMV45A_01` | `ITMF_SFW_SD_TC` | F |
 
-What is **not** observed: an `F` or `S` switch checked against a field truth. No append was found
-behind one in this sweep. "No row" agreed with "off" once (`OILKNA1`). So the tools print the
-state as read, and print a missing row as such, never as "off". `lib/switch-chain.mjs` reads this
-table instead of the business functions, and `adt_read_source` prints each listed
-implementation's switch with its state.
+**`F` and "no row", validated on `VBAP` the same day**: 28 of 28 appends (`propose:table VBAP`).
+
+| appends | switch | stored state | in the active `VBAP` |
+|---|---|---|---|
+| `/ACCGO/CMN_S_VBAP_ADDON` (`/ACCGO/ACM_APPENDS`), `OIUVBAP` (`OIU_LO`) | `/ACCGO/SWITCH_ECC`, `OIU_REVENUE_ACCOUNTING` | **F** | no |
+| `ISU_CRM_VBAP` (`EET_CORE_MOD`), `OIFINAL` (`OI0_COMMON`) | `ISUT_MODIF`, `OI0_COMMON_DS` | **no row** | no |
+| `OILVBAP` (`OI0_COMMON_2`) | `OI0_COMMON_2` | **T** | yes |
+| the other 23 | no switch | — | yes |
+
+Over `KNA1` and `VBAP` that is **38 of 38**: `F` agreed with an absence twice, "no row" three times,
+`T` with a presence four times, and no switch with a presence 29 times. So the tools print both
+`F` and "no row" as **OFF**. **No `S` row exists** on this system (0 rows), so stand-by is
+printed as read and never interpreted. `lib/switch-chain.mjs` reads this table instead of the
+business functions, and `adt_read_source` prints each listed implementation's switch with its
+state. A switch state is not a cause: an activation error is still not read.
 
 The same day, `OIH_SAPLV45A` (`OIH` → `OIH_EXCISE_DUTY`, no active business function) enhances
 function group `V45A` and is **not** in the listing of the group's main program, which shows only

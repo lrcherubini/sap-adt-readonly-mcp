@@ -50,7 +50,9 @@ test('the measured case: on, off, no stored row, and no switch at all', async ()
   assert.deepEqual(byPackage.get('ZDEMO_PKG_PLAIN').switches, []);
 
   assert.match(describeChain(byPackage.get('ZDEMO_PKG_ON'))[0], /switch ZDEMO_SW_ON: ON \(SFW_SWITCH_STATE T\)/);
-  assert.match(describeChain(byPackage.get('ZDEMO_PKG_NOROW'))[0], /no stored state .*behave as off, on one case/);
+  // Measured 3 of 3 (KNA1, VBAP): a switch with no stored row behaves as off, and says why.
+  assert.match(describeChain(byPackage.get('ZDEMO_PKG_NOROW'))[0], /switch ZDEMO_SW_NOROW: OFF \(no row in SFW_SWITCH_STATE; measured as off/);
+  assert.match(describeChain(byPackage.get('ZDEMO_PKG_OFF'))[0], /OFF \(SFW_SWITCH_STATE F\)/);
   assert.match(describeChain(byPackage.get('ZDEMO_PKG_PLAIN'))[0], /behind no switch/);
 
   // USERNAME is only a filter (blank = the system setting) and never a selected field.

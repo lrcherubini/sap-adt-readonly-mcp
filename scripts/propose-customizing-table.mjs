@@ -502,8 +502,8 @@ async function report(payload, readStructures, readDdic, readEnhancements, readS
         say('    NOT IN THE ACTIVE TABLE means the append exists as an object but none of its');
         say('    fields are in the DDIC list. This says the fields are ABSENT. The ⤷ lines give');
         say('    the switch its package hangs on and the state the system stores for it, in this');
-        say('    client. A switch that is OFF, or has no stored state, agreed with the absence on');
-        say('    every KNA1 append measured; an activation error is still not read. Do not write');
+        say('    client. An OFF switch (F, or no stored row) agreed with the absence on all 38');
+        say('    KNA1/VBAP appends measured; an activation error is still not read. Do not write');
         say('    code against those fields, and check SE11/SFW_BROWSER before concluding a cause.');
         if (chain?.notes.length) for (const n of chain.notes) say(`    ⚠ ${n}`);
       }
