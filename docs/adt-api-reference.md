@@ -3508,7 +3508,21 @@ Content-Type: application/vnd.sap.adt.checkobjects+xml   Accept: application/vnd
 ```
 
 - The body is the class and program body with a behaviour definition URI. The IDE sends the
-  same object to `reporters=abapCheckRun` in parallel (same request size); that body was not read.
+  same body to `reporters=abapCheckRun` in parallel, and that reply has the measured shape:
+
+  ```
+  <chkrun:checkReport chkrun:reporter="abapCheckRun" chkrun:triggeringUri="/sap/bc/adt/bo/behaviordefinitions/zdemo_i_rate"
+                      chkrun:status="processed" chkrun:statusText="Object ZDEMO_I_RATE has been checked">
+    <chkrun:checkMessageList>
+      <chkrun:checkMessage chkrun:uri="/sap/bc/adt/bo/behaviordefinitions/zdemo_i_rate/source/main#start=1,52" chkrun:type="W"
+                           chkrun:shortText="Class &quot;ZBP_DEMO_I_RATE&quot; does not exist.">
+        <atom:link href="art.syntax:+BDL054" rel="http://www.sap.com/adt/categories/quickfixes"/>
+      </chkrun:checkMessage>
+    </chkrun:checkMessageList>
+  </chkrun:checkReport>
+  ```
+
+  The message's marker is the `markerId` the quickfix evaluation above was asked with.
 - `bdefImplementationCheck` is a second reporter: whether the behaviour implementation class
   matches the definition. A processed report with no message list means "no message".
 
