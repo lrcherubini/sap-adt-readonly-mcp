@@ -13,7 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { classify, nextVersion, renderEntry, prependEntry, setVersion } from '../lib/release.mjs';
+import { classify, nextVersion, renderEntry, prependEntry, setVersion, releaseBase } from '../lib/release.mjs';
 
 const apply = process.argv.includes('--apply');
 const root = process.cwd();
@@ -35,13 +35,22 @@ try {
 
 const pkgText = read('package.json');
 const current = JSON.parse(pkgText).version;
-if (tag !== `v${current}`) {
-  console.log(`note: the latest tag is ${tag}, package.json says ${current}; bumping ${current}.`);
-}
-
 const RS = '\x1e';
 const US = '\x1f';
-const commits = git('log', `${tag}..HEAD`, `--format=%H${US}%B${RS}`)
+// An untagged release: count from its release commit, or its commits would be released twice.
+const since = git('log', `${tag}..HEAD`, `--format=%H${US}%s`)
+  .split('\n')
+  .filter(Boolean)
+  .map((l) => {
+    const [hash, subject] = l.split(US);
+    return { hash, subject };
+  });
+const { base, by } = releaseBase(tag, current, since);
+const from = by === 'tag' ? tag : `chore(release): v${current} (${base.slice(0, 7)}, not tagged yet)`;
+if (tag !== `v${current}`) {
+  console.log(`note: the latest tag is ${tag}, package.json says ${current}; bumping ${current} from ${from}.`);
+}
+const commits = git('log', `${base}..HEAD`, `--format=%H${US}%B${RS}`)
   .split(RS)
   .map((r) => r.replace(/^\s+/, ''))
   .filter(Boolean)
@@ -52,7 +61,7 @@ const commits = git('log', `${tag}..HEAD`, `--format=%H${US}%B${RS}`)
 
 const groups = classify(commits);
 const { bump, version } = nextVersion(current, groups);
-console.log(`${commits.length} commit(s) since ${tag}, ${groups.skipped.length} not conventional`);
+console.log(`${commits.length} commit(s) since ${from}, ${groups.skipped.length} not conventional`);
 for (const s of groups.skipped) console.log(`   skipped ${s.hash.slice(0, 7)} ${s.subject}`);
 if (!version) {
   console.log('\nNothing to release: no breaking change, feat, fix, perf or revert since the tag.');

@@ -14,8 +14,20 @@ import {
   renderEntry,
   prependEntry,
   setVersion,
+  releaseBase,
   CHANGELOG_HEAD,
 } from '../lib/release.mjs';
+
+test('the base is the tag, or the release commit of a version not tagged yet', () => {
+  const log = [
+    { hash: 'c3', subject: 'feat: later' },
+    { hash: 'c2', subject: 'chore(release): v0.2.0' },
+    { hash: 'c1', subject: 'feat: in 0.2.0' },
+  ];
+  assert.deepEqual(releaseBase('v0.2.0', '0.2.0', log), { base: 'v0.2.0', by: 'tag' });
+  assert.deepEqual(releaseBase('v0.1.0', '0.2.0', log), { base: 'c2', by: 'release commit' });
+  assert.deepEqual(releaseBase('v0.1.0', '0.3.0', log), { base: 'v0.1.0', by: 'tag' }, 'no release commit: the tag');
+});
 
 const ROOT = path.join(import.meta.dirname, '..');
 let n = 0;
@@ -183,6 +195,17 @@ test('the release script against a scratch repository: no tag, dry run, apply', 
     assert.match(log, /- docs: a page/);
     assert.ok(!log.includes('Old-style'));
     assert.equal(git('tag').trim(), 'v0.1.0', 'the script never tags');
+
+    // Released and committed, not tagged: the next release counts from the release commit only.
+    git('add', 'package.json', 'CHANGELOG.md');
+    commit('chore(release): v0.2.0');
+    commit('fix(tools): after the release');
+    const next = run();
+    assert.equal(next.status, 0);
+    assert.match(next.out, /from chore\(release\): v0\.2\.0 \([0-9a-f]{7}, not tagged yet\)/);
+    assert.match(next.out, /1 commit\(s\) since chore\(release\): v0\.2\.0/);
+    assert.match(next.out, /0\.2\.0 -> 0\.2\.1 \(patch\)/);
+    assert.doesNotMatch(next.out, /a tool/, 'a commit of 0.2.0 is not released again');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
