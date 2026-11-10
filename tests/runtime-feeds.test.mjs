@@ -14,6 +14,7 @@ import {
   buildFeedQuery,
   parseFeedCatalog,
   parseDumpFeed,
+  groupDumps,
   parseDumpSummary,
   parseGatewayFeed,
   parseGenericFeed,
@@ -173,6 +174,35 @@ test('parseDumpFeed: the report is parsed out of the summary -- header, texts, s
   assert.equal(r.stack.at(-1).no, 1);
 });
 
+test('groupDumps: same error in the same program is one row; the line joins the key only with the report', () => {
+  const dump = (id, runtimeError, program, published, line) => ({
+    id,
+    runtimeError,
+    program,
+    published,
+    ...(line === undefined ? {} : { report: { sourceExtract: [{ line: line - 1, marked: false }, { line, marked: true }] } }),
+  });
+  const light = groupDumps([
+    dump('a', 'CONVT_NO_NUMBER', 'ZDEMO_REPORT', '2026-09-12T10:00:00Z'),
+    dump('b', 'OBJECTS_OBJREF_NOT_ASSIGNED', 'ZCL_DEMO_ONE===CP', '2026-09-12T09:00:00Z'),
+    dump('c', 'CONVT_NO_NUMBER', 'ZDEMO_REPORT', '2026-09-12T08:00:00Z'),
+    dump('d', 'CONVT_NO_NUMBER', 'ZDEMO_OTHER', '2026-09-12T11:00:00Z'),
+  ]);
+  assert.deepEqual(light[0], { runtimeError: 'CONVT_NO_NUMBER', program: 'ZDEMO_REPORT', count: 2, first: '2026-09-12T08:00:00Z', last: '2026-09-12T10:00:00Z', ids: ['a', 'c'] });
+  assert.deepEqual(light.slice(1).map((g) => g.program), ['ZDEMO_OTHER', 'ZCL_DEMO_ONE===CP'], 'equal counts: the most recent first');
+  assert.ok(light.every((g) => !('line' in g)), 'a light page has no line: none is invented');
+
+  const full = groupDumps([
+    dump('a', 'CONVT_NO_NUMBER', 'ZDEMO_REPORT', '2026-09-12T10:00:00Z', 30),
+    dump('b', 'CONVT_NO_NUMBER', 'ZDEMO_REPORT', '2026-09-12T09:00:00Z', 30),
+    dump('c', 'CONVT_NO_NUMBER', 'ZDEMO_REPORT', '2026-09-12T08:00:00Z', 44),
+    { id: 'e', runtimeError: 'CONVT_NO_NUMBER', program: 'ZDEMO_REPORT', published: null, report: { sourceExtract: [] } },
+  ]);
+  assert.deepEqual(full.map((g) => [g.line, g.count]), [[30, 2], [44, 1], [null, 1]], 'no marked line is null, not a guess');
+  assert.equal(full[2].first, null);
+  assert.deepEqual(groupDumps(undefined), []);
+});
+
 test('parseDumpSummary: a section the measured summary does not have is drift, an empty summary is empty', () => {
   const r = parseDumpSummary('&lt;h4&gt;Chosen variables&lt;/h4&gt;&lt;p&gt;x&lt;/p&gt;');
   assert.deepEqual(r.drift, [{ node: 'h4', count: 1, where: 'Chosen variables' }]);
@@ -287,6 +317,9 @@ test('adt_runtime_errors list: the page and the generated $query reach the wire;
   assert.equal(out.count, 2);
   assert.equal(out.truncated, 'possible', 'a full page is not proof of a complete list');
   assert.equal(out.entries[0].report, undefined, 'light by default');
+  assert.equal(out.groups.reduce((n, g) => n + g.count, 0), out.count, 'every dump of the page is in one group');
+  assert.ok(out.groups.every((g) => !('line' in g)));
+  assert.match(out.groupedBy, /this page only/);
   assert.equal(out.entries[0].user, 'DEMOUSER', 'the answer names the user: that is the question');
   assert.equal(log.at(-1).target, 'dumps top=2 skip=4 filtered');
   assert.ok(!JSON.stringify(log).includes('DEMOUSER'), 'the audit line carries no user');
@@ -295,6 +328,7 @@ test('adt_runtime_errors list: the page and the generated $query reach the wire;
   assert.equal(sent[1].url, '/sap/bc/adt/runtime/dumps?%24top=50');
   assert.equal(full.truncated, false);
   assert.equal(full.entries[0].report.stack.length, 13);
+  assert.equal(full.groups.find((g) => g.program === full.entries[0].program).line, 30, 'with the report the line joins the key');
   await assert.rejects(() => tool.handler({ list: { feed: 'dumps', filters: [{ attribute: 'user', value: 'X ) or' }] } }), /character the query alphabet/);
   assert.equal(sent.length, 2, 'a refused filter never reaches the wire');
 });

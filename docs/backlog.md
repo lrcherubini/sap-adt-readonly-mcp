@@ -50,8 +50,6 @@ Each needs a measurement on the system and a dated decision before it is built.
   names it, e.g. `art.syntax:GTU`). Decide: it sends source to the server, so the body is the
   stored source just read, never text from the caller.
 - **Go to definition.** `POST /sap/bc/adt/navigation/target`. Same body question as quickfixes.
-- **Grouped dumps.** `adt_runtime_errors` grouping a page by program, line and error. Local
-  post-processing only, no new call. Decide the grouping key on real pages.
 - **SARIF / JUnit output of an ATC run**, for a CI gate per transport (`adt_transport` objects into
   `adt_atc_run`). Decide whether it is a format option or a separate tool.
 - **Refuse an unexpected system.** An installation value naming the system and client the server

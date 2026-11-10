@@ -35,6 +35,7 @@ import {
   buildFeedQuery,
   parseFeedCatalog,
   parseDumpFeed,
+  groupDumps,
   parseGenericFeed,
   parseDumpResource,
   dumpPathOf,
@@ -225,6 +226,12 @@ export function runtimeErrorsTool(cfg, session, journal) {
       truncated: parsed.entries.length >= top ? 'possible' : false,
       ...(parsed.self ? { self: parsed.self } : {}),
       ...(parsed.measured === false ? { entriesMeasured: false } : {}),
+      ...(feed === 'dumps'
+        ? {
+            groups: groupDumps(parsed.entries),
+            groupedBy: report === true ? 'runtime error, program and the marked line, on this page only' : 'runtime error and program, on this page only (report: true adds the line)',
+          }
+        : {}),
       entries: parsed.entries,
       ...(parsed.drift.length ? { drift: parsed.drift } : {}),
     });
@@ -239,7 +246,8 @@ export function runtimeErrorsTool(cfg, session, journal) {
         `one feed, up to ${MAX_CLAUSES} filters ANDed; dump attributes: ` +
         `${FEED_ATTRIBUTES.get('dumps').join(', ')}), or \`detail: {id}\` (one dump: analysis, ` +
         'source extract, call stack; `full: true` adds the whole report). `report: true` on a ' +
-        'list is ~17 KB per dump. Gateway and ATC entries are not yet measured: returned generic.',
+        'list is ~17 KB per dump. Dump lists add `groups`. Gateway ' +
+        'and ATC entries are not yet measured.',
       inputSchema: {
         type: 'object',
         properties: {
