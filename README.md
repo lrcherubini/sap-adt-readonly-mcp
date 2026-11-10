@@ -161,8 +161,8 @@ reference, so that file records a service document as measured instead of guesse
 `npm test` runs the whole suite offline — no SAP system, no credentials, no network: the ADT
 client and GitHub are doubled. It includes a protocol test that drives the server with the
 SDK's own MCP client over a real loopback connection (`tests/mcp-protocol.test.mjs`).
-`npm run coverage` runs it again with thresholds (92 % lines, 82 % branches, 88 % functions,
-tests themselves excluded from the count). Those numbers are a **ratchet, not a target**: they
+`npm run coverage` runs it again with the line, branch and function thresholds set in
+`package.json` (tests themselves excluded from the count). Those numbers are a **ratchet, not a target**: they
 sit just under what the suite already reaches, so a change that quietly stops exercising a path
 fails the run. What the suite is actually for is the two things that cannot be checked by
 reading: that no blocked ADT method is reachable, and that a recommendation is never emitted for

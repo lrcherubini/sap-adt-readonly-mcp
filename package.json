@@ -19,7 +19,7 @@
     "config": "node scripts/config.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:guard": "node --test tests/guard.test.mjs tests/adt-get.test.mjs",
-    "coverage": "node --test --experimental-test-coverage --test-coverage-exclude=tests/** --test-coverage-lines=96 --test-coverage-branches=83 --test-coverage-functions=93 tests/*.test.mjs",
+    "coverage": "node --test --experimental-test-coverage --test-coverage-exclude=tests/** --test-coverage-lines=97 --test-coverage-branches=83 --test-coverage-functions=94 tests/*.test.mjs",
     "sync:catalog": "node scripts/sync-catalog.mjs",
     "measure:ddla": "node scripts/measure-annotation-defs.mjs",
     "report": "node scripts/report.mjs",
