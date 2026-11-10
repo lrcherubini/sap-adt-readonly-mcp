@@ -3398,6 +3398,10 @@ GET /sap/bc/adt/cts/transportrequests?targets=true&configUri=<that href, percent
 - The configuration filters on `User` = the logged-on user: the list is that user's requests,
   modifiable **and** released, not the system's.
 - Size is the trap: the objects of every request come inline. 858 objects made 874 KB.
+- With `targets=true` each status folder sits under a `tm:target` (`tm:name`, `tm:desc`) inside
+  the category. The released folder of this list carries the same label as `recent`, "Released
+  (From Last 2 Weeks)": the window of the released half is the server's here too (the
+  configuration's `DateFilter` was `1`; other values not measured).
 
 **Package interfaces.** The package document (`GET /sap/bc/adt/packages/<pkg>`,
 `application/vnd.sap.adt.packages.v2+xml`, 3.8 KB) names them:

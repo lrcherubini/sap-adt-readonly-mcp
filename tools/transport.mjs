@@ -40,6 +40,7 @@ import { parseVersionFeed, versionLinks, unionByTransport } from '../lib/object-
 import { parseTransportDocument, unionObjects, DRIFT_CODE } from '../lib/transport-requests.mjs';
 import { parseRequestLog } from '../lib/request-logs.mjs';
 import { parseOpenRequests } from '../lib/open-requests.mjs';
+import { parseConfigurations, parseConfiguration } from '../lib/transport-search.mjs';
 import {
   collectObjectKeys,
   MAX_KEY_LOOKUPS,
@@ -94,6 +95,110 @@ export function transportTool(cfg, session, journal) {
       });
     }
     return { read: true, requests: parsed.requests, rule };
+  }
+
+  // The list the IDE's saved search selects: the user's own configuration, read and never
+  // created, then the tree it drives. Requests and tasks only: every object arrives inline
+  // (874 KB for 858 measured), and is counted here, never listed -- ask by number for those.
+  async function savedSearch(args) {
+    const transport = transportFor(session.raw);
+    const get = async (route, params, subject) => {
+      let reply;
+      try {
+        reply = await namedGet(transport, route, params);
+        return reply;
+      } catch (e) {
+        if (e?.name !== 'RouteViolation' && journal?.enabled) {
+          journal.gap({
+            code: 'ADT_ERROR',
+            subject: `transport saved search (${subject})`,
+            detail: `HTTP ${e?.status ?? '?'} on ${e?.url ?? route}`,
+            impact: 'the saved search could not be read -- this is NOT "no requests"',
+            fallback: 'the Transport Organizer view of the IDE, or SE09/SE10',
+          });
+        }
+        throw e;
+      } finally {
+        record(cfg, 'adt_transport', `saved search ${subject}`, reply?.bytes ?? 0);
+      }
+    };
+    const list = await get('transportSearchConfigurations', {}, 'configurations');
+    const configurations = parseConfigurations(list.body);
+    if (!configurations.length) {
+      if (journal?.enabled) {
+        journal.gap({
+          code: 'SAVED_SEARCH_NOT_FOUND',
+          subject: 'transport saved search',
+          detail: 'searchconfiguration/configurations listed no configuration for the logged-on user',
+          impact: 'nothing was read, and none was created: this is NOT "no requests"',
+          fallback: 'open the Transport Organizer view in the IDE once (it saves the search), or use recent / number',
+        });
+      }
+      return json({
+        mode: 'saved',
+        read: false,
+        reason: 'the server lists no saved search configuration for this user; none is created here',
+        requests: [],
+      });
+    }
+    const chosen = configurations[0];
+    const doc = await get('transportSearchConfiguration', { id: chosen.id }, 'configuration');
+    const properties = parseConfiguration(doc.body);
+    const out = await get('transportListByConfiguration', { configUri: chosen.href }, 'list');
+    const tree = parseTransportDocument(out.body);
+    if (tree.drift.length && journal?.enabled) {
+      journal.gap({
+        code: DRIFT_CODE,
+        subject: 'cts/transportrequests (saved search)',
+        detail: tree.drift
+          .map((d) => (d.attribute ? `${d.node}/@${d.attribute}` : `<${d.node}>`))
+          .join('; ')
+          .slice(0, 400),
+        impact: 'the answer stands, but the shape measured no longer describes this system fully',
+        fallback: 're-read the raw payload and update lib/transport-requests.mjs and docs/adt-api-reference.md',
+      });
+    }
+    const maxRequests = capOf(args.maxRequests, MAX_REQUESTS);
+    const kept = tree.requests.slice(0, maxRequests);
+    return json({
+      mode: 'saved',
+      read: true,
+      bytes: out.bytes,
+      configuration: {
+        id: chosen.id,
+        ...(configurations.length > 1 ? { others: configurations.length - 1 } : {}),
+        properties,
+      },
+      scope: {
+        serverStated: tree.listScope?.serverStated ?? [],
+        owners: tree.listScope?.owners ?? [],
+        note:
+          'what the saved configuration selects (its properties above), modifiable and released. ' +
+          'It is the configuration the IDE saved; this tool never creates or changes one.',
+      },
+      rule:
+        'requests and tasks only. Each object of the list arrives inline and is counted ' +
+        '(objectCount), never listed: ask a request by `number` for its objects.',
+      requests: kept.map((r) => ({
+        number: r.number,
+        kind: r.kind,
+        status: r.status,
+        statusCode: r.statusCode,
+        desc: r.desc,
+        owner: r.owner,
+        target: r.target,
+        lastChanged: r.lastChanged,
+        objectCount: unionObjects(r).unionCount,
+        tasks: r.tasks.map((t) => ({
+          number: t.number,
+          owner: t.owner,
+          desc: t.desc,
+          status: t.status,
+          objectCount: t.objects.length,
+        })),
+      })),
+      truncated: { requests: Math.max(0, tree.requests.length - kept.length) },
+    });
   }
 
   // WHICH TRANSPORTS carried one object: the version feed(s) the server publishes for
@@ -285,13 +390,18 @@ export function transportTool(cfg, session, journal) {
         'action and transport logs), `recent: true` (the ' +
         'server\'s list: released, last two weeks), or `object: {name, type}` (every request ' +
         'that carried it, from its version history; one GET per version feed; plus the open ' +
-        'requests holding it now, one GET).',
+        'requests holding it now, one GET), or `saved: true` (what your saved IDE search ' +
+        'selects, open and released: requests and tasks, objects counted).',
       inputSchema: {
         type: 'object',
         properties: {
           number: {
             type: 'string',
             description: 'One transport request, e.g. DEVK900123.',
+          },
+          saved: {
+            type: 'boolean',
+            description: 'The list your saved IDE search selects (open and released): requests and tasks.',
           },
           recent: {
             type: 'boolean',
@@ -338,20 +448,30 @@ export function transportTool(cfg, session, journal) {
       const wantsDetail = args.number !== undefined && args.number !== null && String(args.number).trim() !== '';
       const wantsList = args.recent === true;
       const wantsObject = args.object !== undefined && args.object !== null;
-      if ([wantsDetail, wantsList, wantsObject].filter(Boolean).length > 1) {
+      const wantsSaved = args.saved === true;
+      if ([wantsDetail, wantsList, wantsObject, wantsSaved].filter(Boolean).length > 1) {
         throw new Error(
-          'adt_transport takes `number` OR `recent` OR `object`, never two: one reads a ' +
-            'request you name, one reads a list whose scope the server decides, one reads ' +
-            'the history of an object you name. Ask twice.'
+          'adt_transport takes `number` OR `recent` OR `object` OR `saved`, never two: one ' +
+            'reads a request you name, one a list whose scope the server decides, one the ' +
+            'history of an object you name, one the list your saved search selects. Ask twice.'
         );
       }
-      if (!wantsDetail && !wantsList && !wantsObject) {
+      if (!wantsDetail && !wantsList && !wantsObject && !wantsSaved) {
         throw new Error(
           'adt_transport has no default mode. Pass `number` for one request, ' +
-            '`recent: true` for the recent released list, or `object: {name, type}` for ' +
-            'the version history of one object. Omitting all three would be a sweep ' +
-            'nobody asked for.'
+            '`recent: true` for the recent released list, `object: {name, type}` for ' +
+            'the version history of one object, or `saved: true` for the list your saved ' +
+            'search selects. Omitting all of them would be a sweep nobody asked for.'
         );
+      }
+      if (wantsSaved) {
+        if (args.keys === true || args.logs === true) {
+          throw new Error(
+            'adt_transport reads keys and logs only for a request you name by `number`; the ' +
+              'saved search answers requests and tasks.'
+          );
+        }
+        return savedSearch(args);
       }
       const wantsLogs = args.logs === true;
       if (wantsObject) {

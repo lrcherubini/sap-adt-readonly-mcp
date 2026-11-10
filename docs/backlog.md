@@ -77,10 +77,6 @@ Each needs a measurement on the system and a dated decision before it is built.
   reference, `virtualfolders?selection=package:<pkg>`, answered `201`; the worklist read with the
   LAST_RUN set holds the package's objects. Build: the object set into the ATC run body, its dated
   decision, and the part of `adt_package_health` that runs it.
-- **The requests a saved search configuration lists.** Admitted read-only by the owner
-  (2026-11-10); measured the same day (`adt-api-reference.md`, *Backlog reads*): the list is the
-  logged-on user's requests, modifiable and released, with every object inline (874 KB for 858
-  objects). Decide: what the answer keeps of it, since the size is the trap.
 
 ---
 

@@ -1084,6 +1084,23 @@ history, except for a class or function-module enhancement, whose reads are alre
 Empty is "in no open request now", never "never transported". The description and the owner
 reach the answer, never the trail. A failed read is `read: false` with a gap.
 
+### The saved search of the Transport Organizer: read, never created -- 2026-11-10
+
+`recent` answers what the server decides: released requests of the last two weeks. The list a
+developer actually works from is the one the IDE's Transport Organizer shows, which includes the
+open requests. The IDE keeps it as a search configuration per user. The owner admitted reading
+it (D9), on the condition that the answer carries requests and tasks only; it was measured the
+same day (`adt-api-reference.md`, *Backlog reads*).
+
+**What it admits.** Three named routes, all GET: `transportSearchConfigurations` (the user's
+configurations), `transportSearchConfiguration` (one, by its 32-hex id) and
+`transportListByConfiguration` (the tree, `targets=true` fixed and `configUri` held to the
+configuration path). `adt_transport` reads them with `saved: true` and uses the first
+configuration the server lists. It never creates or changes one (that is a POST/PUT), and with
+none it says so with a gap instead of answering "no requests". Every object of the list arrives
+inline (874 KB measured) and is counted, never listed: the objects of one request are asked by
+`number`. Descriptions and owners reach the answer, never the trail.
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:

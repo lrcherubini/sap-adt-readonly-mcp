@@ -91,8 +91,11 @@ test('the route table is closed, and these are the routes in it', () => {
     'transportActionLogs',
     'transportDetail',
     'transportList',
+    'transportListByConfiguration',
     'transportLogs',
     'transportObjectKeys',
+    'transportSearchConfiguration',
+    'transportSearchConfigurations',
     'ui5File',
     'ui5Folder',
   ]);
