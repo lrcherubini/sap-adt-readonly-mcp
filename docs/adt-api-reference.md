@@ -1668,6 +1668,9 @@ POST /sap/bc/adt/checkruns?reporters=abapCheckRun
   not exist answers **200** with `status="notProcessed"`; `statusText` is in the logon language
   ("object … was checked" / "resource … does not exist") and is never parsed.
 - `chkrun:type` was `E` in every message seen. Line and column come from `#start=<line>,<col>`.
+- A message that has a quickfix carries one child, measured on an unknown field (a second
+  round the same day): `<atom:link href="art.syntax:GTU" rel="http://www.sap.com/adt/categories/quickfixes"/>`.
+  It is reported as the message's `quickfix` and never followed: applying one is a write.
 - ⚠️ **`version="inactive"` on an object with no inactive version checks an empty source.** On
   `ZDEMO_REPORT` it answered *"The REPORT/PROGRAM statement is missing, or the program type is
   INCLUDE"* at line 1 — an error that is not in the program. On the class it answered clean. The

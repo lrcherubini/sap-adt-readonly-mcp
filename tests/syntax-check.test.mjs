@@ -147,3 +147,20 @@ test('a reply with an undeclared attribute is answered and filed as drift; no se
   const none = json(await noReport.tool.handler({ objectName: 'ZDEMO_REPORT4' }));
   assert.deepEqual([none.checked, none.status], [false, null]);
 });
+
+test('a message with a quickfix carries its marker; the link is never followed', () => {
+  const r = parseCheckRun(fixture('error-quickfix.xml'));
+  assert.deepEqual(r.drift, [], 'the measured link is declared');
+  assert.deepEqual(r.reports[0].messages, [
+    {
+      type: 'E',
+      text: 'Field "LV_UNDEFINED" is unknown.',
+      uri: '/sap/bc/adt/oo/classes/zcl_demo_probe/source/main',
+      line: 35,
+      column: 37,
+      quickfix: 'art.syntax:GTU',
+    },
+  ]);
+  const other = parseCheckRun(fixture('error-quickfix.xml').replace('categories/quickfixes', 'categories/other'));
+  assert.deepEqual(other.drift.map((d) => d.node), ['atom:link'], 'another link is drift, not a quickfix');
+});
