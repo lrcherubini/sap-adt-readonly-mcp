@@ -110,7 +110,7 @@ Each fact has one home. Do not copy it into a second place.
 | A decision about what the server may read, with its reason | `docs/security.md` |
 | An open question or measurement still to make | `docs/backlog.md` (leaves when resolved) |
 | What a user needs to install, configure and use it | `README.md` |
-| What changed and when | git history (commit messages) |
+| What changed and when | git history (commit messages); `CHANGELOG.md` is generated from it |
 | How to work in this repository | this file |
 
 This file never records history, dates, counts, per-task notes or tool lists. Each of those

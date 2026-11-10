@@ -25,7 +25,8 @@
     "report": "node scripts/report.mjs",
     "logs:prune": "node scripts/prune-logs.mjs",
     "propose:table": "node scripts/propose-customizing-table.mjs",
-    "lint:commit": "node scripts/lint-commit.mjs"
+    "lint:commit": "node scripts/lint-commit.mjs",
+    "release": "node scripts/release.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
