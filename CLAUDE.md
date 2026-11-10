@@ -58,7 +58,8 @@ Each cycle:
      - One cycle is one commit. Changes that were already pending when the cycle started get a
        commit of their own first.
      - Stage files by name, never `git add -A`.
-     - The message is in English: what changed and why, with no landscape data.
+     - The message is in English and follows Conventional Commits (`type(scope)!: subject`; the
+       types are in `lib/commit-lint.mjs`): what changed and why, with no landscape data.
      - Never push, amend or skip hooks unless the owner asks.
 
 ## Invariants

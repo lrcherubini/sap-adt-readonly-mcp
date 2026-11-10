@@ -378,6 +378,7 @@ None of them commits anything to git.
 | `npm run logs:prune -- --days N [--apply] [--audit]` | no | trims the journal (and, opt-in, the audit log); a dry run without `--apply` | the journal |
 | `npm run propose:table -- T1 T2` | yes | evidence (delivery class, fields) for adding a table to the customizing fence; decides nothing | stdout only |
 | `npm run measure:ddla` | yes | checks the annotation-definition parser against what the system serves | state directory |
+| `npm run lint:commit -- <file>` | no | checks one commit message against Conventional Commits ([Contributing](#contributing)) | nothing |
 
 Each script prints its full option list in the header comment of its file under
 [`scripts/`](scripts/).
@@ -486,6 +487,24 @@ Every call is also written to `%LOCALAPPDATA%\sap-adt\audit.log` — tool, targe
   and a hide reached over more than one propagating hop is matched on element **name** — so a row
   with a high `depth` is the weaker claim, and `depth` is reported for exactly that reason.
 
+## Contributing
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/):
+`type(scope)!: subject`, then a blank line and a body that says what changed and why. The scope
+and the `!` are optional, and `!` or a `BREAKING CHANGE:` footer marks a breaking change. The
+types and the rules live in `lib/commit-lint.mjs`. The header limit is 100 columns.
+
+```text
+fix(guard): refuse a member that is not on the allowlist
+```
+
+The hook in `.githooks/commit-msg` rejects a message that does not conform. Enable it once per
+clone:
+
+```sh
+git config core.hooksPath .githooks
+```
+
 ## Project layout
 
 | Path | What is there |
@@ -503,6 +522,7 @@ Every call is also written to `%LOCALAPPDATA%\sap-adt\audit.log` — tool, targe
 | `docs/` | `security.md` (every decision, dated), `adt-api-reference.md` (measured endpoint shapes), `phase0-report.md` (checking a system with the probe), `backlog.md` (open decisions and measurements) |
 | `tests/` | the offline suite and its synthetic fixtures (`ZDEMO_*`, host `vhdemohost.example`, client `001`) |
 | `config.example.json` | an invented environment in the shape `config import` reads |
+| `.githooks/`, `.gitattributes` | the `commit-msg` hook ([Contributing](#contributing)), kept at LF line endings so it runs |
 | `CLAUDE.md`, `.claude/` | how Claude Code works in this repository (PDCA, invariants) and the Stop hook that keeps `npm test` green |
 
 ## License

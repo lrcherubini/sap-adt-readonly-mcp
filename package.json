@@ -24,7 +24,8 @@
     "measure:ddla": "node scripts/measure-annotation-defs.mjs",
     "report": "node scripts/report.mjs",
     "logs:prune": "node scripts/prune-logs.mjs",
-    "propose:table": "node scripts/propose-customizing-table.mjs"
+    "propose:table": "node scripts/propose-customizing-table.mjs",
+    "lint:commit": "node scripts/lint-commit.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
