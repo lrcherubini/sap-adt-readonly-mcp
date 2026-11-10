@@ -1127,6 +1127,22 @@ worklist on the server, like `adt_atc_run`. The IDE sent the run with `clientWai
 a package confirms that the reply keeps the measured shape. A run that failed is `read: false`
 with its gap, never a clean package.
 
+### Go to definition: a POST whose body is the stored source -- 2026-11-10
+
+The IDE's F3 asks `POST /sap/bc/adt/navigation/target` with the position in the `uri` query and
+the object's source as the body (IDE log, measured the same day, `adt-api-reference.md`, *Backlog
+reads*). An agent reading a class needs the same answer: where a method, type or attribute it sees
+is defined. The owner confirmed it (D7) on one condition: the body is never caller text.
+
+**What it admits.** `adt_find_definition`, one POST through the raw transport with a fixed path
+and `filter=definition`. The `uri` is built here from the class's main source URI (the one family
+measured) and two bounded integers. The body is the stored active main source that the tool has
+just read through the guarded client, and nothing else: `buildNavigationRequest` takes the text
+and the tool hands it only what `getObjectSource` answered. The reply names one object reference;
+the tool does not follow it. Nothing is left on the server. A failed POST is a gap
+(`DEFINITION_NOT_READ`), never "defined nowhere". The audit line names the class and the position,
+never a line of source. Programs, interfaces and CDS stay refused until measured.
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:

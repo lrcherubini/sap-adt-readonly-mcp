@@ -43,10 +43,6 @@ Each needs a measurement on the system and a dated decision before it is built.
   reads*): the body is a constant empty element, the object, position and marker go in the query,
   and the server evaluates its stored source. Build: the fifth POST, its dated decision, a tool
   or a mode that lists proposals and never follows their apply URI.
-- **Go to definition.** Measured 2026-11-10 from the IDE: `POST /sap/bc/adt/navigation/target?uri=<source
-  URI#start=l,c>&filter=definition`, the body the whole source as `text/plain`, the reply one object
-  reference with the target position. Build (decision D7, confirmed by the owner): the body is the
-  stored active source the server has just read, never text from the caller.
 - **Package boundary violations.** A customer object that uses an object of another customer
   package outside that package's declared interface (`PINF`): the dependency side of Clean Core,
   next to what `adt_clean_core_scan` says about consumed SAP objects. Measured 2026-11-10: the

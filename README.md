@@ -34,10 +34,10 @@ This server covers the **read** side of that gap, and never the write side:
 
 ## What it does
 
-- **17 MCP tools** for an AI agent (Claude Code or any MCP client that speaks Streamable HTTP),
+- **18 MCP tools** for an AI agent (Claude Code or any MCP client that speaks Streamable HTTP),
   every one of them read-only and reading from the SAP system:
   - *objects* — `adt_search`, `adt_read_source`, `adt_object_info`, `adt_where_used`,
-    `adt_package_tree`;
+    `adt_package_tree`, `adt_find_definition` (where the symbol at a position is defined);
   - *package scans* — `adt_clean_core_scan` (what the CDS views consume, at which Clean Core
     level), `adt_annotation_scan` (which annotation reaches an element, from which layer),
     `adt_package_health` (the Clean Core scan and the syntax check on one listing, and optionally one ATC run over the package);
@@ -319,6 +319,7 @@ The server follows the MCP specification (2025-06-18) and the official TypeScrip
 | `adt_launchpad` | Which tiles and target mappings does catalog X carry, which groups show them, which catalogs does role Y get, and is the semantic object registered? | one `kind` per call (`catalogs`/`catalog`, `groups`/`group`, `spaces`/`space`, `pages`/`page`, `semobjs`/`semobj`, `roleCatalogs`). The one place the routes leave `/sap/bc/adt`, for **SAP-standard services only**: OData V2 under four `ODATA_ROOTS` (PAGE_BUILDER_CONF/CUST, FDM_*_CUST_SRV; never `PAGE_BUILDER_PERS`, `$batch` or a generic GET over entity sets). No customer (Z) service is called, and every person-like key is stripped from every body. `semobjs`/`semobj` read the `/UI2/SEMOBJ*` tables through the ADT data preview, as `adt_customizing` does. Decision, dated, in `docs/security.md` (*The Fiori launchpad*); shapes in `docs/adt-api-reference.md` |
 | `adt_syntax_check` | Does the source the system stores for this class, program, behaviour definition, CDS view or metadata extension compile — the active version, or the inactive one waiting to be activated? | the **fourth POST** this server sends: `/sap/bc/adt/checkruns?reporters=abapCheckRun`, a body built from one object URI (class, program, behaviour definition, CDS view, metadata extension) and the version, **no source sent** — the server checks what it stores. Each message: type, text, include, line, column. Measured: no `Location`, no run id, nothing left on the server, a stateless session (the IDE runs the same check after every save). `version: inactive` first reads the object document, because on an object with **no** inactive version the server checks an empty source and reports an error that is not in the program (measured); the answer then says *no inactive version* and nothing is sent. A report the server did not process is `checked: false`, never clean (`SYNTAX_NOT_CHECKED`) |
 | `adt_package_health` | How healthy is this package for Clean Core, in one answer? | a composition, no read of its own: the package is listed **once**, then the Clean Core scan of its CDS views (the same run as `adt_clean_core_scan`: levels and the first 20 findings) and the syntax check of the stored **active** version of each class and program (the same check run as `adt_syntax_check`, `maxChecks` 1..50, default 20). `complete` is true only when every part read everything: an object not checked, a view not read or a cap reached makes it false, and nothing is summarised about what was not read. Without the catalogue the Clean Core part says it did not run and the syntax part still runs. With `atc: true` it also runs the **ATC once over the whole package** (the default variant; the package as one virtual-folders object reference, as the IDE sends it), leaving a result worklist like `adt_atc_run`; without it the answer says ATC was not asked |
+| `adt_find_definition` | Where is the symbol at this line and column of a class defined? | the IDE's F3: `POST /sap/bc/adt/navigation/target?uri=<source#start=l,c>&filter=definition` with the class's **stored active main source as the body** (read first through the guarded client, never text from the caller). The answer is the target's source URI, object URI, line and column, and whether it is in the same class; "named none" when the server resolves nothing at the position. Classes only (the one family measured); an unsaved editor buffer is not seen |
 
 `adt_read_source` answers a second question the working tree cannot: **who implanted code
 into this standard object.** With `enhancements: true` it lists the enhancement
@@ -546,12 +547,13 @@ tag, `v0.1.0`, on the last commit that belongs to that version.
 | `lib/service-binding.mjs` | a service binding and the detail of each version: parsers, and the read `adt_object_info` runs |
 | `lib/virtual-folders.mjs` | the virtual folders of a package: the third POST (fixed path, body built from one package name) and its parser |
 | `lib/syntax-check.mjs` | the syntax check: the fourth POST (fixed path, body built from one object URI and a version, no source) and its parser |
+| `lib/navigation.mjs` | go to definition: the navigation POST (fixed path and filter, the position in the uri, the stored source as body) and its parser |
 | `lib/legacy-objects.mjs` | the APLO and CHKV objects the ADT does not publish (SLG0, SCI), read from their tables for `adt_search` |
 | `lib/source-versions.mjs`, `lib/line-diff.mjs` | a stored version of a class or program (active, inactive, a history number) and the local unified diff of two |
 | `lib/class-components.mjs` | the outline of a class (components and their positions) and the slice of one method |
 | `lib/api-release.mjs` | the API release state of one object, per contract, and its parser |
 | `lib/system-check.mjs` | the system confirmed before the password prompt: one GET without credentials, the SID and client its 401 names |
-| `tools/` | the 17 MCP tools |
+| `tools/` | the 18 MCP tools |
 | `lib/` | the guard (`guard.mjs`), the named GET routes (`adt-get.mjs`), package reads (`package-sources.mjs`), the session, the store and its validation (`store.mjs`, `environment.mjs`), the catalogue and its sync, parsers and the journal |
 | `scripts/` | the npm scripts above, each with its usage in its header comment |
 | `data/defaults/` | the SAP-standard half of every fence: customizing tables, ATC variant `DEFAULT`, launchpad OData roots |

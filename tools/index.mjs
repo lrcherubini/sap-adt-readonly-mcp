@@ -31,6 +31,7 @@ import { atcTool } from './atc.mjs';
 import { launchpadTool } from './launchpad.mjs';
 import { syntaxCheckTool } from './syntax-check.mjs';
 import { packageHealthTool } from './package-health.mjs';
+import { definitionTool } from './definition.mjs';
 import { publish, schemaErrors, closeSchema, withStructuredContent } from '../lib/tool-meta.mjs';
 
 // Z*, Y* and /NAMESPACE/ objects are ours; anything else is SAP standard.
@@ -1420,6 +1421,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
     syntaxCheckTool(cfg, session, journal),
     // A composition, no read of its own: the Clean Core scan and the syntax check on one listing.
     packageHealthTool(cfg, session, journal),
+    // A POST that reads: go to definition, its body the stored source just read, never caller
+    // text (docs/security.md, 2026-11-10).
+    definitionTool(cfg, session, journal),
   ];
 
   // Validated INSIDE the journal wrapper, so a refused call is still one line in logs/calls.
