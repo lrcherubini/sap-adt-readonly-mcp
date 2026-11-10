@@ -244,7 +244,7 @@ test('the proxy survives normal JS handling (await, inspect, delete)', async () 
 });
 
 test('the two POSTs are the data preview and the ATC run; a table outside the list never reaches a socket', async () => {
-  // docs/security.md, 2026-09-12: the reversal admits ONE POST for a closed list of
+  // docs/security.md, 2026-09-12: the reversal admits the first POST for a closed list of
   // customizing tables; 2026-09-14 adds the ATC run (next test). The guard does not move
   // (runQuery/tableContents stay denied); the fence is lib/data-preview.mjs, and it has
   // to refuse BEFORE the request exists.

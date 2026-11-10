@@ -147,7 +147,9 @@ installations have, which reads `T683S`, `T683U`/`T683T`, `T685`/`T685A`/`T685T`
 decision of 2026-09-12, recorded here dated, and it is **narrower than the question it
 reopens**.
 
-**What it admits.** One route, **the only POST this server will ever send**:
+**What it admits.** One route, **the first POST this server sends** (written at the time as "the
+only POST this server will ever send"; the ATC run, 2026-09-14, and the virtual folders,
+2026-11-09, followed, each with its own decision below):
 `/sap/bc/adt/datapreview/freestyle`, body a `SELECT` **generated** from a closed grammar
 (`lib/data-preview.mjs`: one table, allow-listed fields, `WHERE` from `=`/`<>`/`IN` on identifiers, a row cap of 200), for a table in the closed list `CUSTOMIZING_TABLES` -- the tables
 such a report reads plus `TVCPA`/`TVCPF`/`TVCPL`/`TFRM`/`TFRMT` and, for the launchpad
@@ -176,7 +178,7 @@ closed in code so it cannot grow by convenience.
 server echoes the statement it ran (`executedQueryString`), which the tool returns so the
 reader can see there was nothing but a `SELECT … UP TO n ROWS`. The server answered `VBAK`
 too -- authorisation is the server's only fence, which is why the client's fence is tested
-and not assumed (`tests/guard.test.mjs`, "the one POST is the data preview").
+and not assumed (`tests/guard.test.mjs`, "the two POSTs are the data preview and the ATC run").
 
 #### The delivery-class rule: measured and refused -- 2026-09-22
 

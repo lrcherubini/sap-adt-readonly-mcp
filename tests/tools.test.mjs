@@ -1048,7 +1048,7 @@ test('adt_package_tree compact with describe carries the sub-package description
   assert.equal(out.subPackages[0].description, 'text of ZSD_TEST_SUB');
 });
 
-// --- adt_customizing (the one POST) -------------------------------------------
+// --- adt_customizing (the first POST) -----------------------------------------
 
 const PREVIEW_COL = (name, type, values) =>
   `<dataPreview:columns><dataPreview:metadata dataPreview:name="${name}" dataPreview:type="${type}" dataPreview:description="${name}" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/><dataPreview:dataSet>${values.map((v) => `<dataPreview:data>${v}</dataPreview:data>`).join('')}</dataPreview:dataSet></dataPreview:columns>`;

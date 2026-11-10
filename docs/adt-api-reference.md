@@ -1719,7 +1719,7 @@ the carrier includes it. Where the routine is **used** (`T683S`, `TVCPA`/`TVCPF`
 table content and is not a repository question — it is read through the data preview (next
 section; `docs/security.md`, the reversal of 2026-09-12).
 
-### `POST /sap/bc/adt/datapreview/freestyle` — the one POST, table content by SELECT — MEASURED 2026-09-12
+### `POST /sap/bc/adt/datapreview/freestyle` — the first POST, table content by SELECT — MEASURED 2026-09-12
 
 Round 14, step 6, eight requests. This is the resource behind the Eclipse **Data Preview** (and
 `runQuery` in `abap-adt-api`, which this client keeps **denied**: the read goes through
@@ -2721,81 +2721,6 @@ one by one until three of them named a V4 data source (22 manifests).
 - **Case.** The same URL with binding, group and service definition upper-cased returned the same
   bytes on all three, so the path is case-insensitive. The route builds the lower-case form.
 
-## How to reproduce
-
-The readings above used a **temporary** probe: `lib/ddic-probe.mjs` plus a four-line
-escape hatch in `tools/index.mjs` that routed `objectName: "probe:…"` on `adt_object_info`
-to it (`probe:<Entity>`, `probe:dtel:<name>`, `probe:disc[:<filter>]`). The probe rode on an
-existing tool because a new tool name is invisible to an MCP client that pinned its tool
-list at session start.
-
-Both are **gone** now that the measuring is done and `adt_value_help` reaches the same
-calls through a supported path: the probe was never committed, and the hatch was removed
-in the commit that registered the sixth tool. To measure something new, write the probe
-again — three `await api.<method>(…)` calls behind the same hatch — rather than leaving
-an undocumented entry point in a tool that ships.
-
-**The CTS section used a second shape of the same idea, and it is the one to copy when the
-methods are not in the allowlist yet.** `scripts/probe-cts.mjs` never touched the guarded
-client: it went through `transportFor()` (`lib/adt-get.mjs`), the GET-only seam that hands
-back `({url, headers}) => …` and never lets the `AdtHTTP` escape its closure. So **no line
-of `lib/guard.mjs` changed in order to measure** — which matters, because widening the
-guard to find out whether the guard should be widened is circular. It also read the **raw
-XML** rather than the client's parsed object, and that is what caught `tm:all_objects`
-being dropped by `parseTask`: a parser cannot show you what it discards. It was never
-committed and is gone, in three rounds — round 1 read the discovery the six
-requests the one reading round 2 had left open. Each round was written only after
-the previous one had been read, which is why round 3 asked a question round 1 could not
-have phrased: the server named the media type itself, in a 406.
-
-## Sources
-
-- [Looking for Documentation on ADT API Endpoints — SAP Community Q&A](https://community.sap.com/t5/technology-q-a/looking-for-documentation-on-adt-abap-development-tools-api-endpoints/qaq-p/14217047)
-  — confirms there is no public endpoint reference, and points at the service document.
-- [ADT configuration guide, AS ABAP 7.57 (help.sap.com, PDF)](https://help.sap.com/doc/2e65ad9a26c84878b1413009f8ac07c3/202210.000/en-US/config_guide_system_backend_abap_development_tools.pdf)
-  — `/sap/bc/adt` activation, the DDIC subservice from 7.40 SP02, Basic auth over HTTPS.
-- [End-to-End SAP Automation with ADT REST Services](https://medium.com/@onuryz.itu/end-to-end-sap-automation-with-adt-rest-services-and-ai-a-modern-alternative-to-gui-scripting-343ea86064ea)
-  — where the `/sap/bc/adt/ddic/elementinfo?path=…&type=ddicAnnotationValue` form and the
-  `Accept: application/vnd.sap.adt.elementinfo+xml` header came from.
-- `node_modules/abap-adt-api/build/api/{cds,objectcontents,discovery}.{js,d.ts}` — the
-  client's own contract: `DdicProperties`, `DataElementProperties`, `DomainProperties`
-  (`valueInformation.valueTableRef`, `fixValues`), `AdtDiscoveryResult`, and the JSDoc
-  that gives the `/sap/bc/adt/ddic/{dataelements,domains}/<name>` URL shapes.
-- This system's `/sap/bc/adt/discovery`: 115 workspaces, 117 collections matching `ddic`.
-
-### For the CTS / Transport Organizer section
-
-Rank 4 material — *used to learn that a parameter exists, never to conclude what it does*.
-Each entry below says what it was actually used for, and every claim it suggested was then
-either measured on this system or left out.
-
-- [Transport API returns 406 — Wrong Accept header for CTS endpoints (`oisee/vibing-steampunk` issue #9)](https://github.com/oisee/vibing-steampunk/issues/9)
-  — the only public report that describes **both** of the symptoms seen here: a 406, and
-  *"empty responses: returning no results despite transports existing in the database"*,
-  blamed on a client sending a generic `Accept`. It is what made the A1/A2 control worth
-  running. ⚠️ It did **not** predict the answer: this system names
-  `…transportorganizertree.v1+xml`, which the report does not mention. Used as a
-  hypothesis generator, and then falsified in part by the measurement above.
-- [ADT Transport list empty — SAP Community](https://community.sap.com/t5/application-development-and-automation-discussions/adt-transport-list-empty/m-p/465100)
-  — same visible symptom from a different cause (SAP Note 2185682). Recorded to be
-  **discarded**: that note long predates S/4HANA 2023 FPS00, so it is almost certainly
-  already in this system. It is here so the next reader does not spend the search again.
-- [Transport Management — `mcp-abap-abap-adt-api` (DeepWiki)](https://deepwiki.com/mario-andreschak/mcp-abap-abap-adt-api/3.3-transport-management)
-  — another MCP server over the same client library, useful only as confirmation that its
-  transport surface is `abap-adt-api`'s and inherits the same `userTransports` behaviour.
-- [`CL_CTS_ADT_TM_REST_RES_CONT` — sapdatasheet.org](https://www.sapdatasheet.org/abap/clas/cl_cts_adt_tm_rest_res_cont.html)
-  — names the backend handler class and package `SCTS_ADT` behind these collections.
-  Useful for a Where-Used in the system; nothing was concluded from it.
-- **No public source documents the XML of `tm:abap_object` for a customizing entry.**
-  Searched and not found — which is why the `tm:obj_info` question could only be settled
-  by reading the bytes, and why the negative answer above is recorded so explicitly.
-- `node_modules/abap-adt-api/build/api/transports.{js,d.ts}` — the client's contract:
-  `parseTask`/`parseRequest`/`parseTargets` (`:99-120`), `transportDetails` (`:121-127`),
-  `userTransports` (`:128-137`), and `TransportObject`/`TransportTask`/`TransportsOfUser`
-  in the typings. ⚠️ The typings are **not** a runtime limit: `xmlNodeAttr`
-  (`build/utilities.js:136-142`) returns every non-`xmlns` attribute, so the five fields
-  `TransportObject` declares are what the client *documents*, not what it hands back.
-
 ### Service Bindings: `/businessservices/bindings` and the `odatav4`/`odatav2` detail — MEASURED 2026-11-09
 
 These probes ran on the development system with three bindings: one OData V4 UI binding, one SQL
@@ -3210,3 +3135,78 @@ The full discovery document has 676 collections. The only ones that match
 (*Switch-Based Feature Toggle*, with its formatter, `$schema`, `$configuration`, attribute value
 helps, togglable object types and name validation). Those are feature toggles, not Switch
 Framework switches or business functions. Nothing over the ADT says whether an `SFW_SWITCH` is on.
+
+## How to reproduce
+
+The readings above used a **temporary** probe: `lib/ddic-probe.mjs` plus a four-line
+escape hatch in `tools/index.mjs` that routed `objectName: "probe:…"` on `adt_object_info`
+to it (`probe:<Entity>`, `probe:dtel:<name>`, `probe:disc[:<filter>]`). The probe rode on an
+existing tool because a new tool name is invisible to an MCP client that pinned its tool
+list at session start.
+
+Both are **gone** now that the measuring is done and `adt_value_help` reaches the same
+calls through a supported path: the probe was never committed, and the hatch was removed
+in the commit that registered the sixth tool. To measure something new, write the probe
+again — three `await api.<method>(…)` calls behind the same hatch — rather than leaving
+an undocumented entry point in a tool that ships.
+
+**The CTS section used a second shape of the same idea, and it is the one to copy when the
+methods are not in the allowlist yet.** `scripts/probe-cts.mjs` never touched the guarded
+client: it went through `transportFor()` (`lib/adt-get.mjs`), the GET-only seam that hands
+back `({url, headers}) => …` and never lets the `AdtHTTP` escape its closure. So **no line
+of `lib/guard.mjs` changed in order to measure** — which matters, because widening the
+guard to find out whether the guard should be widened is circular. It also read the **raw
+XML** rather than the client's parsed object, and that is what caught `tm:all_objects`
+being dropped by `parseTask`: a parser cannot show you what it discards. It was never
+committed and is gone, in three rounds — round 1 read the discovery the six
+requests the one reading round 2 had left open. Each round was written only after
+the previous one had been read, which is why round 3 asked a question round 1 could not
+have phrased: the server named the media type itself, in a 406.
+
+## Sources
+
+- [Looking for Documentation on ADT API Endpoints — SAP Community Q&A](https://community.sap.com/t5/technology-q-a/looking-for-documentation-on-adt-abap-development-tools-api-endpoints/qaq-p/14217047)
+  — confirms there is no public endpoint reference, and points at the service document.
+- [ADT configuration guide, AS ABAP 7.57 (help.sap.com, PDF)](https://help.sap.com/doc/2e65ad9a26c84878b1413009f8ac07c3/202210.000/en-US/config_guide_system_backend_abap_development_tools.pdf)
+  — `/sap/bc/adt` activation, the DDIC subservice from 7.40 SP02, Basic auth over HTTPS.
+- [End-to-End SAP Automation with ADT REST Services](https://medium.com/@onuryz.itu/end-to-end-sap-automation-with-adt-rest-services-and-ai-a-modern-alternative-to-gui-scripting-343ea86064ea)
+  — where the `/sap/bc/adt/ddic/elementinfo?path=…&type=ddicAnnotationValue` form and the
+  `Accept: application/vnd.sap.adt.elementinfo+xml` header came from.
+- `node_modules/abap-adt-api/build/api/{cds,objectcontents,discovery}.{js,d.ts}` — the
+  client's own contract: `DdicProperties`, `DataElementProperties`, `DomainProperties`
+  (`valueInformation.valueTableRef`, `fixValues`), `AdtDiscoveryResult`, and the JSDoc
+  that gives the `/sap/bc/adt/ddic/{dataelements,domains}/<name>` URL shapes.
+- This system's `/sap/bc/adt/discovery`: 115 workspaces, 117 collections matching `ddic`.
+
+### For the CTS / Transport Organizer section
+
+Rank 4 material — *used to learn that a parameter exists, never to conclude what it does*.
+Each entry below says what it was actually used for, and every claim it suggested was then
+either measured on this system or left out.
+
+- [Transport API returns 406 — Wrong Accept header for CTS endpoints (`oisee/vibing-steampunk` issue #9)](https://github.com/oisee/vibing-steampunk/issues/9)
+  — the only public report that describes **both** of the symptoms seen here: a 406, and
+  *"empty responses: returning no results despite transports existing in the database"*,
+  blamed on a client sending a generic `Accept`. It is what made the A1/A2 control worth
+  running. ⚠️ It did **not** predict the answer: this system names
+  `…transportorganizertree.v1+xml`, which the report does not mention. Used as a
+  hypothesis generator, and then falsified in part by the measurement above.
+- [ADT Transport list empty — SAP Community](https://community.sap.com/t5/application-development-and-automation-discussions/adt-transport-list-empty/m-p/465100)
+  — same visible symptom from a different cause (SAP Note 2185682). Recorded to be
+  **discarded**: that note long predates S/4HANA 2023 FPS00, so it is almost certainly
+  already in this system. It is here so the next reader does not spend the search again.
+- [Transport Management — `mcp-abap-abap-adt-api` (DeepWiki)](https://deepwiki.com/mario-andreschak/mcp-abap-abap-adt-api/3.3-transport-management)
+  — another MCP server over the same client library, useful only as confirmation that its
+  transport surface is `abap-adt-api`'s and inherits the same `userTransports` behaviour.
+- [`CL_CTS_ADT_TM_REST_RES_CONT` — sapdatasheet.org](https://www.sapdatasheet.org/abap/clas/cl_cts_adt_tm_rest_res_cont.html)
+  — names the backend handler class and package `SCTS_ADT` behind these collections.
+  Useful for a Where-Used in the system; nothing was concluded from it.
+- **No public source documents the XML of `tm:abap_object` for a customizing entry.**
+  Searched and not found — which is why the `tm:obj_info` question could only be settled
+  by reading the bytes, and why the negative answer above is recorded so explicitly.
+- `node_modules/abap-adt-api/build/api/transports.{js,d.ts}` — the client's contract:
+  `parseTask`/`parseRequest`/`parseTargets` (`:99-120`), `transportDetails` (`:121-127`),
+  `userTransports` (`:128-137`), and `TransportObject`/`TransportTask`/`TransportsOfUser`
+  in the typings. ⚠️ The typings are **not** a runtime limit: `xmlNodeAttr`
+  (`build/utilities.js:136-142`) returns every non-`xmlns` attribute, so the five fields
+  `TransportObject` declares are what the client *documents*, not what it hands back.

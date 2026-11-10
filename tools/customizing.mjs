@@ -1,5 +1,5 @@
 // adt_customizing -- rows of ONE customizing table from a closed list, through the ADT data
-// preview. The only POST this server sends; the decision, dated, is in docs/security.md.
+// preview. The first POST this server sends; the decision, dated, is in docs/security.md.
 //
 // What it answers: "which pricing procedure step calls routine 953?", "which copy control
 // carries requirement 653?" -- the question the VOFM catalogue could not answer, because a

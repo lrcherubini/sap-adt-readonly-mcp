@@ -1197,7 +1197,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
     // The only tool that answers about CHANGE rather than about state: the repository has
     // the objects, CTS has which of them moved together and when.
     transportTool(cfg, session, journal),
-    // The one POST, fenced to a closed list of customizing tables (docs/security.md,
+    // The first POST, fenced to a closed list of customizing tables (docs/security.md,
     // 2026-09-12): where a VOFM routine is used is table content, not a repository property.
     customizingTool(cfg, session, journal),
     // The Feed Reader's feeds (ST22 dumps, gateway log): named GET routes over hrefs the

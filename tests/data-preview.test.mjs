@@ -1,4 +1,4 @@
-// The one POST: grammar closed, list closed, parser on the measured shape (2026-09-12).
+// The first POST: grammar closed, list closed, parser on the measured shape (2026-09-12).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
