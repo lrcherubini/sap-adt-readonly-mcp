@@ -136,10 +136,12 @@ test('allowlist is the security property, and it is small', () => {
   // ddicElement returns no domain (so the data element and domain reads are needed)
   // and that /sap/bc/adt/discovery is the only documented source of this system's
   // REST parameters, and 22 with objectEnhancements -- the read that makes customer
-  // code inside standard objects visible at all. The cap is deliberately close to the real number: growing the
+  // code inside standard objects visible at all. 20 since 2026-11-10: adtDiscovery and
+  // ddicRepositoryAccess, which no tool called, left as the first step of removing the library.
+  // The cap is deliberately close to the real number: growing the
   // allowlist should require editing this line and saying why, not slipping under a
   // generous bound.
-  assert.equal(allowedMethods().length, 22, 'changing the allowlist size is a decision');
+  assert.equal(allowedMethods().length, 20, 'changing the allowlist size is a decision');
   assert.ok(allowedMethods().length < 25, 'it must stay small enough to audit by eye');
   assert.ok(!allowedMethods().includes('lock'));
 });
@@ -183,10 +185,8 @@ test('DDIC metadata reads are reachable, their write neighbours are not', () => 
   for (const m of [
     'ddicElement',
     'annotationDefinitions',
-    'ddicRepositoryAccess',
     'getDataElementProperties',
     'getDomainProperties',
-    'adtDiscovery',
   ]) {
     raw[m] = () => `${m} reached`;
   }
@@ -196,7 +196,6 @@ test('DDIC metadata reads are reachable, their write neighbours are not', () => 
 
   assert.equal(api.ddicElement('/sap/bc/adt/ddic/ddl/sources/i_plantstdvh'), 'ddicElement reached');
   assert.equal(api.annotationDefinitions(), 'annotationDefinitions reached');
-  assert.equal(api.ddicRepositoryAccess('/x'), 'ddicRepositoryAccess reached');
   // The domain, which ddicElement does not return, comes from these two.
   assert.equal(
     api.getDataElementProperties('/sap/bc/adt/ddic/dataelements/werks_d'),
@@ -206,7 +205,11 @@ test('DDIC metadata reads are reachable, their write neighbours are not', () => 
     api.getDomainProperties('/sap/bc/adt/ddic/domains/werks'),
     'getDomainProperties reached'
   );
-  assert.equal(api.adtDiscovery(), 'adtDiscovery reached');
+  // Allowed once, unused, and removed (2026-11-10): less surface for the library to hand out.
+  raw.adtDiscovery = () => 'MUST NOT HAPPEN';
+  raw.ddicRepositoryAccess = () => 'MUST NOT HAPPEN';
+  assert.throws(() => api.adtDiscovery(), ReadOnlyViolation);
+  assert.throws(() => api.ddicRepositoryAccess('/x'), ReadOnlyViolation);
 
   for (const m of ['setDataElementProperties', 'setDomainProperties']) {
     assert.throws(() => api[m](), ReadOnlyViolation, `${m} must stay blocked`);

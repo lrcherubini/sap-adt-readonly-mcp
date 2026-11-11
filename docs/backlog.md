@@ -17,7 +17,7 @@ Last reviewed: 2026-11-10, after a comparison with other ADT MCP servers (read a
 
 **What is missing.** The owner's rule: no new capability uses third-party code, and the library
 leaves. It still carries the Basic logon, the CSRF token, the cookies and the stateless session,
-and the 22 allowlisted members of `lib/guard.mjs` (search, object structure, source, where-used,
+and the 20 allowlisted members of `lib/guard.mjs` (search, object structure, source, where-used,
 node contents, DDIC, discovery, enhancements). Every newer read already goes through
 `lib/adt-get.mjs` or a fixed POST of our own.
 
@@ -25,7 +25,7 @@ node contents, DDIC, discovery, enhancements). Every newer read already goes thr
 reference (`userTransports`, the quick-search facet, `revisions`), and the guard exists because
 the library hands out unguarded objects.
 
-**What to measure and decide.** The raw reply of each of the 22 members, transcribed before its
+**What to measure and decide.** The raw reply of each of the 20 members, transcribed before its
 route replaces it; the order of the migration, one member per cycle; the logon and CSRF exchange
 measured on the wire; and what `lib/guard.mjs` becomes once no client is left to wrap.
 

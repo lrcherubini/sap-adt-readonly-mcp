@@ -52,13 +52,15 @@ one, never wrong. Pinned by `tests/system-check.test.mjs`.
 Not by reviewing each call site — by removing the capability.
 
 `lib/guard.mjs` wraps the ADT client in a `Proxy` driven by an **allowlist**. Of the 161
-members `ADTClient` declares in its 8.4.3 `.d.ts`, **22 are reachable**; every other access throws
+members `ADTClient` declares in its 8.4.3 `.d.ts`, **20 are reachable**; every other access throws
 `ReadOnlyViolation` **before a request is issued**.
 
-Seven of those 22 read DDIC metadata, the service document or the enhancements of an
-object, and each was added on the strength of a measurement, not a preference.
+Five of those 20 read DDIC metadata or the enhancements of an object, and each was added on
+the strength of a measurement, not a preference. Two more, `ddicRepositoryAccess` and
+`adtDiscovery`, were admitted the same way and left on 2026-11-10: no tool called them (see
+*Removing `abap-adt-api`* below).
 
-`ddicElement`, `annotationDefinitions` and `ddicRepositoryAccess` came first. In a CDS
+`ddicElement`, `annotationDefinitions` and `ddicRepositoryAccess` (since removed) came first. In a CDS
 projection a field inherits its type without restating it (`key Plant,` and nothing
 more); `objectStructureElements` returns `[]` for a CDS view; and a data element has no
 source at all (a GET on its URI is a 404). So "which data element is behind this field"
@@ -76,7 +78,7 @@ values (`DataElementProperties.typeName` and `searchHelp`,
 `DomainProperties.valueInformation.valueTableRef` and `fixValues`); a domain with fixed
 values needs no value help at all, which is a conclusion rather than a gap.
 
-`adtDiscovery` reads `/sap/bc/adt/discovery`: the collections this system exposes and
+`adtDiscovery` (since removed; the probes read it over raw GET) read `/sap/bc/adt/discovery`: the collections this system exposes and
 their URI templates. SAP publishes no endpoint reference for ADT and points at the
 service document instead, so this is how a parameter name gets verified rather than
 guessed — which is the difference between the first and the second attempt at
@@ -1168,6 +1170,18 @@ package's encapsulation and published interfaces. It never answers "violation". 
 interface are not in any ADT document (the IDE opens an interface in SAP GUI), and the measured
 system had the package check switched off system-wide, where the check run reports nothing either
 way. A package document not read is named, and the part is incomplete.
+
+### Removing `abap-adt-api`: the first step -- 2026-11-10
+
+The owner's rule is that the library leaves (`docs/backlog.md`, section 1). It still carries the
+logon, the CSRF token, the cookies and the stateless session, and the members of the allowlist
+above. The removal goes one member per cycle, each replaced by a named route of `lib/adt-get.mjs`
+only after its raw reply was measured and transcribed; the logon exchange is measured on the
+wire before the client is replaced.
+
+**The first step, without a measurement.** `adtDiscovery` and `ddicRepositoryAccess` were in the
+allowlist and no tool called them: they leave it. The allowlist goes from 22 to 20 members; a
+smaller surface for the library to hand out, and two members fewer to migrate.
 
 ### Self-contained: every source is read from the system -- 2026-11-08
 
