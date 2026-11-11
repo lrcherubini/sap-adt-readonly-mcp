@@ -640,17 +640,29 @@ test('a name the search cannot see is still read when its URI is derivable, and 
 // --- adt_object_info ---------------------------------------------------------
 
 test('adt_object_info returns metadata, elements and the DDIC field tree', async () => {
-  const api = fakeApi({ objectStructureElements: () => [{ name: 'X' }] });
+  const field = { name: 'F', type: 'STOB/DOF', properties: { elementProps: { ddicDataType: 'char' }, annotations: [] }, children: [] };
+  const api = fakeApi({ objectStructureElements: () => [{ name: 'X' }], ddicElement: () => ({ name: 'ZI_TEST', children: [field] }) });
   const out = jsonOf(
     await byName(toolsWith(api), 'adt_object_info').handler({ objectName: 'ZI_TEST' })
   );
 
   assert.equal(out.found['adtcore:name'], 'ZI_TEST');
+  // No raw client here: the release state is the one part not read, and it is said in a field.
+  assert.deepEqual(out.incomplete, [{ list: 'apiRelease', code: 'NOT_READ', reason: 'no raw client in this session' }]);
+  assert.equal(out.elementsAsked, false, 'a CDS view has no outline: the list is not asked');
+  assert.deepEqual(contractErrors(out), []);
   assert.deepEqual(out.facets, ['DDLS/DF', 'STOB/DO']);
   assert.equal(out.metadata.objectUrl, undefined, 'objectUrl is dropped from the metadata block');
   assert.equal(out.metadata.metaData['adtcore:name'], 'ZI_TEST');
   assert.deepEqual(out.elements, [{ name: 'X' }]);
   assert.equal(out.ddic.ok, true);
+
+  // An empty tree is also what the resource answers for a path it does not resolve: not "no fields".
+  const empty = jsonOf(await byName(toolsWith(fakeApi()), 'adt_object_info').handler({ objectName: 'ZI_TEST' }));
+  assert.equal(empty.ddic.ok, false);
+  assert.equal(empty.complete, false);
+  assert.equal(empty.incomplete[0].list, 'ddic');
+  assert.equal(empty.incomplete[0].code, 'NOT_READ');
 });
 
 test('adt_object_info with fields:false makes no ddicElement call', async () => {
@@ -813,8 +825,9 @@ test('an empty ddicElement tree is reported, not returned as "no fields"', async
   const api = fakeApi({ ddicElement: () => ({ name: 'ZI_TEST', children: [] }) });
   const out = jsonOf(await byName(toolsWith(api), 'adt_object_info').handler({ objectName: 'ZI_TEST' }));
 
-  // ok stays true -- the call succeeded -- but the answer must not read as an empty object.
-  assert.equal(out.ddic.ok, true);
+  // The call succeeded, but an empty tree is also the answer to a path not resolved: not read.
+  assert.equal(out.ddic.ok, false);
+  assert.ok(out.incomplete.some((g) => g.list === 'ddic' && g.code === 'NOT_READ'));
   assert.match(out.ddic.note, /NOT evidence/);
   const gap = journalLines.find((l) => l.code === 'DDIC_FIELDS_NOT_READ');
   assert.ok(gap, 'an empty tree must file a gap');

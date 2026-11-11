@@ -972,7 +972,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
               fallback: 're-measure (docs/adt-api-reference.md, "objectproperties")',
             });
           }
-          return asText({
+          return asText(finish({
             found: hit,
             foundBy,
             facets,
@@ -997,7 +997,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             metadata: {},
             elements: [],
             elementsNote: 'no structure elements: the resource that lists them dumps the server for this type',
-          });
+          }, [{ list: 'elements', code: 'NOT_READ', reason: 'the structure of this type dumps the server, so it is not asked' }]));
         }
         if (!structure) {
           try {
@@ -1042,11 +1042,16 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           Object.entries(structure).filter(([k]) => !skip.has(k))
         );
 
+        const gaps = [];
         let elements = [];
         let elementsNote;
+        // Only a class and an interface have an outline (lib/adt-reads.mjs): for any other type the
+        // list is not asked, which the answer says rather than leaving an empty list to be read.
+        const outlined = /\/oo\/(classes|interfaces)\//i.test(String(hit['adtcore:uri'] ?? ''));
         try {
           elements = await api.objectStructureElements(hit['adtcore:uri']);
         } catch (e) {
+          gaps.push({ list: 'elements', code: 'NOT_READ', reason: `${e.name ?? 'Error'}: ${e.message}`.slice(0, 200) });
           // Not every object type exposes structure elements. Measured: a CDS view
           // returns [] rather than throwing, which is why `ddic` below exists. So this
           // is not a gap of the server -- but it is not nothing either, and an empty
@@ -1084,6 +1089,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             const r = await resolveDataElement(api, name);
             const { calls, ...rest } = r;
             dataElement = rest;
+            if (!r.ok || r.reason) gaps.push({ list: 'dataElement', code: 'NOT_READ', reason: String(r.reason ?? 'the data element did not resolve').slice(0, 200) });
             if (!r.ok || r.reason) {
               journal?.gap?.({
                 code: 'DOMAIN_NOT_READ',
@@ -1097,6 +1103,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             const r = await readDomain(api, name);
             const { calls, ...rest } = r;
             domain = rest;
+            if (!r.ok) gaps.push({ list: 'domain', code: 'NOT_READ', reason: String(r.reason ?? 'the domain did not resolve').slice(0, 200) });
             if (!r.ok) {
               journal?.gap?.({
                 code: 'DOMAIN_NOT_READ',
@@ -1116,6 +1123,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         const contract = contractOf(hit['adtcore:type']);
         if (!contract) typeNotInContract(hit, 'adt_object_info');
         let fieldsNote;
+        if (fields !== false && !contract) gaps.push({ list: 'fields', code: 'OUT_OF_SCOPE', reason: `${hit['adtcore:type']} is not a measured type: its field list is not asked` });
         if (fields !== false && !contract?.fields) {
           fieldsNote = contract
             ? contract.fieldsNote ?? `field list not asked: ${hit['adtcore:type']} has none (lib/type-contract.mjs)`
@@ -1128,6 +1136,8 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             const raw = await api.ddicElement(path);
             ddic = { ok: true, askedBy: 'name', path, raw };
             if (!Array.isArray(raw?.children) || !raw.children.length) {
+              ddic.ok = false;
+              gaps.push({ list: 'ddic', code: 'NOT_READ', reason: 'the element info answered an empty tree, which it also answers for a path it does not resolve' });
               ddic.note =
                 `ddicElement('${path}') answered no children. That is NOT evidence that the object ` +
                 'has no fields: this resource answers an empty tree for a path it does not resolve.';
@@ -1141,6 +1151,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             }
           } catch (e) {
             ddic = { ok: false, askedBy: 'name', path, error: `${e.name ?? 'Error'}: ${e.message}` };
+            gaps.push({ list: 'ddic', code: 'NOT_READ', reason: ddic.error.slice(0, 200) });
           }
         }
 
@@ -1169,9 +1180,13 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             record(cfg, 'adt_object_info', `${hit['adtcore:name']}#path`, packagePath.length);
             const self = packagePath.findIndex((s) => String(s.name).toUpperCase() === String(hit['adtcore:name']).toUpperCase());
             parentPackage = self > 0 ? packagePath[self - 1].name : self === 0 ? null : undefined;
-            if (parentPackage === undefined) packagePathNote = 'the path answered does not contain the package itself; parentPackage is not derived';
+            if (parentPackage === undefined) {
+              packagePathNote = 'the path answered does not contain the package itself; parentPackage is not derived';
+              gaps.push({ list: 'packagePath', code: 'PARSE_FAILED', reason: 'the path does not contain the package itself' });
+            }
           } catch (e) {
             packagePathNote = `package path not read: ${e.name ?? 'Error'}: ${e.message} -- this is NOT a root package`;
+            gaps.push({ list: 'packagePath', code: e?.name === 'XmlError' ? 'PARSE_FAILED' : 'NOT_READ', reason: `${e.name ?? 'Error'}: ${e.message}`.slice(0, 200) });
           }
         }
 
@@ -1183,6 +1198,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         if (hit['adtcore:type'] === 'ENHO/XHB') {
           if (!session.raw) {
             badiNote = 'badi not read: this session has no raw client';
+            gaps.push({ list: 'badi', code: 'NOT_READ', reason: 'no raw client in this session' });
           } else {
             try {
               const out = await derivedGet(transportFor(session.raw), hit['adtcore:uri'], hit['adtcore:uri'], { kind: 'enhoxhb' });
@@ -1206,6 +1222,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
                 fallback: 'SE19, or the implementing class in the structure elements',
               });
               badiNote = `badi not read: ${e.name ?? 'Error'}: ${e.message}`;
+              gaps.push({ list: 'badi', code: 'NOT_READ', reason: badiNote.slice(0, 200) });
             }
           }
         }
@@ -1217,6 +1234,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         if (hit['adtcore:type'] === 'SRVB/SVB') {
           if (!session.raw) {
             bindingNote = 'binding not read: this session has no raw client';
+            gaps.push({ list: 'binding', code: 'NOT_READ', reason: 'no raw client in this session' });
           } else {
             const out = await readServiceBinding(transportFor(session.raw), hit['adtcore:name'], {
               gap: (row) => journal?.gap?.(row),
@@ -1224,6 +1242,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             });
             binding = out.binding;
             bindingNote = out.note;
+            if (!binding) gaps.push({ list: 'binding', code: 'NOT_READ', reason: String(out.note ?? 'not read').slice(0, 200) });
+            const unread = (binding?.versions ?? []).filter((v) => v.detailNote).length;
+            if (unread) gaps.push({ list: 'binding.versions', code: 'NOT_READ', count: unread, reason: 'the detail of these versions was not read: published unknown' });
           }
         }
 
@@ -1233,12 +1254,18 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         if (API_RELEASE_OBJECT.test(String(hit['adtcore:uri'] ?? ''))) {
           if (!session.raw) {
             apiRelease = { read: false, reason: 'this session has no raw client' };
+            gaps.push({ list: 'apiRelease', code: 'NOT_READ', reason: 'no raw client in this session' });
           } else {
             let out;
             try {
               out = await namedGet(transportFor(session.raw), 'apiRelease', { uri: hit['adtcore:uri'] });
               const parsed = parseApiRelease(out.body);
-              apiRelease = { read: true, anyReleased: parsed.anyReleased, contracts: parsed.contracts };
+              // A reply without its root is not "no contract": it is a reply this parser does not know.
+              const rootMissing = parsed.drift.some((d) => d.where === 'root missing');
+              apiRelease = rootMissing
+                ? { read: false, reason: 'the reply has no ars:apiRelease root' }
+                : { read: true, anyReleased: parsed.anyReleased, contracts: parsed.contracts };
+              if (rootMissing) gaps.push({ list: 'apiRelease', code: 'PARSE_FAILED', reason: apiRelease.reason });
               if (parsed.drift.length) {
                 journal?.gap?.({
                   code: 'SHAPE_DRIFT',
@@ -1257,6 +1284,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
                 fallback: 'the API State tab of the object in the IDE',
               });
               apiRelease = { read: false, reason: `${e.name ?? 'Error'}: ${e.message}` };
+              gaps.push({ list: 'apiRelease', code: 'NOT_READ', reason: apiRelease.reason.slice(0, 200) });
             } finally {
               record(cfg, 'adt_object_info', `${hit['adtcore:name']}#apirelease`, out?.bytes ?? 0);
             }
@@ -1265,7 +1293,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         const abapLanguageVersion = structure?.metaData?.['adtcore:abapLanguageVersion'] ?? null;
 
         record(cfg, 'adt_object_info', hit['adtcore:name'], elements.length);
-        return asText({
+        return asText(finish({
           found: hit,
           foundBy,
           facets,
@@ -1280,14 +1308,16 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           ...(abapLanguageVersion ? { abapLanguageVersion } : {}),
           ...(apiRelease ? { apiRelease } : {}),
           ...(elementsNote ? { elementsNote } : {}),
+          ...(resolved.alternatives?.length ? { alternatives: resolved.alternatives.map((h) => ({ name: h['adtcore:name'], type: h['adtcore:type'], package: h['adtcore:packageName'] ?? null })) } : {}),
           metadata,
+          elementsAsked: outlined,
           elements,
           ...(ddic ? { ddic } : {}),
           ...(fieldsNote ? { fieldsNote } : {}),
           ...(contract ? {} : { contract: 'unmeasured' }),
           ...(dataElement ? { dataElement } : {}),
           ...(domain ? { domain } : {}),
-        });
+        }, gaps));
       },
     },
 

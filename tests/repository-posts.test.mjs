@@ -61,7 +61,7 @@ test('findObjectPath: the node path POST with the object URI as its one paramete
     await assert.rejects(() => ownReads(raw).findObjectPath(bad), RepositoryPostViolation, bad);
   }
   assert.equal(raw.calls.length, 1);
-  assert.deepEqual(await ownReads(fakeRaw(() => ({ status: 200, body: '<other/>', headers: {} }))).findObjectPath('/sap/bc/adt/packages/zdemo_pkg'), []);
+  await assert.rejects(() => ownReads(fakeRaw(() => ({ status: 200, body: '<other/>', headers: {} }))).findObjectPath('/sap/bc/adt/packages/zdemo_pkg'), /not projectexplorer:nodepath/, 'another document is not "no path"');
   assert.deepEqual(await ownReads(fakeRaw(() => ({ status: 200, body: ' ', headers: {} }))).findObjectPath('/sap/bc/adt/packages/zdemo_pkg'), []);
 });
 
