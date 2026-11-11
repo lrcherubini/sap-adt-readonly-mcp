@@ -1183,6 +1183,20 @@ wire before the client is replaced.
 allowlist and no tool called them: they leave it. The allowlist goes from 22 to 20 members; a
 smaller surface for the library to hand out, and two members fewer to migrate.
 
+**The client of its own -- 2026-11-11.** `lib/adt-http.mjs` performs the measured exchange and
+nothing more: the Basic logon on `compatibility/graph` with `x-csrf-token: fetch`, the session
+cookie on every later request, the token on every request, the logoff. Three rules were decided by
+the owner the same day:
+
+- A 403 that says `x-csrf-token: Required` fetches a new token once (with the cookie, never the
+  password) and repeats the request once.
+- A session that expires (401 after a logon that succeeded) logs on again **once**, with the
+  password the system already accepted, and the trail records it. If that logon is refused, the
+  client sends nothing more until a restart: a password changed in the meantime is never tried
+  twice. The first logon keeps its own rule: one attempt per process.
+- The password stays in the client's closure and is dropped at logoff. No error, header map or
+  message the client hands out carries a cookie, a token or an Authorization value.
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:
