@@ -1208,6 +1208,11 @@ one object: the members moved, and the rest still served by the library. Moved s
   entity is ever declared). `mainInclude` and `classIncludes` moved with it. Checked against the
   library's own parser on the measured class, program and CDS documents: identical, except that
   an integer too large for a number (an etag) stays an exact string.
+- `searchObject` (2026-11-11): the named route `repositorySearch`, the quick search as the
+  library sent it (the major type only, so the descriptions come back). The query is held to
+  printable ASCII without blanks, at most 100 characters; the library sent anything. Every value
+  of a hit stays a string, where the library turned a name or a description of digits into a
+  number.
 
 ### Self-contained: every source is read from the system -- 2026-11-08
 
