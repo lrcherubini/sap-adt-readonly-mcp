@@ -1236,6 +1236,16 @@ one object: the members moved, and the rest still served by the library. Moved s
   one query a caller gives: an ADT object URI by pattern, percent-encoded. `derivedGet` gained
   that form, `optional`, for it.
 
+**The POSTs the library sent, now sent from here.** Four reads of the repository are POSTs, and
+the library sent them for `adt_package_tree`, `adt_search`, `adt_where_used` and the package scans
+long before this section existed. They move to `lib/repository-posts.mjs` with the rule of every
+POST of this server: a fixed path, a query built from validated values, a body absent or built
+there, a brand that proves it, and the raw client only.
+
+- `nodeContents` (2026-11-11): `POST /sap/bc/adt/repository/nodestructure`, no body, the
+  parameters in the library's order, a package name only (`DEVC/K`; namespace and `$` admitted, as
+  the tree has always listed them). The reply is a list of rows; every field stays text.
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:
