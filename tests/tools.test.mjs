@@ -10,6 +10,7 @@
 // ADT shape and the real statics run over them -- which is the only way this test can
 // catch a change in that glue.
 
+import { contractErrors } from '../lib/completeness.mjs';
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -210,7 +211,7 @@ test('adt_search maps the ADT fields and records the hit count', async () => {
   assert.equal(log.at(-1).resultSize, 2);
 });
 
-test('a result that hits the cap says it may be truncated', async () => {
+test('a result that hits the cap is incomplete, with the arguments that narrow it', async () => {
   // The quick search has no paging and no total: 200 hits for a cap of 200 reads exactly
   // like "there are 200". Measured: ENHO/XHH answered 182 of 200, 18 of headroom.
   const many = Array.from({ length: 7 }, (_, i) => hit(`Z${i}`, 'CLAS/OC', 'ZP', `/c/z${i}`));
@@ -218,13 +219,19 @@ test('a result that hits the cap says it may be truncated', async () => {
   const before = journalLines.filter((l) => l.code === 'SEARCH_AT_CAP').length;
   const out = jsonOf(await byName(toolsWith(api), 'adt_search').handler({ query: 'Z*', max: 7 }));
   assert.equal(out.count, 7);
-  assert.equal(out.truncated, 'possible');
+  assert.equal(out.truncated, true);
+  assert.equal(out.complete, false);
+  assert.deepEqual(out.incomplete, [{ list: 'hits', code: 'SERVER_PAGE_FULL', returned: 7, total: null, narrowBy: ['query', 'objectType', 'max'] }]);
+  assert.deepEqual(out.narrowBy, ['query', 'objectType', 'max']);
+  assert.deepEqual(contractErrors(out), []);
   const gaps = journalLines.filter((l) => l.stream === 'gaps' && l.code === 'SEARCH_AT_CAP');
   assert.equal(gaps.length - before, 1, 'one gap for the one answer at the cap');
   assert.match(gaps.at(-1).detail, /7 hits for a limit of 7/);
   // Under the cap, no gap: six of seven is a complete answer.
   const under = jsonOf(await byName(toolsWith(api), 'adt_search').handler({ query: 'Z*', max: 8 }));
   assert.equal(under.truncated, false);
+  assert.equal(under.complete, true);
+  assert.deepEqual(contractErrors(under), []);
   assert.equal(journalLines.filter((l) => l.code === 'SEARCH_AT_CAP').length - before, 1);
 });
 
@@ -235,10 +242,9 @@ test('adt_search says that an empty answer is not proof of absence (RV64A953, 20
   const api = fakeApi({ searchObject: () => [] });
   const out = jsonOf(await byName(toolsWith(api), 'adt_search').handler({ query: 'RV64A953' }));
   assert.equal(out.count, 0);
-  assert.match(out.note, /empty is not proof of absence/);
-  assert.match(out.note, /foundBy: "uri"/);
-  const full = jsonOf(await byName(toolsWith(fakeApi()), 'adt_search').handler({ query: 'ZI_TEST' }));
-  assert.equal(full.note, undefined);
+  assert.equal(out.complete, true, 'complete for the index it asked');
+  assert.equal(out.source, 'quick search index', 'and the answer names that index, not the repository');
+  assert.deepEqual(contractErrors(out), []);
 });
 
 // The measured reply of the quick search asked with the whole facet: no adtcore:description.
@@ -296,7 +302,9 @@ test('without a raw client there is no second ask: the facet-only type is refuse
   const out = jsonOf(await byName(tools, 'adt_search').handler({ query: 'Z_DEMO_FM', objectType: 'FUGR/FF' }));
   assert.equal(out.count, 0);
   assert.equal(out.foundBy, undefined);
-  assert.match(out.note, /NOT evidence of absence/);
+  assert.equal(out.complete, false);
+  assert.equal(out.incomplete[0].code, 'NOT_READ');
+  assert.deepEqual(contractErrors(out), []);
   await assert.rejects(
     () => byName(tools, 'adt_object_info').handler({ objectName: 'Z_DEMO_FM', objectType: 'FUGR/FF' }),
     /not found/i
@@ -320,18 +328,28 @@ test('a facet the library answers is never asked twice, and an empty library ans
   assert.equal(urls.length, 1);
 });
 
-test('adt_search defaults to 50 results and caps at 200', async () => {
+test('adt_search defaults to 50 results, takes up to 999, and refuses more before asking', async () => {
   const api = fakeApi();
   const tools = toolsWith(api);
   await byName(tools, 'adt_search').handler({ query: 'Z*' });
-  await byName(tools, 'adt_search').handler({ query: 'Z*', max: 5000 });
+  await byName(tools, 'adt_search').handler({ query: 'Z*', max: 999 });
   await byName(tools, 'adt_search').handler({ query: 'Z*', max: 7, objectType: 'CLAS/OC' });
+  await assert.rejects(() => byName(tools, 'adt_search').handler({ query: 'Z*', max: 5000 }), /<= 999/);
 
   assert.deepEqual(api.calls.map((c) => c.args), [
     ['Z*', undefined, 50],
-    ['Z*', undefined, 200],
+    ['Z*', undefined, 999],
     ['Z*', 'CLAS/OC', 7],
   ]);
+});
+
+test('hits of another subtype of the facet are left out and counted', async () => {
+  const api = fakeApi({ searchObject: () => [hit('ZCL_A', 'CLAS/OC', 'ZP', '/c/a'), hit('ZCL_A', 'CLAS/OCX', 'ZP', '/c/a/x')] });
+  const out = jsonOf(await byName(toolsWith(api), 'adt_search').handler({ query: 'ZCL_A', objectType: 'CLAS/OC' }));
+  assert.deepEqual(out.hits.map((h) => h.type), ['CLAS/OC']);
+  assert.equal(out.outsideFacet, 1);
+  assert.deepEqual(out.facetRetry, { asked: false, reason: 'the first search answered' });
+  assert.deepEqual(contractErrors(out), []);
 });
 
 // --- adt_read_source ---------------------------------------------------------
@@ -1735,6 +1753,7 @@ test('adt_search on APLO also answers the legacy objects created in SLG0; other 
         const sql = String(c.body ?? '').replace(/\s+/g, ' ').trim();
         if (/FROM BALOBJ WHERE/.test(sql)) return { status: 200, body: preview(sql, { OBJECT: ['ZDEMO_SLG0', 'ZDEMO_APLO'] }), headers: {} };
         if (/FROM TADIR/.test(sql)) return { status: 200, body: preview(sql, { OBJ_NAME: ['ZDEMO_APLO'] }), headers: {} };
+        if (/informationsystem\/search/.test(url)) return { status: 200, body: '<adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core"/>', headers: {} };
         if (/FROM BALOBJT/.test(sql)) return { status: 200, body: preview(sql, { SPRAS: ['E'], OBJECT: ['ZDEMO_SLG0'], OBJTXT: ['Demo log'] }), headers: {} };
         throw Object.assign(new Error('unexpected'), { err: 500 });
       },
@@ -1748,6 +1767,8 @@ test('adt_search on APLO also answers the legacy objects created in SLG0; other 
   assert.equal(out.legacy.kind, 'SLG0');
   assert.deepEqual(out.legacy.objects, [{ name: 'ZDEMO_SLG0', description: 'Demo log' }]);
   assert.equal(out.legacy.complete, true);
+  assert.equal(out.complete, true);
+  assert.deepEqual(contractErrors(out), []);
   assert.match(out.legacy.guidance, /SLG0/);
 
   const cls = jsonOf(await byName(buildTools(cfgWith([]), session), 'adt_search').handler({ query: 'Z*', objectType: 'CLAS/OC' }));
@@ -1755,7 +1776,9 @@ test('adt_search on APLO also answers the legacy objects created in SLG0; other 
 
   const noRaw = jsonOf(await byName(toolsWith(api), 'adt_search').handler({ query: 'Z*', objectType: 'CHKV' }));
   assert.equal(noRaw.legacy.complete, false);
-  assert.match(noRaw.legacy.note, /no raw client/);
+  assert.deepEqual(noRaw.legacy.incomplete, { code: 'NOT_READ', reason: 'no raw client in this session' });
+  assert.equal(noRaw.complete, false);
+  assert.deepEqual(noRaw.incomplete, [{ list: 'legacy.objects', code: 'NOT_READ', reason: 'no raw client in this session' }]);
 });
 
 // --- argument validation (tools/index.mjs argumentErrors) ---------------------

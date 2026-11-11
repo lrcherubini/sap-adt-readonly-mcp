@@ -277,3 +277,8 @@ test('the inventory of an entity carries each field\'s annotations as the system
     'OBJECTMODEL.MANDATORY': '',
   });
 });
+
+test('a search reply of another shape is an error, never an empty list', async () => {
+  const raw = fakeRaw(() => ({ status: 200, body: '<html><body>logon</body></html>', headers: {} }));
+  await assert.rejects(() => ownReads(raw).searchObject('ZCL_DEMO'), /not adtcore:objectReferences/);
+});

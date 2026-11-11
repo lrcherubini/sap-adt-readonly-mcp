@@ -2,6 +2,7 @@
 // the ADT REST API or the SAP-standard launchpad OData services (/UI2); nothing here
 // can change the system, and nothing reads a local checkout: every source comes from the system.
 
+import { finish } from '../lib/completeness.mjs';
 import { mainInclude, classIncludes } from '../lib/object-structure.mjs';
 import { record, budgetLeft } from '../lib/audit.mjs';
 import { enhancedObjectOf, parseEnhoXhb } from '../lib/enhancement-target.mjs';
@@ -178,6 +179,9 @@ function validated(tool) {
     },
   };
 }
+
+/** The quick search takes maxResults up to three digits (the route's own alphabet). */
+const SEARCH_CEILING = 999;
 
 export function buildTools(cfg, session, journal = openJournal(cfg)) {
   const api = session.api;
@@ -603,30 +607,46 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             },
             max: {
               type: 'integer',
-              description: 'Default 50, cap 200. No paging: exactly `max` hits may be truncated.',
+              minimum: 1,
+              maximum: SEARCH_CEILING,
+              description: `Hits asked of the search (default 50, at most ${SEARCH_CEILING}); the search has no paging`,
             },
           },
           required: ['query'],
         },
       },
       async handler({ query, objectType, max }) {
-        const limit = Math.min(Number(max) || 50, 200);
+        const limit = max === undefined || max === null ? 50 : Number(max);
         const facet = objectType ? String(objectType).toUpperCase() : undefined;
-        let hits = FACET_ONLY_TYPES.has(facet) ? [] : await api.searchObject(query, objectType, limit);
+        const incomplete = [];
+        const facetOnly = FACET_ONLY_TYPES.has(facet);
+        let hits = facetOnly ? [] : await api.searchObject(query, objectType, limit);
         let byFacet = false;
-        if (!FACET_ONLY_TYPES.has(facet)) record(cfg, 'adt_search', query, hits.length);
-        // Empty with a facet is a question, not a verdict (measured): ask once more
-        // with the facet whole. The reply then carries no description, and the answer says so.
-        if (!hits.length && facet?.includes('/') && facetSearch && /^[A-Z0-9_/]{1,40}\*?$/i.test(String(query))) {
-          hits = await facetSearch(query, facet, limit);
-          // The answer says foundBy: 'facet' and why the descriptions are missing; no journal
-          // row, because nothing failed (it is the measured route for FUGR/FF).
-          byFacet = hits.length > 0;
+        if (!facetOnly) record(cfg, 'adt_search', query, hits.length);
+        // A full page is "more may exist": the quick search has no paging and no total
+        // (measured: ENHO/XHH answered 182 of a 200 cap). Counted on the reply, before the facet
+        // filter below, because it is the reply that is cut.
+        const pageFull = hits.length >= limit;
+        // The library form asks the MAJOR type, so a facet's siblings share the page: they are
+        // left out of the answer and counted.
+        let outsideFacet = 0;
+        if (facet?.includes('/') && !facetOnly) {
+          const kept = hits.filter((h) => String(h['adtcore:type'] ?? '').toUpperCase() === facet);
+          outsideFacet = hits.length - kept.length;
+          hits = kept;
         }
-        // A reply of EXACTLY the limit is indistinguishable from "there were exactly that
-        // many": the quick search has no paging and no total. Measured: ENHO/XHH
-        // answered 182 of a 200 cap -- 18 of headroom that the next census could spend
-        // without anyone noticing. So the cap is a signal in the answer, and a gap.
+        // Empty with a facet is a question, not a verdict (measured): ask once more with the
+        // facet whole. The reply then carries no description, and the answer says so.
+        const retryable = facet?.includes('/') && /^[A-Z0-9_/]{1,40}\*?$/i.test(String(query));
+        let facetRetry = { asked: false, reason: hits.length ? 'the first search answered' : !facet?.includes('/') ? 'no facet asked' : !retryable ? 'the query is not a name or a name with a trailing *' : 'no raw client in this session' };
+        if (!hits.length && retryable && facetSearch) {
+          hits = await facetSearch(query, facet, limit);
+          byFacet = hits.length > 0;
+          facetRetry = { asked: true, found: hits.length };
+        }
+        if (facetOnly && !facetSearch) {
+          incomplete.push({ list: 'hits', code: 'NOT_READ', reason: `${facet} answers only through the whole-facet route, and this session has no raw client` });
+        }
         // APLO and CHKV have a second kind the ADT never lists (SLG0 / SCI): read it from its
         // tables, so an ADT-only answer is not taken for the whole set (lib/legacy-objects.mjs).
         const legacyKind = legacyKindOf(facet);
@@ -638,58 +658,58 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
                 gap: (row) => journal?.gap?.(row),
                 audit: (target, n) => record(cfg, 'adt_search', target, n),
               })
-            : { objects: [], complete: false, note: 'legacy objects not read: this session has no raw client' };
+            : { objects: [], complete: false, incomplete: { code: 'NOT_READ', reason: 'no raw client in this session' } };
+          if (!legacy.complete) incomplete.push({ list: 'legacy.objects', ...legacy.incomplete });
         }
-        const atCap = hits.length >= limit;
-        if (atCap) {
+        if (pageFull) {
           journal?.gap?.({
             code: 'SEARCH_AT_CAP',
             subject: `${query}${objectType ? ` (${objectType})` : ''}`,
-            detail: `the quick search returned ${hits.length} hits for a limit of ${limit}`,
-            impact:
-              'the list may be cut: anything the search ranked below the cap is missing and ' +
-              'nothing says so -- a census built on this answer under-counts',
-            fallback: 'narrow the query (a longer prefix, an objectType) or raise max up to 200',
+            detail: `the quick search returned ${limit} hits for a limit of ${limit}`,
+            impact: 'the list may be cut: anything the search ranked below the cap is missing',
+            fallback: `narrow the query (a longer prefix, an objectType) or raise max up to ${SEARCH_CEILING}`,
+          });
+          incomplete.push({
+            list: 'hits',
+            code: 'SERVER_PAGE_FULL',
+            returned: limit,
+            total: null,
+            narrowBy: limit < SEARCH_CEILING ? ['query', 'objectType', 'max'] : ['query', 'objectType'],
           });
         }
-        return asText({
-          count: hits.length,
-          limit,
-          truncated: atCap ? 'possible' : false,
-          ...(byFacet
-            ? {
-                foundBy: 'facet',
-                note:
-                  'answered by the quick search with the WHOLE facet, which the client library ' +
-                  'strips; that reply carries no description (measured)',
-              }
-            : FACET_ONLY_TYPES.has(facet) && !facetSearch
-              ? {
-                  note:
-                    `${facet} is measured empty through the client library and this session has no ` +
-                    'raw client for the whole-facet route: this empty list is NOT evidence of absence',
-                }
-              : hits.length === 0
+        return asText(
+          finish(
+            {
+              count: hits.length,
+              limit,
+              ceiling: SEARCH_CEILING,
+              truncated: pageFull,
+              ...(pageFull ? { narrowBy: limit < SEARCH_CEILING ? ['query', 'objectType', 'max'] : ['query', 'objectType'] } : {}),
+              ...(outsideFacet ? { outsideFacet } : {}),
+              facetRetry,
+              ...(byFacet
                 ? {
-                    // MEASURED 2026-09-12: the information system does not index every object
-                    // that exists (RV64A953 -- a generated include with a normal TADIR entry --
-                    // answers 0 hits by exact name while its URI reads). So an empty list is a
-                    // fact about the index, not about the repository.
-                    note:
-                      'empty is not proof of absence: the search index does not know every object ' +
-                      'that exists (measured); the by-name tools also try the direct URI ' +
-                      'for PROG/P, PROG/I, CLAS/OC and FUGR/F and say foundBy: "uri"',
+                    foundBy: 'facet',
+                    descriptions: false,
+                    note: 'answered by the quick search with the WHOLE facet; that reply carries no description (measured)',
                   }
                 : {}),
-          ...(legacy ? { legacy } : {}),
-          hits: hits.map((h) => ({
-            name: h['adtcore:name'],
-            type: h['adtcore:type'],
-            package: h['adtcore:packageName'],
-            description: h['adtcore:description'],
-            uri: h['adtcore:uri'],
-          })),
-        });
+              // MEASURED 2026-09-12: the information system does not index every object that exists
+              // (RV64A953 answers 0 hits by name while its URI reads). The list is complete for the
+              // index; the by-name tools also try the direct URI and say foundBy: "uri".
+              source: 'quick search index',
+              ...(legacy ? { legacy } : {}),
+              hits: hits.map((h) => ({
+                name: h['adtcore:name'],
+                type: h['adtcore:type'],
+                package: h['adtcore:packageName'],
+                description: h['adtcore:description'],
+                uri: h['adtcore:uri'],
+              })),
+            },
+            incomplete
+          )
+        );
       },
     },
 
