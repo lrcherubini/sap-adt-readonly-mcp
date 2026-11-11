@@ -44,12 +44,22 @@ import { parseConfigurations, parseConfiguration } from '../lib/transport-search
 import {
   collectObjectKeys,
   MAX_KEY_LOOKUPS,
+  KEY_LOOKUPS_CEILING,
+  MAX_KEYS_PER_OBJECT,
+  KEYS_PER_OBJECT_CEILING,
   keyDecision,
 } from '../lib/object-keys.mjs';
+import { finish, page } from '../lib/completeness.mjs';
 
 /** From the measured envelope: 6 requests / 672 objects / 270 138 bytes in one dump. */
 const MAX_REQUESTS = 50;
 const MAX_OBJECTS_PER_REQUEST = 300;
+/** The most requests, and objects per request, one answer lists; the offsets page the rest. */
+const REQUESTS_CEILING = 500;
+const OBJECTS_CEILING = 5000;
+
+/** The drift of an answer as one incomplete entry: the shape measured no longer describes it. */
+const driftEntry = (list, drift) => (drift.length ? [{ list, code: 'PARSE_FAILED', count: drift.length, reason: 'the reply carries what the measured shape does not describe: see drift' }] : []);
 
 const NUMBER = /^[A-Z][A-Z0-9]{2}K[0-9]{6}$/;
 
@@ -94,8 +104,11 @@ export function transportTool(cfg, session, journal) {
         fallback: 're-read the raw reply and update lib/open-requests.mjs and docs/adt-api-reference.md',
       });
     }
-    return { read: true, requests: parsed.requests, rule };
+    return { read: true, requests: parsed.requests, rule, ...(parsed.drift.length ? { drift: parsed.drift } : {}) };
   }
+
+  /** The incomplete entries of an open-requests part. */
+  const openIncomplete = (o) => (!o.read ? [{ list: 'openRequests', code: 'NOT_READ', reason: o.reason }] : driftEntry('openRequests', o.drift ?? []));
 
   // The list the IDE's saved search selects: the user's own configuration, read and never
   // created, then the tree it drives. Requests and tasks only: every object arrives inline
@@ -134,12 +147,8 @@ export function transportTool(cfg, session, journal) {
           fallback: 'open the Transport Organizer view in the IDE once (it saves the search), or use recent / number',
         });
       }
-      return json({
-        mode: 'saved',
-        read: false,
-        reason: 'the server lists no saved search configuration for this user; none is created here',
-        requests: [],
-      });
+      const reason = 'the server lists no saved search configuration for this user; none is created here';
+      return json(finish({ mode: 'saved', read: false, reason, requests: [] }, [{ list: 'requests', code: 'NOT_READ', reason }]));
     }
     const chosen = configurations[0];
     const doc = await get('transportSearchConfiguration', { id: chosen.id }, 'configuration');
@@ -158,9 +167,11 @@ export function transportTool(cfg, session, journal) {
         fallback: 're-read the raw payload and update lib/transport-requests.mjs and docs/adt-api-reference.md',
       });
     }
-    const maxRequests = capOf(args.maxRequests, MAX_REQUESTS);
-    const kept = tree.requests.slice(0, maxRequests);
-    return json({
+    const p = page(tree.requests, { max: args.maxRequests, offset: args.offset, defaultMax: MAX_REQUESTS, ceiling: REQUESTS_CEILING });
+    const kept = p.items;
+    const incomplete = [...driftEntry('requests', tree.drift)];
+    if (p.truncated) incomplete.push({ list: 'requests', code: 'CAP_REACHED', returned: p.returned, total: p.total, next: { ...p.next, costsCalls: 3 } });
+    return json(finish({
       mode: 'saved',
       read: true,
       bytes: out.bytes,
@@ -197,8 +208,9 @@ export function transportTool(cfg, session, journal) {
           objectCount: t.objects.length,
         })),
       })),
-      truncated: { requests: Math.max(0, tree.requests.length - kept.length) },
-    });
+      requestsPage: pageOf(p, 3),
+      ...(tree.drift.length ? { drift: tree.drift } : {}),
+    }, incomplete));
   }
 
   // WHICH TRANSPORTS carried one object: the version feed(s) the server publishes for
@@ -217,7 +229,8 @@ export function transportTool(cfg, session, journal) {
       // The structure of a class / interface enhancement dumps the server (3 of 3,
       // 2026-09-14): nothing is read, and the history is asked of a neighbour instead.
       clasenhGap(journal, hit['adtcore:name'], `adt_transport object on ${objectUri}: no structure read (the resource dumps the server)`);
-      return json({
+      const openRequests = await openRequestsOf(objectUri, subjectOf);
+      return json(finish({
         mode: 'object',
         object: { name: hit['adtcore:name'], type: hit['adtcore:type'], uri: objectUri, foundBy },
         feedsRead: [],
@@ -225,12 +238,14 @@ export function transportTool(cfg, session, journal) {
         copies: [],
         activeVersion: [],
         clasenh: true,
+        feeds: { read: false },
+        openRequests,
         rule:
           'a class enhancement (CLASENH) or function-module interface enhancement (FUGRENH) publishes ' +
           'no version feed the ADT can read without dumping; nothing was read and no history is claimed. ' +
           'Ask the history of the object that USES the added methods or parameters (measured: ' +
           'the request that created the ENHO also carries its caller), or SE03. ' + CLASENH_WHERE,
-      });
+      }, [{ list: 'transports', code: 'NOT_READ', reason: 'a class enhancement publishes no version feed the ADT reads without dumping' }, ...openIncomplete(openRequests)]));
     }
     const structure = resolved.structure ?? (await session.api.objectStructure(objectUri));
     const links = versionLinks(structure);
@@ -251,16 +266,18 @@ export function transportTool(cfg, session, journal) {
             'the object in the IDE; measured shapes (CLAS, PROG, DOMA) in docs/adt-api-reference.md',
         });
       }
-      return json({
+      const openRequests = await openRequestsOf(objectUri, subjectOf);
+      return json(finish({
         mode: 'object',
         object: { name: hit['adtcore:name'], type: hit['adtcore:type'], uri: objectUri, foundBy },
+        feeds: { read: false, published: 0 },
         feedsRead: [],
         transports: [],
         copies: [],
         activeVersion: [],
-        openRequests: await openRequestsOf(objectUri, subjectOf),
+        openRequests,
         rule: 'no version feed is published for this object; nothing was read and no history is claimed',
-      });
+      }, [{ list: 'transports', code: 'NOT_READ', reason: 'the object publishes no version feed' }, ...openIncomplete(openRequests)]));
     }
 
     const transport = transportFor(session.raw);
@@ -310,7 +327,11 @@ export function transportTool(cfg, session, journal) {
     }
 
     const history = unionByTransport(feeds);
-    return json({
+    const openRequests = await openRequestsOf(objectUri, subjectOf);
+    const feedsNotRead = links.length - wanted.length;
+    const incomplete = [...driftEntry('transports', drift), ...openIncomplete(openRequests)];
+    if (feedsNotRead) incomplete.push({ list: 'feeds', code: 'CAP_REACHED', count: feedsNotRead, reason: `at most ${MAX_VERSION_FEEDS} version feeds per object` });
+    return json(finish({
       mode: 'object',
       object: { name: hit['adtcore:name'], type: hit['adtcore:type'], uri: objectUri, foundBy },
       bytes,
@@ -328,11 +349,11 @@ export function transportTool(cfg, session, journal) {
       transports: history.transports,
       copies: history.copies,
       activeVersion: history.activeVersion,
-      openRequests: await openRequestsOf(objectUri, subjectOf),
+      openRequests,
       versionsWithoutTransport: history.withoutLink,
-      truncated: { feeds: Math.max(0, links.length - wanted.length) },
+      feeds: { read: true, published: links.length, asked: wanted.length, notRead: feedsNotRead },
       ...(drift.length ? { drift } : {}),
-    });
+    }, incomplete));
   }
 
   // The two logs of one request, one GET each. A log that could not be read says so with
@@ -374,6 +395,8 @@ export function transportTool(cfg, session, journal) {
       out[part] = {
         read: true,
         bytes: reply.bytes,
+        count: parsed.count,
+        dropped: parsed.dropped,
         entries: parsed.entries,
         ...(part === 'transport' ? { highestReturnCode: parsed.highestReturnCode } : {}),
       };
@@ -408,12 +431,26 @@ export function transportTool(cfg, session, journal) {
             description: 'The server\'s scope: released only, two weeks, no paging or filter.',
           },
           maxRequests: {
-            type: 'number',
-            description: `List mode: local cut (default ${MAX_REQUESTS}).`,
+            type: 'integer',
+            minimum: 1,
+            maximum: REQUESTS_CEILING,
+            description: `recent / saved: requests per page (default ${MAX_REQUESTS}, at most ${REQUESTS_CEILING}).`,
+          },
+          offset: {
+            type: 'integer',
+            minimum: 0,
+            description: 'recent / saved: first request of the page: `requestsPage.next.offset` of the previous answer.',
           },
           maxObjectsPerRequest: {
-            type: 'number',
-            description: `Local cut per request (default ${MAX_OBJECTS_PER_REQUEST}).`,
+            type: 'integer',
+            minimum: 1,
+            maximum: OBJECTS_CEILING,
+            description: `Objects listed per request (default ${MAX_OBJECTS_PER_REQUEST}, at most ${OBJECTS_CEILING}).`,
+          },
+          objectsOffset: {
+            type: 'integer',
+            minimum: 0,
+            description: 'With `number`: first object of the page: `objectsPage.next.objectsOffset` of the previous answer.',
           },
           keys: {
             type: 'boolean',
@@ -426,8 +463,21 @@ export function transportTool(cfg, session, journal) {
             description: 'With `number`: also its action log and transport log (two more calls).',
           },
           maxKeyLookups: {
-            type: 'number',
-            description: `With \`keys\`: how many objects to ask about (default ${MAX_KEY_LOOKUPS}).`,
+            type: 'integer',
+            minimum: 1,
+            maximum: KEY_LOOKUPS_CEILING,
+            description: `With \`keys\`: lookups, one ADT call each (default ${MAX_KEY_LOOKUPS}, at most ${KEY_LOOKUPS_CEILING}).`,
+          },
+          keysOffset: {
+            type: 'integer',
+            minimum: 0,
+            description: 'With `keys`: first object to ask: `keys.next.keysOffset` of the previous answer.',
+          },
+          maxKeysPerObject: {
+            type: 'integer',
+            minimum: 1,
+            maximum: KEYS_PER_OBJECT_CEILING,
+            description: `With \`keys\`: keys listed per object (default ${MAX_KEYS_PER_OBJECT}, at most ${KEYS_PER_OBJECT_CEILING}).`,
           },
           object: {
             type: 'object',
@@ -548,10 +598,11 @@ export function transportTool(cfg, session, journal) {
       // with the system's own -- the answer still stands, the MEASUREMENT is what aged.
       const drift = [...doc.drift];
 
-      const maxRequests = capOf(args.maxRequests, MAX_REQUESTS);
-      const maxObjects = capOf(args.maxObjectsPerRequest, MAX_OBJECTS_PER_REQUEST);
+      const incomplete = [];
+      const p = page(doc.requests, { max: args.maxRequests, offset: wantsList ? args.offset : 0, defaultMax: MAX_REQUESTS, ceiling: REQUESTS_CEILING });
+      const kept = p.items;
+      if (p.truncated) incomplete.push({ list: 'requests', code: 'CAP_REACHED', returned: p.returned, total: p.total, next: { ...p.next, costsCalls: 1 } });
 
-      const kept = doc.requests.slice(0, maxRequests);
       const requests = kept.map((r) => {
         const u = unionObjects(r);
         if (u.unionMatchesSystem === false) {
@@ -599,20 +650,25 @@ export function transportTool(cfg, session, journal) {
             statusCode: t.statusCode,
             objectCount: t.objects.length,
           })),
-          objects: u.objects.slice(0, maxObjects),
-          truncated: {
-            objects: Math.max(0, u.objects.length - maxObjects),
-          },
+          ...objectsOf(r.number, u.objects),
         };
       });
+      function objectsOf(number, objects) {
+        // The objects of a request, paged: `objectsOffset` applies to a request asked by number.
+        const o = page(objects, { max: args.maxObjectsPerRequest, offset: wantsDetail ? args.objectsOffset : 0, defaultMax: MAX_OBJECTS_PER_REQUEST, ceiling: OBJECTS_CEILING });
+        const next = o.next ? (wantsDetail ? { objectsOffset: o.next.offset, costsCalls: 1 } : { number, objectsOffset: o.next.offset }) : null;
+        if (o.truncated) incomplete.push({ list: `requests.${number}.objects`, code: 'CAP_REACHED', returned: o.returned, total: o.total, next });
+        return { objects: o.items, objectsPage: { total: o.total, returned: o.returned, offset: o.offset, limit: o.limit, truncated: o.truncated, ...(next ? { next } : {}) } };
+      }
 
       // WHICH ROWS moved. One ADT call per object, so: opt-in, budgeted, and every object
       // the budget did not reach is named rather than quietly missing.
       let keySweep = null;
       if (wantsKeys) {
-        const budget = capOf(args.maxKeyLookups, MAX_KEY_LOOKUPS);
+        const budget = Math.min(capOf(args.maxKeyLookups, MAX_KEY_LOOKUPS), KEY_LOOKUPS_CEILING);
         let spent = 0;
         let unasked = 0;
+        let nextOffset = null;
         const skipped = new Map();
         let bytes = 0; // reported, so the cost of the sweep is visible in the answer too
 
@@ -650,10 +706,11 @@ export function transportTool(cfg, session, journal) {
             },
             r.objects,
             r.number,
-            { maxLookups: budget - spent, maxKeysPerObject: args.maxKeysPerObject }
+            { maxLookups: budget - spent, maxKeysPerObject: args.maxKeysPerObject, offset: args.keysOffset }
           );
           spent += got.lookups;
           unasked += got.notAttempted;
+          if (got.nextOffset !== null) nextOffset = got.nextOffset;
           for (const sk of got.skipped) {
             const k = `${sk.type}|${sk.by}`;
             const row = skipped.get(k) ?? { type: sk.type, by: sk.by, count: 0 };
@@ -664,11 +721,22 @@ export function transportTool(cfg, session, journal) {
           r.keys = got.objects;
         }
 
+        const results = requests.flatMap((r) => r.keys ?? []);
+        const byReason = (reason) => results.filter((o) => o.reason === reason).length;
+        if (byReason('400')) incomplete.push({ list: 'keys', code: 'NOT_READ', count: byReason('400'), reason: 'every carrier tried answered 400: not evidence of no keys' });
+        if (byReason('error')) incomplete.push({ list: 'keys', code: 'NOT_READ', count: byReason('error'), reason: 'an error other than 400' });
+        if (unasked || byReason('budget')) {
+          incomplete.push({ list: 'keys', code: 'BUDGET_REACHED', count: unasked + byReason('budget'), next: { keysOffset: nextOffset, costsCalls: 1 }, narrowBy: ['maxKeyLookups'] });
+        }
+        const cutKeys = results.filter((o) => o.truncated === true).length;
+        if (cutKeys) incomplete.push({ list: 'keys.keys', code: 'CAP_REACHED', count: cutKeys, narrowBy: ['maxKeysPerObject'] });
         keySweep = {
           lookups: spent,
           bytes,
           budget,
           objectsNotAsked: unasked,
+          ...(args.keysOffset ? { offset: args.keysOffset } : {}),
+          ...(nextOffset !== null ? { next: { keysOffset: nextOffset } } : {}),
           skippedTypes: [...skipped.values()],
           rule:
             'A key with `transported: true` is a row that moved (E071K). One without it is ' +
@@ -687,6 +755,10 @@ export function transportTool(cfg, session, journal) {
       }
 
       const logs = wantsLogs ? await requestLogs(transport, String(args.number).trim(), drift) : null;
+      for (const part of ['actions', 'transport']) {
+        if (logs && !logs[part].read) incomplete.push({ list: `logs.${part}`, code: 'NOT_READ', reason: logs[part].reason });
+      }
+      incomplete.push(...driftEntry('requests', drift));
 
       if (drift.length && journal?.enabled) {
         journal.gap({
@@ -715,7 +787,7 @@ export function transportTool(cfg, session, journal) {
         });
       }
 
-      return json({
+      return json(finish({
         route: out.route,
         url: out.url,
         status: out.status,
@@ -723,37 +795,38 @@ export function transportTool(cfg, session, journal) {
         bytes: out.bytes,
         measured: out.shapeObserved,
         mode: wantsDetail ? 'detail' : 'recent',
-        ...(keySweep ? { keys: keySweep } : {}),
-        ...(logs ? { logs } : {}),
+        ...(keySweep ? { keys: keySweep } : { keys: { asked: false } }),
+        ...(logs ? { logs } : { logs: { asked: false } }),
         resource: doc.resource,
         // Structured, not a footnote: what this answer does and does not cover is part of
         // the data, because a list that silently omits open requests reads exactly like a
         // developer with no open requests.
-        ...(wantsList ? { scope: listScope(doc) } : {}),
+        ...(wantsList ? { scope: listScope(doc, kept) } : {}),
         rule:
           'objects = (the request\'s own list minus CORR comments) union (every task\'s ' +
           'objects). A task\'s objects move up into the request only when the task is ' +
           'released, so `objects` is the answer and `counts.own` is not.',
+        requestsPage: pageOf(p, 1),
         requests,
-        truncated: {
-          requests: Math.max(0, doc.requests.length - kept.length),
-          objects: requests.reduce((n, r) => n + r.truncated.objects, 0),
-        },
         ...(drift.length ? { drift } : {}),
-      });
+      }, incomplete));
     },
   };
 }
 
-function listScope(doc) {
+function listScope(doc, kept) {
   const s = doc.listScope ?? {};
+  // The owners of the requests in THIS answer: an owner whose only requests were cut is not
+  // named as if the answer showed them.
+  const owners = [...new Set(kept.flatMap((r) => [r.owner, ...(r.tasks ?? []).map((t) => t.owner)]).filter(Boolean))].sort();
   return {
     serverStated: s.serverStated ?? [],
     releasedOnly: s.openRequestsIncluded === false,
     window: 'last 2 weeks',
     halves: s.buckets ?? [],
     includesOthers: true,
-    owners: s.owners ?? [],
+    owners,
+    ownersInList: (s.owners ?? []).length,
     note:
       (s.note ?? '') +
       ' The window and the released-only cut are the server\'s: this route takes no ' +
@@ -761,6 +834,9 @@ function listScope(doc) {
       'erroring. For an open request, or one older than two weeks, ask by number.',
   };
 }
+
+/** A list page as the answer shows it; the next page re-reads the list (`costsCalls`). */
+const pageOf = (p, costsCalls) => ({ total: p.total, returned: p.returned, offset: p.offset, limit: p.limit, truncated: p.truncated, ...(p.next ? { next: { ...p.next, costsCalls } } : {}) });
 
 const capOf = (given, fallback) => {
   const n = Number(given);

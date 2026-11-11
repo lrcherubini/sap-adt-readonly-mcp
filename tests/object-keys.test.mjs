@@ -397,3 +397,33 @@ test('drift found while sweeping says which object it came from', async () => {
     },
   ]);
 });
+
+test('why the keys were not read is a closed list, and carriersTried are the carriers asked', async () => {
+  const fourHundred = await collectObjectKeys(async () => { throw refuse(400); }, [obj('TABU', 'A', ['request', 'DEVK900108'])], 'DEVK900107');
+  assert.equal(fourHundred.objects[0].reason, '400');
+  assert.deepEqual(fourHundred.objects[0].carriersTried, ['DEVK900107', 'DEVK900108']);
+  const error = await collectObjectKeys(async () => { throw refuse(500); }, [obj('TABU', 'A', ['request', 'DEVK900108'])], 'DEVK900107');
+  assert.equal(error.objects[0].reason, 'error');
+  assert.deepEqual(error.objects[0].carriersTried, ['DEVK900107'], 'the second carrier was never asked');
+  assert.equal(error.objects[0].carriersNotTried, 1);
+  // The budget runs out between the two carriers: 'budget', and the object is the next page.
+  const budget = await collectObjectKeys(async () => { throw refuse(400); }, [obj('TABU', 'A', ['request', 'DEVK900108'])], 'DEVK900107', { maxLookups: 1 });
+  assert.equal(budget.objects[0].reason, 'budget');
+  assert.equal(budget.nextOffset, 0);
+});
+
+test('keysOffset pages the objects asked: two pages ask every object once', async () => {
+  const objects = [obj('TABU', 'A', ['T1']), obj('TABU', 'B', ['T1']), obj('TABU', 'C', ['T1'])];
+  const asked = [];
+  const fetch = async (_c, o) => {
+    asked.push(o.name);
+    return { body: CUSTOMIZING };
+  };
+  const one = await collectObjectKeys(fetch, objects, 'DEVK900107', { maxLookups: 2 });
+  assert.equal(one.nextOffset, 2);
+  assert.equal(one.notAttempted, 1);
+  const two = await collectObjectKeys(fetch, objects, 'DEVK900107', { maxLookups: 2, offset: one.nextOffset });
+  assert.equal(two.nextOffset, null);
+  assert.equal(two.beforeOffset, 2);
+  assert.deepEqual(asked, ['A', 'B', 'C']);
+});

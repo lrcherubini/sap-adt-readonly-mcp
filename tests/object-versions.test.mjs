@@ -19,6 +19,7 @@ import {
 } from '../lib/object-versions.mjs';
 import { transportTool } from '../tools/transport.mjs';
 import { openJournal } from '../lib/journal.mjs';
+import { contractErrors } from '../lib/completeness.mjs';
 import { parseOpenRequests } from '../lib/open-requests.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -287,8 +288,9 @@ test('the object mode reads every feed the server published for a class and answ
   assert.deepEqual(out.transports.map((t) => t.number), ['DEVK900003', 'DEVK900002', 'DEVK900001']);
   assert.equal(out.copies.length, 42);
   assert.deepEqual(out.activeVersion.filter((a) => a.holder).map((a) => [a.where, a.holder]), [['main', 'DEVK900003']]);
-  assert.deepEqual(out.truncated, { feeds: 0 });
+  assert.equal(out.feeds.notRead, 0);
   assert.equal(out.drift, undefined);
+  assert.deepEqual(contractErrors(out), []);
   // Every read went as GET, with the feed's one Accept, under the object.
   assert.equal(h.seen.length, 5);
   for (const s of h.seen) {
@@ -337,6 +339,8 @@ test('an object whose structure publishes no versions link is a gap, not an empt
   assert.deepEqual(out.transports, []);
   assert.deepEqual(out.feedsRead, []);
   assert.match(out.rule, /nothing was read/);
+  assert.deepEqual(out.feeds, { read: false, published: 0 });
+  assert.equal(out.complete, false, 'no feed is not an empty history');
   assert.equal(h.seen.length, 0);
   const gap = h.journalLines.find((l) => l.code === 'NO_VERSION_FEED');
   assert.ok(gap);

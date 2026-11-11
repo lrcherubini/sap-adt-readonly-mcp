@@ -94,7 +94,7 @@ test('logs: true reads both logs of the named request, one GET each', async () =
   assert.equal(h.audit.length, 3, 'one audit line per ADT call');
   assert.equal(JSON.stringify(h.audit).includes('DEVUSER1'), false, 'no log text in the trail');
   const plain = JSON.parse((await toolWith({ detail: DETAIL }).tool.handler({ number: 'DEVK900117' })).content[0].text);
-  assert.equal(plain.logs, undefined, 'without logs: true nothing more is read');
+  assert.deepEqual(plain.logs, { asked: false }, 'without logs: true nothing more is read');
 });
 
 test('a log that could not be read says so and files a gap; the other log still answers', async () => {
@@ -110,4 +110,18 @@ test('logs are asked only of a request named by number', async () => {
   const { tool } = toolWith({});
   await assert.rejects(() => tool.handler({ recent: true, logs: true }), /request you name by `number`/);
   await assert.rejects(() => tool.handler({ object: { name: 'ZDEMO_REPORT' }, logs: true }), /never two|by `number`/);
+});
+
+test('a message text carrying markup is still the entry text; the entries left out are counted', () => {
+  const xml =
+    '<log:log xmlns:log="http://www.sap.com/adt/logs"><log:type>A</log:type>' +
+    '<log:entry log:id="1"><log:message><log:messageText key="TK(001)">Request <b>DEVK900001</b> created</log:messageText></log:message></log:entry>' +
+    '<log:entry log:id="2"><log:message><log:messageText key="TO(009)">=====</log:messageText></log:message></log:entry>' +
+    '<log:entry log:id="3"/>' +
+    '</log:log>';
+  const out = parseRequestLog(xml);
+  assert.equal(out.entries.length, 1);
+  assert.equal(out.entries[0].text, 'Request DEVK900001 created');
+  assert.equal(out.count, 3);
+  assert.equal(out.dropped, 2);
 });
