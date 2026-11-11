@@ -19,6 +19,7 @@ import {
 } from '../lib/launchpad.mjs';
 import { launchpadTool, KINDS } from '../tools/launchpad.mjs';
 import { resetBudget } from '../lib/audit.mjs';
+import { contractErrors } from '../lib/completeness.mjs';
 
 const F = (name) => fs.readFileSync(new URL(`./fixtures/launchpad/${name}`, import.meta.url), 'utf8');
 test('a catalog page: target mapping and tile normalized, the bag title wins, the intent counted', () => {
@@ -193,6 +194,19 @@ test('adt_launchpad lists: the customer catalogs by default, counts by origin, m
   assert.ok(sap.catalogs.every((c) => c.origin === 'sap'));
   const groups = await run(session, { kind: 'groups', origin: 'all' });
   assert.equal(groups.total, 4);
+  // Two pages of a list are the list once.
+  const first = await run(session, { kind: 'groups', origin: 'all', max: 2 });
+  assert.deepEqual(contractErrors(first), []);
+  assert.equal(first.complete, false);
+  const second = await run(session, { kind: 'groups', origin: 'all', max: 2, offset: first.groupsPage.next.offset });
+  assert.deepEqual([...first.groups, ...second.groups].map((g) => g.id), groups.groups.map((g) => g.id));
+});
+
+test('an FDM body with __next or deferred navigations says so: not followed, not expanded', () => {
+  const f = parseFdm(JSON.stringify({ d: { __next: 'x?$skiptoken=2', results: [{ id: 'ZDEMO_SP', pages: { __deferred: { uri: 'x' } } }] } }));
+  assert.equal(f.serverNext, true);
+  assert.deepEqual(f.deferred, ['pages']);
+  assert.equal(f.rows[0].pages, undefined);
 });
 
 test('adt_launchpad FDM: a space, a page, 50 pages at a time with the next offset', async () => {
@@ -209,7 +223,10 @@ test('adt_launchpad FDM: a space, a page, 50 pages at a time with the next offse
   assert.equal(page.entity.id, 'SAP_BASIS_PG_UI_FLP');
   const pages = await run(session, { kind: 'pages' });
   assert.equal(pages.total, 408);
-  assert.equal(pages.next, 3);
+  assert.deepEqual(pages.next, { skip: 3 });
+  assert.deepEqual(contractErrors(pages), []);
+  assert.deepEqual(pages.incomplete.find((i) => i.list === 'pages').next, { skip: 3 });
+  assert.deepEqual(contractErrors(space), []);
   const spaces = await run(session, { kind: 'spaces' });
   assert.equal(spaces.customer, 0);
   const rc = await run(session, { kind: 'roleCatalogs', name: 'ZS:DEMO.ROLE_C' });
@@ -236,6 +253,8 @@ test('adt_launchpad semobj: customer, SAP or none, from the allow-listed tables;
   const list = await run(s.session, { kind: 'semobjs', match: 'demoplm' });
   assert.deepEqual(list.semanticObjects.map((x) => x.semanticObject), ['DemoPlm']);
   assert.equal(list.semanticObjects[0].prefixZ, false);
+  assert.deepEqual(contractErrors(list), []);
+  assert.deepEqual(contractErrors(c), []);
 });
 
 test('adt_launchpad: a failed read is a LAUNCHPAD_NOT_READ gap, never an empty answer', async () => {

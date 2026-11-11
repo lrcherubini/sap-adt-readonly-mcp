@@ -22,7 +22,32 @@
 
 import { record } from '../lib/audit.mjs';
 import { namedGet, transportFor } from '../lib/adt-get.mjs';
-import { buildSelect, previewPost, parsePreview, assertRanAsSent, truncationOf } from '../lib/data-preview.mjs';
+import { buildSelect, previewPost, parsePreview, assertRanAsSent, truncationOf, cutCodeOf } from '../lib/data-preview.mjs';
+import { finish, page } from '../lib/completeness.mjs';
+
+/** A local list paged, as the answer shows it, and its entry when cut (the next page re-reads). */
+function paged(list, args, name, incomplete) {
+  const p = page(list, { max: args.max, offset: args.offset, defaultMax: DEFAULT_MAX, ceiling: MAX_MAX });
+  if (p.truncated) incomplete.push({ list: name, code: 'CAP_REACHED', returned: p.returned, total: p.total, next: { offset: p.next.offset, costsCalls: 1 } });
+  return { items: p.items, page: { total: p.total, returned: p.returned, offset: p.offset, limit: p.limit, truncated: p.truncated, ...(p.next ? { next: { offset: p.next.offset, costsCalls: 1 } } : {}) } };
+}
+
+/** The entries of an FDM read: a server next page not followed, and the navigations deferred. */
+function fdmIncomplete(f, list) {
+  const out = [];
+  if (f.serverNext) out.push({ list, code: 'SERVER_PAGE_FULL', reason: 'the server answered a __next link: its paging on this route is not measured and not followed' });
+  if (f.deferred?.length) out.push({ list: `${list}.navigations`, code: 'NOT_READ', count: f.deferred.length, reason: `deferred, not expanded: ${f.deferred.join(', ')}`.slice(0, 200) });
+  return out;
+}
+
+/** The entries of a data preview read: its cut (no offset: narrowed by id or match) and its drift. */
+function previewIncomplete(p, rowsAsked, list) {
+  const out = [];
+  const code = cutCodeOf(p, rowsAsked);
+  if (code) out.push({ list, code, returned: p.rows.length, total: p.totalRows, narrowBy: ['id'] });
+  if (p.drift.length || p.rowsLost) out.push({ list, code: 'PARSE_FAILED', count: p.drift.length + (p.rowsLost ?? 0), reason: 'see drift' });
+  return out;
+}
 import { parseCatalogList, parseGroupList, parsePage, parseFdm, intentsOf, catalogPageId, stripPersons } from '../lib/launchpad.mjs';
 
 const DRIFT_CODE = 'SHAPE_DRIFT';
@@ -123,91 +148,117 @@ export function launchpadTool(cfg, session, journal) {
     }
     const parsed = parsePreview(out.body);
     assertRanAsSent(built.sql, parsed.executedQuery);
+    driftGap(`${table} data preview`, parsed.drift);
     return parsed;
   }
 
   const handlers = {
-    async catalogs({ layer = 'client', origin, match, max }) {
+    async catalogs(args) {
+      const { layer = 'client', origin, match, max } = args;
       if (!['client', 'cross-client'].includes(layer)) throw new LaunchpadRequestError(`layer is 'client' or 'cross-client'; got ${layer}.`);
       if (origin !== undefined && origin !== 'all' && !ORIGINS.includes(origin)) throw new LaunchpadRequestError(`origin is one of ${ORIGINS.join(', ')} or all.`);
-      const cap = capOf(max);
+      capOf(max);
+      const incomplete = [];
       const out = await get(layer === 'client' ? 'flpCatalogsCust' : 'flpCatalogsConf', {}, `catalogs ${layer}`);
       const all = parseCatalogList(out.body, layer);
       const byOrigin = Object.fromEntries(ORIGINS.map((o) => [o, all.filter((r) => r.origin === o).length]));
       const wanted = origin === 'all' ? () => true : origin ? (r) => r.origin === origin : (r) => r.origin !== 'sap';
       const hit = matcher(match);
       const rows = all.filter((r) => wanted(r) && hit(r.id, r.title));
-      return { total: all.length, byOrigin, matched: rows.length, truncated: rows.length > cap, catalogs: rows.slice(0, cap) };
+      const p = paged(rows, args, 'catalogs', incomplete);
+      return { total: all.length, byOrigin, matched: rows.length, catalogsPage: p.page, catalogs: p.items, incomplete };
     },
     async catalog({ id }) {
       const page = catalogPageId(need(id, 'id', 'catalog'));
       const out = await get('flpPage', { id: page }, `catalog ${page}`);
       const parsed = parsePage(out.body);
       driftGap(`catalog ${page}`, parsed.drift);
-      return { ...parsed, intents: intentsOf(parsed) };
+      return { ...parsed, intents: intentsOf(parsed), incomplete: parsed.drift?.length ? [{ list: 'catalog', code: 'PARSE_FAILED', count: parsed.drift.length, reason: 'see drift' }] : [] };
     },
-    async groups({ origin, match, max }) {
-      const cap = capOf(max);
+    async groups(args) {
+      const { origin, match, max } = args;
+      capOf(max);
+      const incomplete = [];
       const out = await get('flpGroups', {}, 'groups');
       const all = parseGroupList(out.body);
       const hit = matcher(match);
       const rows = all.filter((r) => (origin === 'all' ? true : origin ? r.origin === origin : r.origin !== 'sap') && hit(r.id, r.title));
-      return { total: all.length, matched: rows.length, truncated: rows.length > cap, groups: rows.slice(0, cap) };
+      const p = paged(rows, args, 'groups', incomplete);
+      return { total: all.length, matched: rows.length, groupsPage: p.page, groups: p.items, incomplete };
     },
     async group({ id }) {
       const g = need(id, 'id', 'group');
       const out = await get('flpPage', { id: g }, `group ${g}`);
       const parsed = parsePage(out.body);
       driftGap(`group ${g}`, parsed.drift);
-      return { ...parsed, intents: intentsOf(parsed) };
+      return { ...parsed, intents: intentsOf(parsed), incomplete: parsed.drift?.length ? [{ list: 'group', code: 'PARSE_FAILED', count: parsed.drift.length, reason: 'see drift' }] : [] };
     },
-    async spaces({ match, max }) {
-      const cap = capOf(max);
+    async spaces(args) {
+      capOf(args.max);
       const out = await get('fdmSpaces', {}, 'spaces');
-      const { rows } = parseFdm(out.body);
-      const hit = matcher(match);
+      const f = parseFdm(out.body);
+      const { rows } = f;
+      const incomplete = fdmIncomplete(f, 'spaces');
+      const hit = matcher(args.match);
       const found = rows.filter((r) => hit(r.id, r.title, r.description));
-      return { total: rows.length, customer: rows.filter((r) => /^[ZY]/.test(r.id)).length, matched: found.length, truncated: found.length > cap, spaces: found.slice(0, cap) };
+      const p = paged(found, args, 'spaces', incomplete);
+      return { total: rows.length, customer: rows.filter((r) => /^[ZY]/.test(r.id)).length, matched: found.length, spacesPage: p.page, spaces: p.items, incomplete };
     },
     async space({ id }) {
       const s = need(id, 'id', 'space');
       const out = await get('fdmSpace', { id: s }, `space ${s}`);
-      return parseFdm(out.body);
+      const f = parseFdm(out.body);
+      return { ...f, incomplete: fdmIncomplete(f, 'space') };
     },
     async pages({ skip = 0 }) {
       const n = Number(skip);
       if (!Number.isInteger(n) || n < 0) throw new LaunchpadRequestError(`skip must be an integer >= 0; got ${skip}.`);
       const out = await get('fdmPages', { $top: '50', ...(n ? { $skip: String(n) } : {}) }, `pages skip=${n}`);
-      const { count, rows } = parseFdm(out.body);
-      return { total: count, skip: n, returned: rows.length, next: count !== null && n + rows.length < count ? n + rows.length : null, pages: rows };
+      const f = parseFdm(out.body);
+      const { count, rows } = f;
+      const incomplete = fdmIncomplete(f, 'pages');
+      // The server pages (50 per call); with a count the next skip is exact, without one a full
+      // page may have more behind it.
+      const more = count !== null ? n + rows.length < count : rows.length >= 50;
+      const next = more ? { skip: n + rows.length } : null;
+      if (more) incomplete.push({ list: 'pages', code: count !== null ? 'CAP_REACHED' : 'SERVER_PAGE_FULL', returned: rows.length, total: count, next });
+      return { total: count, skip: n, returned: rows.length, truncated: more, ...(next ? { next } : {}), pages: rows, incomplete };
     },
     async page({ id }) {
       const p = need(id, 'id', 'page');
       const out = await get('fdmPage', { id: p }, `page ${p}`);
-      return parseFdm(out.body);
+      const f = parseFdm(out.body);
+      return { ...f, incomplete: fdmIncomplete(f, 'page') };
     },
-    async semobjs({ match, max }) {
-      const cap = capOf(max);
+    async semobjs(args) {
+      const { match, max } = args;
+      capOf(max);
       const so = await preview('/UI2/SEMOBJC', ['SEM_OBJ'], [], 200);
       const tx = await preview('/UI2/SEMOBJCT', ['LANGUAGE', 'SEM_OBJ', 'SEM_OBJ_NAME', 'SEM_OBJ_TEXT'], [], 200);
+      const incomplete = [...previewIncomplete(so, 200, 'semanticObjects'), ...previewIncomplete(tx, 200, 'texts')];
       const texts = new Map();
       for (const t of tx.rows) if (!texts.has(t.SEM_OBJ) || t.LANGUAGE === 'P') texts.set(t.SEM_OBJ, { name: t.SEM_OBJ_NAME, text: t.SEM_OBJ_TEXT, language: t.LANGUAGE });
       const hit = matcher(match);
       const rows = so.rows.map((r) => ({ semanticObject: r.SEM_OBJ, prefixZ: /^[ZY]/.test(r.SEM_OBJ), ...(texts.get(r.SEM_OBJ) ?? {}) })).filter((r) => hit(r.semanticObject, r.name, r.text));
+      const p = paged(rows, args, 'semanticObjects', incomplete);
       return {
         layer: 'cross-client',
         total: so.totalRows,
-        truncated: truncationOf(so, 200),
+        read: { semanticObjects: so.rows.length, texts: tx.rows.length, truncated: truncationOf(so, 200) || truncationOf(tx, 200), ...(truncationOf(so, 200) || truncationOf(tx, 200) ? { narrowBy: ['id'] } : {}) },
         matched: rows.length,
-        semanticObjects: rows.slice(0, cap),
+        semanticObjectsPage: p.page,
+        semanticObjects: p.items,
+        incomplete,
       };
     },
     async semobj({ id }) {
       const s = need(id, 'id', 'semobj');
       const c = await preview('/UI2/SEMOBJC', ['SEM_OBJ'], [{ field: 'SEM_OBJ', op: '=', value: s }], 5);
-      const t = c.rows.length ? await preview('/UI2/SEMOBJCT', ['LANGUAGE', 'SEM_OBJ_NAME', 'SEM_OBJ_TEXT'], [{ field: 'SEM_OBJ', op: '=', value: s }], 20) : { rows: [] };
+      const t = c.rows.length ? await preview('/UI2/SEMOBJCT', ['LANGUAGE', 'SEM_OBJ_NAME', 'SEM_OBJ_TEXT'], [{ field: 'SEM_OBJ', op: '=', value: s }], 20) : { rows: [], totalRows: 0, drift: [] };
       const sap = await preview('/UI2/SEMOBJ', ['SEM_OBJ', 'AKH_COMP', 'STATUS'], [{ field: 'SEM_OBJ', op: '=', value: s }], 5);
+      const incomplete = [...previewIncomplete(c, 5, 'customer'), ...previewIncomplete(t, 20, 'texts'), ...previewIncomplete(sap, 5, 'sap')];
       return {
+        incomplete,
         semanticObject: s,
         registered: c.rows.length ? 'customer' : sap.rows.length ? 'sap' : 'none',
         ...(c.rows.length ? { texts: t.rows.map((r) => ({ language: r.LANGUAGE, name: r.SEM_OBJ_NAME, text: r.SEM_OBJ_TEXT })) } : {}),
@@ -218,7 +269,8 @@ export function launchpadTool(cfg, session, journal) {
     async roleCatalogs({ name }) {
       const r = need(name, 'name', 'roleCatalogs');
       const out = await get('fdmRoleCatalogs', { role: r }, `roleCatalogs ${r}`);
-      return parseFdm(out.body);
+      const f = parseFdm(out.body);
+      return { ...f, incomplete: fdmIncomplete(f, 'roleCatalogs') };
     },
   };
 
@@ -239,7 +291,8 @@ export function launchpadTool(cfg, session, journal) {
           layer: { type: 'string', enum: ['client', 'cross-client'] },
           origin: { type: 'string', enum: [...ORIGINS, 'all'] },
           match: { type: 'string', description: 'case-insensitive substring of id or title (lists)' },
-          max: { type: 'integer', description: `lists: 1..${MAX_MAX}, default ${DEFAULT_MAX}` },
+          max: { type: 'integer', description: `lists: 1..${MAX_MAX} per page, default ${DEFAULT_MAX}` },
+          offset: { type: 'integer', minimum: 0, description: 'lists: first entry of the page: `next.offset` of the previous answer' },
           skip: { type: 'integer', description: 'pages: entries to skip (50 per call)' },
         },
         required: ['kind'],
@@ -248,7 +301,8 @@ export function launchpadTool(cfg, session, journal) {
     async handler(args = {}) {
       const { kind } = args;
       if (!KINDS.includes(kind)) throw new LaunchpadRequestError(`kind is one of ${KINDS.join(', ')}; got ${kind}.`);
-      return asText({ kind, ...(await handlers[kind](args)) });
+      const { incomplete = [], ...answer } = await handlers[kind](args);
+      return asText(finish({ kind, ...answer }, incomplete));
     },
   };
 }
