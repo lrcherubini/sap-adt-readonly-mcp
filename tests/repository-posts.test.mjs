@@ -111,3 +111,10 @@ test('the where-used POSTs refuse what a reply did not hand out', async () => {
     uri: '/x/source/main', context: undefined, type: 'CLAS/OM', name: 'IF_X~M', start: { line: 2, column: 9 }, end: { line: 2, column: 12 },
   });
 });
+
+test('a reply of another shape is an error in every repository POST, never an empty list', async () => {
+  const odd = fakeRaw(() => ({ status: 200, body: '<html><body>logon</body></html>', headers: {} }));
+  await assert.rejects(() => ownReads(odd).usageReferences('/sap/bc/adt/oo/classes/zcl_demo'), /not usageReferences:usageReferenceResult/);
+  await assert.rejects(() => ownReads(odd).usageReferenceSnippets([{ objectIdentifier: 'X' }]), /not usageReferences:usageSnippetResult/);
+  await assert.rejects(() => ownReads(odd).nodeContents('DEVC/K', 'ZDEMO_PKG'), /not asx:abap/);
+});

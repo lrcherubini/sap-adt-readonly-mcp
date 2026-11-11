@@ -2,7 +2,7 @@
 // the ADT REST API or the SAP-standard launchpad OData services (/UI2); nothing here
 // can change the system, and nothing reads a local checkout: every source comes from the system.
 
-import { finish } from '../lib/completeness.mjs';
+import { finish, page } from '../lib/completeness.mjs';
 import { mainInclude, classIncludes } from '../lib/object-structure.mjs';
 import { record, budgetLeft } from '../lib/audit.mjs';
 import { enhancedObjectOf, parseEnhoXhb } from '../lib/enhancement-target.mjs';
@@ -180,6 +180,10 @@ function validated(tool) {
   };
 }
 
+/** Where-used rows per page: the snippets of a page are one POST, which takes at most 500 identifiers. */
+const WHERE_USED_CEILING = 500;
+/** Objects listed per package in one answer of adt_package_tree. */
+const TREE_OBJECTS_CEILING = 5000;
 /** The quick search takes maxResults up to three digits (the route's own alphabet). */
 const SEARCH_CEILING = 999;
 
@@ -1333,8 +1337,10 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             objectType: { type: 'string' },
             snippets: {
               type: 'boolean',
-              description: 'Also fetch the calling code snippet (slower)',
+              description: 'Also fetch the calling code snippet of the rows of this page (slower)',
             },
+            max: { type: 'integer', minimum: 1, maximum: WHERE_USED_CEILING, description: `Rows per page (default 100, at most ${WHERE_USED_CEILING})` },
+            offset: { type: 'integer', minimum: 0, description: 'First row of the page: `next.offset` of the previous answer' },
             allowStandard: {
               type: 'boolean',
               description:
@@ -1344,7 +1350,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           required: ['objectName'],
         },
       },
-      async handler({ objectName, objectType, snippets, allowStandard }) {
+      async handler({ objectName, objectType, snippets, allowStandard, max, offset }) {
         if (!CUSTOM_NAMESPACE.test(objectName) && !allowStandard) {
           throw new Error(
             `'${objectName}' is an SAP standard object. Where-used on standard objects is the ` +
@@ -1354,7 +1360,10 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         }
         const { hit, warning, foundBy } = await resolveObject(api, objectName, objectType, 'metadata', resolveOpts);
         const refs = await api.usageReferences(hit['adtcore:uri']);
-        const rows = refs.map((r) => ({
+        // The whole list is in the reply; the answer pages it, and the snippets are asked for the
+        // rows of the page only (the next page asks the where-used again: `next.costsCalls`).
+        const p = page(refs, { max, offset, defaultMax: 100, ceiling: WHERE_USED_CEILING });
+        const rows = p.items.map((r) => ({
           name: r['adtcore:name'],
           type: r['adtcore:type'],
           package: r.packageRef?.['adtcore:name'],
@@ -1362,27 +1371,47 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           usage: r.usageInformation,
           uri: r.uri,
         }));
+        const incomplete = [];
+        if (p.truncated) incomplete.push({ list: 'rows', code: 'CAP_REACHED', returned: p.returned, total: p.total, next: { ...p.next, costsCalls: 1 } });
+        let snippetPart = { asked: false };
         let code = [];
-        if (snippets && refs.length) {
-          const fetched = await api.usageReferenceSnippets(refs);
-          code = fetched.flatMap((s) =>
-            // `at` is the position of the use (uri, start, end, and the component's type and
-            // name); the snippet object itself carries no URI, so none is invented here.
-            (s.snippets ?? []).map((x) => ({
-              at: x.uri,
-              content: x.content,
-            }))
-          );
+        if (snippets) {
+          const askable = p.items.filter((r) => r.objectIdentifier);
+          const notAskable = p.items.length - askable.length;
+          if (askable.length) {
+            const fetched = await api.usageReferenceSnippets(askable);
+            code = fetched.flatMap((s) =>
+              // `at` is the position of the use (uri, start, end, and the component's type and
+              // name); the snippet object carries its identifier, which ties it to its row.
+              (s.snippets ?? []).map((x) => ({
+                objectIdentifier: s.objectIdentifier,
+                at: x.uri,
+                content: x.content,
+              }))
+            );
+          }
+          snippetPart = { asked: true, rowsAsked: askable.length, count: code.length, ...(notAskable ? { rowsWithoutIdentifier: notAskable } : {}) };
         }
         record(cfg, 'adt_where_used', hit['adtcore:name'], rows.length);
-        return asText({
-          object: hit['adtcore:name'],
-          foundBy,
-          ...(warning ? { warning } : {}),
-          callers: rows.length,
-          rows,
-          snippets: code,
-        });
+        return asText(
+          finish(
+            {
+              object: hit['adtcore:name'],
+              foundBy,
+              ...(warning ? { warning } : {}),
+              callers: p.total,
+              returned: p.returned,
+              offset: p.offset,
+              limit: p.limit,
+              truncated: p.truncated,
+              ...(p.next ? { next: { ...p.next, costsCalls: 1 } } : {}),
+              rows,
+              snippetsPart: snippetPart,
+              snippets: code,
+            },
+            incomplete
+          )
+        );
       },
     },
 
@@ -1399,8 +1428,12 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             packageName: { type: 'string' },
             depth: {
               type: 'integer',
-              description: 'Sub-package depth: default 1, cap 3 (5 with compact)',
+              minimum: 1,
+              maximum: 5,
+              description: 'Sub-package depth: default 1, at most 3 (5 with compact)',
             },
+            max: { type: 'integer', minimum: 1, maximum: TREE_OBJECTS_CEILING, description: `Objects listed per package (default 500, at most ${TREE_OBJECTS_CEILING})` },
+            offset: { type: 'integer', minimum: 0, description: 'First object of the listed package: `next.offset` of the previous answer' },
             compact: {
               type: 'boolean',
               description: 'Counts and hierarchy, no object list (a deep tree is MBs otherwise).',
@@ -1413,11 +1446,16 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           required: ['packageName'],
         },
       },
-      async handler({ packageName, depth, describe, compact }) {
+      async handler({ packageName, depth, describe, compact, max, offset }) {
         const isCompact = compact === true;
-        const maxDepth = Math.min(Number(depth) || 1, isCompact ? 5 : 3);
+        const depthCeiling = isCompact ? 5 : 3;
+        if (depth !== undefined && depth !== null && Number(depth) > depthCeiling) {
+          throw new Error(`depth ${depth} is beyond ${depthCeiling}${isCompact ? '' : ' (5 with compact: true)'}: walk a sub-package from the answer instead.`);
+        }
+        const maxDepth = Number(depth) || 1;
         const seen = new Set();
         const wantsDescriptions = describe === true;
+        const incomplete = [];
 
         // `description` is the sub-package text the PARENT fetched with describe: true; in
         // compact form the object list that carried it is dropped, so it rides on the node.
@@ -1478,17 +1516,22 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
                 });
               }
             }
+            let undescribed = 0;
             for (const o of subs) {
               const f = vf?.subPackages.find((x) => String(x.name).toUpperCase() === String(o.name).toUpperCase());
               if (f) {
                 o.description = f.description;
                 o.objectsBelow = f.objectsBelow;
+                o.descriptionSource = 'folders';
               } else {
                 const hits = await api.searchObject(o.name, 'DEVC/K', 5);
                 const own = hits.find((h) => String(h['adtcore:name']).toUpperCase() === String(o.name).toUpperCase());
                 o.description = own?.['adtcore:description'] ?? null;
+                o.descriptionSource = own ? 'search' : 'notFound';
+                if (!own) undescribed += 1;
               }
             }
+            if (undescribed) incomplete.push({ list: `${pkg}.subPackages.description`, code: 'NOT_READ', count: undescribed, reason: 'neither the folders nor the search answered the sub-package' });
           }
           const folders = all.length - objects.length;
           const byType = objects.reduce((acc, o) => {
@@ -1496,33 +1539,47 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             return acc;
           }, {});
           const subPackages = [];
+          const notWalked = [];
           for (const sub of objects.filter((o) => o.type === 'DEVC/K')) {
+            if (level >= maxDepth) {
+              notWalked.push(sub.name);
+              continue;
+            }
             const child = await walk(sub.name, level + 1, sub.description);
             if (child) subPackages.push(child);
           }
+          if (notWalked.length) incomplete.push({ list: `${pkg}.subPackages`, code: 'DEPTH_LIMIT', count: notWalked.length, packages: notWalked });
+          // The objects of each package, paged: `offset` applies to the package asked, and the
+          // `next` of any other names it, to be asked as packageName.
+          const listed = isCompact ? null : page(objects, { max, offset: level === 1 ? offset : 0, defaultMax: 500, ceiling: TREE_OBJECTS_CEILING });
+          const next = listed?.next ? { packageName: pkg, offset: listed.next.offset } : null;
+          if (listed?.truncated) incomplete.push({ list: `${pkg}.objects`, code: 'CAP_REACHED', returned: listed.returned, total: listed.total, next });
           return {
             package: pkg,
             ...(isCompact && description !== undefined ? { description } : {}),
             total: objects.length,
             ...(folders ? { treeFolders: folders } : {}),
             byType,
-            ...(isCompact ? {} : { objects }),
+            ...(listed ? { objects: listed.items, objectsPage: { returned: listed.returned, offset: listed.offset, limit: listed.limit, truncated: listed.truncated, ...(next ? { next } : {}) } } : {}),
+            ...(notWalked.length ? { subPackagesNotWalked: notWalked } : {}),
             subPackages,
           };
         };
 
         const tree = await walk(packageName.toUpperCase(), 1);
         record(cfg, 'adt_package_tree', `${packageName}${isCompact ? '#compact' : ''}`, tree?.total ?? 0);
-        return asText({
+        return asText(finish({
           ...tree,
-          ...(isCompact ? { compact: true, depthCap: 5 } : {}),
+          depth: maxDepth,
+          depthCeiling,
+          ...(isCompact ? { compact: true } : {}),
           descriptions:
             'treeDescription is the text the tree resource sent on that row, and on this system ' +
             'it belongs to the NEXT row (measured, docs/adt-api-reference.md). ' +
             (wantsDescriptions
               ? 'description on each sub-package is from the virtual folders (with objectsBelow), or from the search where those were not read; both answer correctly.'
               : 'Pass describe: true, or adt_search(name, DEVC/K), for the correct text.'),
-        });
+        }, incomplete));
       },
     },
 

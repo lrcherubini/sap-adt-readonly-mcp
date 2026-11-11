@@ -889,6 +889,7 @@ test('adt_where_used maps the rows and asks for snippets only when told to', asy
       packageRef: { 'adtcore:name': 'SOME_PKG' },
       usageInformation: 'gradeDirect includeProductive',
       uri: '/uri/1',
+      objectIdentifier: 'ABAPFullName;ZI_TEST',
     },
   ];
   const api = fakeApi({ usageReferences: () => refs });
@@ -906,6 +907,9 @@ test('adt_where_used maps the rows and asks for snippets only when told to', asy
     },
   ]);
   assert.equal(out.callers, 1);
+  assert.equal(out.complete, true);
+  assert.deepEqual(out.snippetsPart, { asked: false });
+  assert.deepEqual(contractErrors(out), []);
   assert.deepEqual(out.snippets, []);
   assert.equal(api.count('usageReferenceSnippets'), 0, 'snippets are opt-in');
 
@@ -923,8 +927,26 @@ test('adt_where_used maps the rows and asks for snippets only when told to', asy
     })
   );
   assert.deepEqual(out2.snippets, [
-    { at: '/uri/1#l=3', content: 'from ZI_TEST' },
+    { objectIdentifier: 'ABAPFullName;ZI_TEST', at: '/uri/1#l=3', content: 'from ZI_TEST' },
   ]);
+  assert.deepEqual(out2.snippetsPart, { asked: true, rowsAsked: 1, count: 1 });
+});
+
+test('adt_where_used pages its rows: two pages are the whole list, the snippets follow the page', async () => {
+  const refs = Array.from({ length: 5 }, (_, i) => ({ 'adtcore:name': `C${i}`, 'adtcore:type': 'CLAS/OC', uri: `/u/${i}`, objectIdentifier: `ID${i}` }));
+  const asked = [];
+  const api = fakeApi({ usageReferences: () => refs, usageReferenceSnippets: (r) => { asked.push(r.map((x) => x.objectIdentifier)); return []; } });
+  const p1 = jsonOf(await byName(toolsWith(api), 'adt_where_used').handler({ objectName: 'ZI_TEST', max: 3, snippets: true }));
+  assert.deepEqual([p1.callers, p1.returned, p1.truncated, p1.complete], [5, 3, true, false]);
+  assert.deepEqual(p1.next, { offset: 3, costsCalls: 1 });
+  assert.equal(p1.incomplete[0].code, 'CAP_REACHED');
+  assert.deepEqual(asked[0], ['ID0', 'ID1', 'ID2'], 'the snippets of the page only');
+  const p2 = jsonOf(await byName(toolsWith(api), 'adt_where_used').handler({ objectName: 'ZI_TEST', max: 3, offset: p1.next.offset }));
+  assert.deepEqual([...p1.rows, ...p2.rows].map((r) => r.name), ['C0', 'C1', 'C2', 'C3', 'C4']);
+  assert.equal(p2.complete, true);
+  assert.deepEqual(contractErrors(p1), []);
+  assert.deepEqual(contractErrors(p2), []);
+  await assert.rejects(() => byName(toolsWith(api), 'adt_where_used').handler({ objectName: 'ZI_TEST', max: 501 }), /<= 500/);
 });
 
 // --- adt_package_tree --------------------------------------------------------
@@ -982,7 +1004,7 @@ test('a package cycle is walked once, not forever', async () => {
   assert.equal(api.count('nodeContents'), 2);
 });
 
-test('adt_package_tree caps the recursion depth at 3', async () => {
+test('adt_package_tree walks to the depth asked and names the sub-packages it did not walk', async () => {
   // A chain deeper than the cap: P0 -> P1 -> ... -> P5.
   const api = fakeApi({
     nodeContents: (_type, pkg) => {
@@ -990,8 +1012,25 @@ test('adt_package_tree caps the recursion depth at 3', async () => {
       return { nodes: [{ OBJECT_NAME: `P${n + 1}`, OBJECT_TYPE: 'DEVC/K', DESCRIPTION: '' }] };
     },
   });
-  await byName(toolsWith(api), 'adt_package_tree').handler({ packageName: 'P0', depth: 99 });
+  const out = jsonOf(await byName(toolsWith(api), 'adt_package_tree').handler({ packageName: 'P0', depth: 3 }));
   assert.equal(api.count('nodeContents'), 3, 'levels 1..3 are read, level 4 is not');
+  assert.equal(out.complete, false);
+  assert.deepEqual(out.incomplete, [{ list: 'P2.subPackages', code: 'DEPTH_LIMIT', count: 1, packages: ['P3'] }]);
+  assert.deepEqual(contractErrors(out), []);
+  await assert.rejects(() => byName(toolsWith(api), 'adt_package_tree').handler({ packageName: 'P0', depth: 4 }), /beyond 3/);
+  await assert.rejects(() => byName(toolsWith(api), 'adt_package_tree').handler({ packageName: 'P0', depth: 99 }), /<= 5/);
+});
+
+test('adt_package_tree pages the objects of the package asked', async () => {
+  const nodes = Array.from({ length: 5 }, (_, i) => ({ OBJECT_NAME: `ZCL_${i}`, OBJECT_TYPE: 'CLAS/OC', DESCRIPTION: '' }));
+  const api = fakeApi({ nodeContents: () => ({ nodes }) });
+  const p1 = jsonOf(await byName(toolsWith(api), 'adt_package_tree').handler({ packageName: 'ZDEMO', max: 2 }));
+  assert.deepEqual(p1.objectsPage, { returned: 2, offset: 0, limit: 2, truncated: true, next: { packageName: 'ZDEMO', offset: 2 } });
+  assert.equal(p1.total, 5);
+  const p2 = jsonOf(await byName(toolsWith(api), 'adt_package_tree').handler({ packageName: 'ZDEMO', max: 3, offset: 2 }));
+  assert.deepEqual([...p1.objects, ...p2.objects].map((o) => o.name), nodes.map((n) => n.OBJECT_NAME));
+  assert.equal(p2.complete, true);
+  assert.deepEqual(contractErrors(p1), []);
 });
 
 // --- adt_read_source: batch (B.2) and ENHO (B.3) ------------------------------
@@ -1126,7 +1165,7 @@ test('adt_package_tree compact drops the object list, keeps the counts and raise
     await byName(toolsWith(api, log), 'adt_package_tree').handler({ packageName: 'zsd_test', depth: 2, compact: true })
   );
   assert.equal(out.compact, true);
-  assert.equal(out.depthCap, 5);
+  assert.equal(out.depthCeiling, 5);
   assert.equal(out.total, 3);
   assert.deepEqual(out.byType, { 'DDLS/DF': 1, 'CLAS/OC': 1, 'DEVC/K': 1 });
   assert.equal('objects' in out, false, 'compact carries no object list');
@@ -1134,10 +1173,10 @@ test('adt_package_tree compact drops the object list, keeps the counts and raise
   assert.equal('objects' in out.subPackages[0], false);
   assert.equal(log.at(-1).target, 'zsd_test#compact');
 
-  // The cap: P0 -> ... -> P5 reads five levels compact, three otherwise.
-  await byName(toolsWith(api), 'adt_package_tree').handler({ packageName: 'P0', depth: 99, compact: true });
+  // The ceiling: P0 -> ... -> P5 reads five levels compact, three otherwise.
+  await byName(toolsWith(api), 'adt_package_tree').handler({ packageName: 'P0', depth: 5, compact: true });
   assert.equal(api.count('nodeContents'), 2 + 5, 'levels 1..5 are read compact');
-  await byName(toolsWith(api), 'adt_package_tree').handler({ packageName: 'P0', depth: 99 });
+  await byName(toolsWith(api), 'adt_package_tree').handler({ packageName: 'P0', depth: 3 });
   assert.equal(api.count('nodeContents'), 2 + 5 + 3, 'levels 1..3 otherwise');
 });
 
