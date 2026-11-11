@@ -1220,6 +1220,12 @@ one object: the members moved, and the rest still served by the library. Moved s
   `objectDocument`, parsed in the library's shapes (checked on the measured data element and
   domain). Texts of digits stay text: a fixed value `01` keeps its zero and `0` is not read as
   empty, both of which the library's number conversion lost.
+- `ddicElement` (2026-11-11): the named route `ddicElementInfo`, the three flags fixed as the
+  library sent them and one entity name the only argument; the tree parsed in its shape (checked
+  identical on the measured CDS view). One finding kept as it was: the reply carries the
+  annotations of each element (`annotationKey.n` / `annotationValue.n`), and the library's
+  matcher never filled them, so `annotations` stays empty, as it always was. Reading them is a
+  change of the answer, not of the transport, and is left for its own decision.
 
 ### Self-contained: every source is read from the system -- 2026-11-08
 

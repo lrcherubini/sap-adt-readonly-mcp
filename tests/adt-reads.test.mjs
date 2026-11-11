@@ -70,7 +70,7 @@ test('the mixed api: own members from here, every other allowlisted one from the
   assert.throws(() => api.lock, ReadOnlyViolation);
   assert.throws(() => api.httpClient, ReadOnlyViolation);
   assert.deepEqual(Object.keys(mixedApi(library, {})).sort(), allowedMethods());
-  assert.deepEqual([...OWN_READS], ['getObjectSource', 'objectStructure', 'searchObject', 'objectStructureElements', 'getDataElementProperties', 'getDomainProperties']);
+  assert.deepEqual([...OWN_READS], ['getObjectSource', 'objectStructure', 'searchObject', 'objectStructureElements', 'getDataElementProperties', 'getDomainProperties', 'ddicElement']);
 });
 
 test('searchObject asks the quick search with the major type, as the library did, and keeps every hit field', async () => {
@@ -161,4 +161,37 @@ test('a bare document answers the library defaults: empty strings, zero, undefin
   assert.deepEqual(parseOutline('<other/>'), []);
   const one = parseOutline('<abapsource:objectStructureElement><abapsource:objectStructureElement final="false" constant="x"/></abapsource:objectStructureElement>');
   assert.deepEqual([one[0].name, one[0].type, one[0].final, one[0].constant], ['', '', false, undefined]);
+});
+
+test('ddicElement: the element tree by entity name, typed as the library typed it, one name per call', async () => {
+  const body =
+    '<?xml version="1.0" encoding="utf-8"?><abapsource:elementInfo adtcore:uri="/sap/bc/adt/ddic/ddl/sources/zdemo_i_rate" adtcore:type="DDLS/STOB" adtcore:name="ZDEMO_I_Rate" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">' +
+    '<abapsource:properties><abapsource:entry abapsource:key="entityType">view</abapsource:entry><abapsource:entry abapsource:key="annotationKey.0">ENDUSERTEXT.LABEL</abapsource:entry><abapsource:entry abapsource:key="annotationValue.0">Exchange rate</abapsource:entry></abapsource:properties>' +
+    '<abapsource:documentation abapsource:rel="shorttext" abapsource:type="text/plain">Exchange rate</abapsource:documentation>' +
+    '<abapsource:elementInfo adtcore:type="STOB/DOF" adtcore:name="RateType"><abapsource:properties>' +
+    '<abapsource:entry abapsource:key="ddicIsKey">true</abapsource:entry><abapsource:entry abapsource:key="ddicDataElement">zdemo_rate_type</abapsource:entry>' +
+    '<abapsource:entry abapsource:key="ddicDataType">char</abapsource:entry><abapsource:entry abapsource:key="ddicLength">000004</abapsource:entry>' +
+    '<abapsource:entry abapsource:key="ddicLabelShort">Rate type</abapsource:entry></abapsource:properties></abapsource:elementInfo>' +
+    '<abapsource:elementInfo adtcore:type="STOB/DOF" adtcore:name="_Currency"><abapsource:properties><abapsource:entry abapsource:key="parentName">ZDEMO_I_RATE</abapsource:entry></abapsource:properties>' +
+    '<abapsource:elementInfo adtcore:type="STOB/DOF" adtcore:name="Currency"><abapsource:properties><abapsource:entry abapsource:key="ddicDataType">cuky</abapsource:entry><abapsource:entry abapsource:key="ddicDataElement"/></abapsource:properties></abapsource:elementInfo>' +
+    '</abapsource:elementInfo></abapsource:elementInfo>';
+  const raw = fakeRaw(() => ({ status: 200, body, headers: {} }));
+  const tree = await ownReads(raw).ddicElement('ZDEMO_I_Rate');
+  assert.equal(raw.calls[0].url, '/sap/bc/adt/ddic/ddl/elementinfo?getTargetForAssociation=false&getExtensionViews=true&getSecondaryObjects=true&path=ZDEMO_I_Rate');
+  assert.deepEqual(raw.calls[0].headers, { Accept: 'application/vnd.sap.adt.elementinfo+xml' });
+  assert.deepEqual([tree.type, tree.name], ['DDLS/STOB', 'ZDEMO_I_Rate']);
+  assert.equal(tree.properties.elementProps, false, 'no DDIC type on the root: false, as the library answered');
+  assert.deepEqual(tree.properties.annotations, [], 'the library never filled them; the shape stays');
+  const [key, assoc] = tree.children;
+  assert.deepEqual(key.properties.elementProps, {
+    ddicIsKey: true, ddicDataElement: 'zdemo_rate_type', ddicDataType: 'char', ddicLength: 4, ddicDecimals: undefined,
+    ddicHeading: undefined, ddicLabelShort: 'Rate type', ddicLabelMedium: undefined, ddicLabelLong: undefined,
+    ddicHeadingLength: undefined, ddicLabelShortLength: undefined, ddicLabelMediumLength: undefined, ddicLabelLongLength: undefined,
+    parentName: undefined,
+  });
+  assert.equal(assoc.properties.elementProps, false);
+  assert.equal(assoc.children[0].properties.elementProps.ddicIsKey, false);
+  assert.equal(assoc.children[0].properties.elementProps.ddicDataElement, undefined);
+  await assert.rejects(() => ownReads(raw).ddicElement(['A', 'B']), (e) => e.name === 'RouteViolation');
+  await assert.rejects(() => ownReads(raw).ddicElement('A B'), (e) => e.name === 'RouteViolation');
 });
