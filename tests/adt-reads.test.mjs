@@ -70,7 +70,7 @@ test('the mixed api: own members from here, every other allowlisted one from the
   assert.throws(() => api.lock, ReadOnlyViolation);
   assert.throws(() => api.httpClient, ReadOnlyViolation);
   assert.deepEqual(Object.keys(mixedApi(library, {})).sort(), allowedMethods());
-  assert.deepEqual([...OWN_READS], ['getObjectSource', 'objectStructure', 'searchObject', 'objectStructureElements', 'getDataElementProperties', 'getDomainProperties', 'ddicElement', 'annotationDefinitions', 'objectEnhancements', 'nodeContents']);
+  assert.deepEqual([...OWN_READS], ['getObjectSource', 'objectStructure', 'searchObject', 'objectStructureElements', 'getDataElementProperties', 'getDomainProperties', 'ddicElement', 'annotationDefinitions', 'objectEnhancements', 'nodeContents', 'findObjectPath']);
 });
 
 test('searchObject asks the quick search with the major type, as the library did, and keeps every hit field', async () => {

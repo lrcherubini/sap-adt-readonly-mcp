@@ -48,3 +48,19 @@ test('the tree POST refuses anything but a package name, and a body not built he
   await assert.rejects(() => repositoryPost({}, nodeStructureRequest('DEVC/K', 'ZDEMO')), RepositoryPostViolation);
   assert.equal(raw.calls.length, 0);
 });
+
+test('findObjectPath: the node path POST with the object URI as its one parameter, the steps root first', async () => {
+  const raw = fakeRaw(() => ({ status: 200, body: fixture('nodepath.xml'), headers: {} }));
+  const steps = await ownReads(raw).findObjectPath('/sap/bc/adt/oo/classes/zcl_demo');
+  assert.deepEqual(raw.calls, [{ url: '/sap/bc/adt/repository/nodepath?uri=%2Fsap%2Fbc%2Fadt%2Foo%2Fclasses%2Fzcl_demo', method: 'POST', headers: { Accept: '*/*' } }]);
+  assert.deepEqual(steps, [
+    { 'adtcore:uri': '/sap/bc/adt/packages/zdemo_pkg', 'adtcore:type': 'DEVC/K', 'adtcore:name': 'ZDEMO_PKG', 'projectexplorer:category': 'packages' },
+    { 'adtcore:uri': '/sap/bc/adt/oo/classes/zcl_demo', 'adtcore:type': 'CLAS/OC', 'adtcore:name': 'ZCL_DEMO', 'adtcore:parentUri': '/sap/bc/adt/packages/zdemo_pkg', 'projectexplorer:category': 'source_library' },
+  ]);
+  for (const bad of ['/sap/bc/adt/oo/classes/zcl_demo?x=1', '/sap/bc/adt/../x', 'http://elsewhere/sap/bc/adt/x', '']) {
+    await assert.rejects(() => ownReads(raw).findObjectPath(bad), RepositoryPostViolation, bad);
+  }
+  assert.equal(raw.calls.length, 1);
+  assert.deepEqual(await ownReads(fakeRaw(() => ({ status: 200, body: '<other/>', headers: {} }))).findObjectPath('/sap/bc/adt/packages/zdemo_pkg'), []);
+  assert.deepEqual(await ownReads(fakeRaw(() => ({ status: 200, body: ' ', headers: {} }))).findObjectPath('/sap/bc/adt/packages/zdemo_pkg'), []);
+});

@@ -1245,6 +1245,9 @@ there, a brand that proves it, and the raw client only.
 - `nodeContents` (2026-11-11): `POST /sap/bc/adt/repository/nodestructure`, no body, the
   parameters in the library's order, a package name only (`DEVC/K`; namespace and `$` admitted, as
   the tree has always listed them). The reply is a list of rows; every field stays text.
+- `findObjectPath` (2026-11-11): `POST /sap/bc/adt/repository/nodepath`, no body, one parameter:
+  an ADT object URI (no query, no fragment, no dot-segment), percent-encoded. The steps root first,
+  each with its attributes, checked identical on the measured reply.
 
 ### Self-contained: every source is read from the system -- 2026-11-08
 
