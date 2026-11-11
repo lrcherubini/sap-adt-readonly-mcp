@@ -345,13 +345,15 @@ and no `/IWFND/ERROR_LOG` entry.
 The strongest signal is not a name at all: a field whose **DDIC type** is `UNIT`, `CUKY` or
 `LANG` *is* a unit key, a currency key or a language key, whatever it is called, and that
 costs nothing extra because the field list already carries the type. It is also the only
-signal that survives a projection, where the field restates neither its type nor its
-annotations. `BaseUnit` is the case the tool was built for: its data element states
+signal of the type that survives a projection, where the field restates neither its type
+nor its annotations. The **semantic annotations the system resolves** come with the same field
+list, at no extra call, inherited ones included: a quantity's
+`@Semantics.quantity.unitOfMeasure` names its unit field even when the projection's source says
+nothing. `BaseUnit` is the case the tool was built for: its data element states
 `BASEUOM` (measured — not `UNIT_OF_MEASURE`, which is what it looks like), nothing named
 `BaseUnit`, `BASEUOM` or `MEINS` is in the catalogue, and its type `UNIT` lands straight on
 `I_UnitOfMeasureStdVH`. `readAnnotations: true` additionally reads the entity's own source
-for `@Semantics` — worth the three calls only for calculated elements, which have no data
-element to type.
+for `@Semantics`; what the system resolves wins over what the file writes.
 
 When nothing matches by name or by type it **asks the system** rather than guessing: an
 anchored, type-filtered repository search on the concept (one call, ~3 KB), and if that

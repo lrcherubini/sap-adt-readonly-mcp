@@ -472,6 +472,31 @@ async function analyseField(ctx, field) {
 }
 
 /**
+ * The SEMANTIC annotations of the fields as the system resolves them -- read with the field
+ * list itself (elementinfo, lib/ddic.mjs inventory), so they cost no call, and they include
+ * what a projection inherits from its interface view without restating it. Attached before
+ * anything else reads `semantics`; a field the model gives none keeps its DDIC type.
+ * `elements` holds the annotations of every field of the entity, so a reference carried by a
+ * field outside the ones analysed still reaches its target.
+ */
+function applyModelSemantics(entity, fields, elements = {}) {
+  if (!Object.keys(elements).length) {
+    return `the system answered no annotation for the fields of ${entity} analysed: they keep the signals of their DDIC type`;
+  }
+  const semantics = semanticsFromAnnotations(elements);
+  const hit = [];
+  for (const f of fields) {
+    const found = semantics.get(f.name);
+    if (!found) continue;
+    f.semantics = { ...found, from: `${found.from} (as the system resolves it)` };
+    hit.push(`${f.name} (${found.concept})`);
+  }
+  return hit.length
+    ? `semantic annotations of the model: ${hit.join(', ')}`
+    : `the annotations the system resolves for ${entity} carry no semantic annotation on the fields analysed`;
+}
+
+/**
  * Opt-in: read the entity's own source once and attach the SEMANTIC annotations its
  * fields carry.
  *
@@ -502,7 +527,8 @@ function applySemanticAnnotations(entity, fields, { source, reason }) {
   const hit = [];
   for (const f of fields) {
     const found = byLower.get(String(f.name).toLowerCase());
-    if (!found) continue;
+    // What the model resolves wins over what the file writes: it is what the system uses.
+    if (!found || f.semantics) continue;
     f.semantics = found;
     hit.push(`${f.name} (${found.concept})`);
   }
@@ -547,6 +573,7 @@ export async function analyseValueHelp(api, sources, params = {}) {
     fields = inv.fields;
     spent.calls += inv.calls;
     notes.push(...inv.notes);
+    notes.push(applyModelSemantics(params.entity, fields, inv.annotations));
     // The entity's own source, once: which fields are already bound, and (opt-in) the
     // semantic annotations. Read from the system, so it is the active version, not a copy.
     own = await entitySource(api, params.entity, spent);

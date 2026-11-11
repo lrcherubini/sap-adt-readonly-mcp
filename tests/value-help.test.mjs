@@ -819,6 +819,28 @@ test('34b: the ElementRef form names ANOTHER field, and is never applied to its 
   assert.equal(found.has('FieldThatIsNotThere'), false, 'a dangling reference invents no field');
 });
 
+test('34e: the semantic annotations the system resolves classify a field, with no call of their own', async () => {
+  // A projection restates neither @Semantics.quantity.unitOfMeasure nor its target; the field
+  // list (elementinfo) carries what the model resolves, inherited annotations included. Here
+  // OrderUnit is a plain CHAR with a Z data element (no concept of its own); the quantity field
+  // names it as its unit.
+  const qty = FIELD('OrderQuantity', 'zdemo_qty', { ddicDataType: 'quan' });
+  qty.properties.annotations = [{ key: 'SEMANTICS.QUANTITY.UNITOFMEASURE', value: 'OrderUnit' }];
+  const unit = FIELD('OrderUnit', 'zdemo_unit_c');
+  unit.properties.annotations = [{ key: 'ENDUSERTEXT.LABEL', value: 'Order unit' }];
+  const api = fakeApi({
+    tree: { ZC_TEST: [qty, unit] },
+    extraObjects: { ZC_TEST: 'define view entity ZC_Test as projection on ZI_Test { key OrderQuantity, OrderUnit }' },
+  });
+  const r = await analyseValueHelp(api, sources, { entity: 'ZC_Test', fields: ['OrderUnit'], validate: false });
+  const f = fieldOf(r, 'OrderUnit');
+  assert.ok(r.notes.some((n) => /semantic annotations of the model: OrderUnit \(UNITOFMEASURE\)/.test(n)), r.notes.join(' | '));
+  assert.equal(f.matchedConcept.concept, 'UNITOFMEASURE', JSON.stringify(f.concepts));
+  assert.match(f.matchedConcept.from, /SEMANTICS\.QUANTITY\.UNITOFMEASURE of OrderQuantity names this field.*as the system resolves it/);
+  assert.equal(f.recommended, 'I_UNITOFMEASURESTDVH');
+  assert.equal(countOf(api, 'ddicElement'), 1, 'the field list is read once; the annotations come with it');
+});
+
 test('34c: readAnnotations is opt-in, and says so when the source states nothing', async () => {
   const tree = { ZC_TEST: [FIELD('Plant', 'werks_d')] };
   // The entity's own source is always read once (to see which fields are already bound);
