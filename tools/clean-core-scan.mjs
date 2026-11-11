@@ -22,7 +22,13 @@
 import { loadCatalog, catalogStatus, catalogMissingGap, CatalogMissing, VIEWER } from '../lib/catalog.mjs';
 import { dataSourcesFrom, definitionOf } from '../lib/datasources.mjs';
 import { classify, findingFor, levelRank } from '../lib/clean-core.mjs';
-import { packageSources, packageGaps, scopeOf, DEFAULT_MAX_OBJECTS, MAX_OBJECTS } from '../lib/package-sources.mjs';
+import { packageSources, packageGaps, packageIncomplete, scopeOf, DEFAULT_MAX_OBJECTS, MAX_OBJECTS } from '../lib/package-sources.mjs';
+import { finish, page } from '../lib/completeness.mjs';
+
+/** Distinct names reported in one answer; `findingsOffset` pages the rest. */
+export const FINDINGS_CEILING = 1000;
+/** Citations listed per finding; `readBy` is the full count. */
+const CITATIONS_SHOWN = 5;
 import { progressOf } from '../lib/tool-meta.mjs';
 
 /** Built once per process: 24,707 rows parsed per call would be the tool's whole cost. */
@@ -62,6 +68,7 @@ export async function runCleanCoreScan(cfg, api, args = {}, journal = null, extr
     recursive: args.recursive !== false,
     only: args.entity,
     max: args.maxObjects,
+    offset: args.offset,
     cfg,
     signal: extra.signal,
     progress: progressOf(extra),
@@ -71,7 +78,7 @@ export async function runCleanCoreScan(cfg, api, args = {}, journal = null, extr
   const tool = extra.tool ?? 'adt_clean_core_scan';
   const hits = hitsOf(read.read, pkg);
   const minLevel = args.minLevel ?? 'B';
-  const { results, counts } = classify(hits, catalog, { minLevel });
+  const { results, counts, unmapped } = classify(hits, catalog, { minLevel });
   // Standard names that neither catalogue knows. They are already reported as Level C
   // findings (that IS the rule), but the fact that no release STATEMENT exists for them
   // is a limit of the catalogues, not of the code -- a different thing, and the one a
@@ -87,8 +94,8 @@ export async function runCleanCoreScan(cfg, api, args = {}, journal = null, extr
     where.get(key).push({ file: h.file, line: h.line, kind: h.kind, consumer: h.consumer });
   }
 
-  const max = Math.min(Number(args.max) || 200, 1000);
-  const rows = results.slice(0, max).map((r) => {
+  const p = page(results, { max: args.max, offset: args.findingsOffset, defaultMax: 200, ceiling: FINDINGS_CEILING });
+  const rows = p.items.map((r) => {
     const at = where.get(r.name.toUpperCase()) ?? [];
     if (journal?.enabled) {
       // One finding per consumed name, citing its first reader. `repo` is the scanned package:
@@ -105,7 +112,7 @@ export async function runCleanCoreScan(cfg, api, args = {}, journal = null, extr
       why: r.why,
       useInstead: r.successors.length ? r.successors : r.successorConcept ? [r.successorConcept] : [],
       readBy: at.length,
-      at: at.slice(0, 5).map((a) => `${a.file}:${a.line} (${a.kind}, in ${a.consumer ?? '?'})`),
+      at: at.slice(0, CITATIONS_SHOWN).map((a) => `${a.file}:${a.line} (${a.kind}, in ${a.consumer ?? '?'})`),
     };
   });
 
@@ -137,7 +144,14 @@ export async function runCleanCoreScan(cfg, api, args = {}, journal = null, extr
     }
   }
 
-  return {
+  const incomplete = packageIncomplete(read);
+  if (p.truncated) {
+    // The next page of findings re-reads the same sources: same package, same `offset`.
+    incomplete.push({ list: 'findings', code: 'CAP_REACHED', returned: p.returned, total: p.total, next: { findingsOffset: p.next.offset, costsCalls: read.read.length + read.notRead.length } });
+  }
+  if (catalog.note) incomplete.push({ list: 'catalog', code: 'NOT_READ', reason: 'the classification catalogue is partial: see catalogPartial' });
+  if (unmapped.length) incomplete.push({ list: 'levels', code: 'PARSE_FAILED', count: unmapped.length, reason: 'release states this server has no level for: see unmapped' });
+  return finish({
     scope: scopeOf(pkg, read, {
       recursive: args.recursive !== false,
       references: hits.length,
@@ -146,18 +160,24 @@ export async function runCleanCoreScan(cfg, api, args = {}, journal = null, extr
       catalog: catalogInfo,
       ...(catalog.note ? { catalogueNote: catalog.note } : {}),
     }),
+    catalogPartial: Boolean(catalog.note),
     // A/B/C/D over DISTINCT standard names; `custom` is the Z/Y names, which carry no
     // level of their own -- the level is about what they consume.
     levels: counts,
+    // Standard names neither catalogue knows (Level C without a successor), and release states
+    // this server maps to no level: both listed, never left to the journal alone.
+    absent: { count: absent.length, names: absent },
+    unmapped,
     reported: rows.length,
-    ...(results.length > rows.length ? { truncated: results.length - rows.length } : {}),
+    findingsPage: { total: p.total, returned: p.returned, offset: p.offset, limit: p.limit, truncated: p.truncated, ...(p.next ? { next: { findingsOffset: p.next.offset } } : {}) },
+    citationsShown: CITATIONS_SHOWN,
     findings: rows,
     reminder:
       'Level B is reported, not recommended. Two different C answers exist: a catalogued ' +
       'notToBeReleased (a successor is named) and absent from both catalogues (internal ' +
       `unclassified, no successor). Cross-check any single object in SAP's viewer (${VIEWER}). ` +
-      'scope.complete false means some objects were not read: absent here is not absent there.',
-  };
+      'complete false means something was not read or not listed: see incomplete.',
+  }, incomplete);
 }
 
 export function cleanCoreScanTool(cfg, api, journal) {
@@ -179,7 +199,9 @@ export function cleanCoreScanTool(cfg, api, journal) {
             enum: ['A', 'B', 'C', 'D'],
             description: 'Report levels at or worse than this. Default B (everything not A).',
           },
-          max: { type: 'integer', minimum: 1, maximum: 1000, description: 'Max distinct names reported (default 200)' },
+          max: { type: 'integer', minimum: 1, maximum: FINDINGS_CEILING, description: `Distinct names reported per page (default 200, at most ${FINDINGS_CEILING})` },
+          findingsOffset: { type: 'integer', minimum: 0, description: 'First finding of the page: `findingsPage.next.findingsOffset` of the previous answer' },
+          offset: { type: 'integer', minimum: 0, description: 'First CDS source to read, in name order: `scope.next.offset` of the previous answer' },
           maxObjects: {
             type: 'integer',
             minimum: 1,

@@ -167,7 +167,8 @@ function apiFor(root, { failing = [], calls = { list: 0, read: 0 } } = {}) {
     getObjectSource: async (uri) => {
       calls.read++;
       const o = objs.find((x) => `${uriOf(x)}/source/main` === uri);
-      if (!o || failing.includes(o.name)) throw new Error(`404 ${uri} not found`);
+      if (!o) throw Object.assign(new Error(`404 ${uri} not found`), { status: 404 });
+      if (failing.includes(o.name)) throw Object.assign(new Error(`500 ${uri} failed`), { status: 500 });
       return o.text;
     },
   };
@@ -377,11 +378,15 @@ test('upstream views are read on demand, so a hide written in a standard view is
   const out = await runAnnotationScan(cfg(), api, { package: 'ZTEST' });
   assert.equal(out.scope.upstream.read, 1);
   assert.equal(out.armed, 1, 'the hide in the standard view reaches the display role downstream');
-  assert.ok(out.scope.upstream.notRead.some((u) => u.name === 'T001W'), 'a table has no DDLS: listed, not a hole');
+  assert.ok(out.scope.upstream.notFound.includes('T001W'), 'a table has no DDLS: listed apart, not a hole');
+  assert.deepEqual(out.scope.upstream.notRead, []);
+  assert.equal(out.complete, true, 'a table answering 404 is not incompleteness');
   resetAnnotationIndexCache();
   const none = await runAnnotationScan(cfg(), api, { package: 'ZTEST', upstream: 0 });
   assert.equal(none.armed, 0, 'upstream: 0 reads nothing upstream');
-  assert.equal(none.scope.upstream.notFollowed, 1);
+  assert.deepEqual(none.scope.upstream.notFollowed, ['I_DEMOSTD']);
+  assert.equal(none.complete, false);
+  assert.deepEqual(none.incomplete.map((i) => `${i.list}:${i.code}`), ['upstream:BUDGET_REACHED']);
 });
 
 test('a source that declares elements and parses to none is a gap, not a clean answer', async () => {
@@ -444,7 +449,8 @@ test('the index is kept for follow-up lookups, and refresh rebuilds it', async (
   const reads = calls.read;
   const again = await runAnnotationScan(cfg(), api, { package: 'ZTEST', element: 'Channel' });
   assert.equal(calls.read, reads, 'the second lookup read nothing');
-  assert.match(again.scope.cached, /refresh: true/);
+  assert.equal(again.scope.cached, true);
+  assert.equal(typeof again.scope.ageSeconds, 'number');
   await runAnnotationScan(cfg(), api, { package: 'ZTEST', element: 'Plant', refresh: true });
   assert.ok(calls.read > reads);
   resetAnnotationIndexCache();

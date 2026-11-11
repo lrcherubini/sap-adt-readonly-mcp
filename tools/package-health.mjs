@@ -18,7 +18,8 @@
 // everything it was asked to read; a part that could not run says why and counts as incomplete,
 // never as clean.
 
-import { listPackage } from '../lib/package-sources.mjs';
+import { listPackage, packageIncomplete } from '../lib/package-sources.mjs';
+import { finish } from '../lib/completeness.mjs';
 import { buildCheckBody } from '../lib/syntax-check.mjs';
 import { CatalogMissing } from '../lib/catalog.mjs';
 import { progressOf } from '../lib/tool-meta.mjs';
@@ -31,7 +32,13 @@ export const CHECK_TYPES = Object.freeze(['CLAS/OC', 'PROG/P']);
 export const DEFAULT_MAX_CHECKS = 20;
 export const MAX_CHECKS = 50;
 const TOOL = 'adt_package_health';
-const FINDINGS_SHOWN = 20;
+const DEFAULT_FINDINGS = 20;
+export const MAX_FINDINGS = 200;
+/**
+ * Types that carry ABAP source and that no part of this tool checks: counted as out of scope,
+ * so a package of interfaces and function groups never reads as healthy for being unchecked.
+ */
+export const SOURCE_NOT_CHECKED = Object.freeze(['INTF/OI', 'FUGR/F', 'PROG/I', 'BDEF/BDO']);
 
 const capOf = (value) => {
   if (value === undefined || value === null) return DEFAULT_MAX_CHECKS;
@@ -41,12 +48,14 @@ const capOf = (value) => {
 };
 
 /** The syntax half: the stored active version of each class and program, one check run each. */
-export async function checkPackage(cfg, session, journal, listing, { max, signal, progress = () => {} } = {}) {
+export async function checkPackage(cfg, session, journal, listing, { max, offset = 0, signal, progress = () => {} } = {}) {
   const candidates = listing.objects
     .filter((o) => CHECK_TYPES.includes(o.type))
     .sort((a, b) => `${a.type}|${a.name}`.localeCompare(`${b.type}|${b.name}`));
-  const todo = candidates.slice(0, max);
-  const out = { candidates: candidates.length, checked: 0, clean: 0, withMessages: [], notChecked: [], skipped: candidates.length - todo.length, cancelled: false };
+  // A page of the candidates, in name order: `offset` starts after the ones already checked.
+  const from = Number.isInteger(offset) && offset > 0 ? offset : 0;
+  const todo = candidates.slice(from, from + max);
+  const out = { candidates: candidates.length, offset: from, checked: 0, clean: 0, withMessages: [], notChecked: [], skipped: Math.max(0, candidates.length - from - todo.length), cancelled: false };
   for (const [i, o] of todo.entries()) {
     if (signal?.aborted) {
       out.cancelled = true;
@@ -81,12 +90,15 @@ export async function checkPackage(cfg, session, journal, listing, { max, signal
       fallback: `raise maxChecks (at most ${MAX_CHECKS}), or check a sub-package`,
     });
   }
-  out.complete = !out.notChecked.length && !out.skipped;
+  // Only the cap leaves a next page; a cancel is asked again from the same offset.
+  if (out.skipped && !out.cancelled) out.next = { checksOffset: from + todo.length };
+  if (from) out.notAsked = from;
+  out.complete = !out.notChecked.length && !out.skipped && !from;
   return out;
 }
 
 /** The ATC half: one run of the default variant over the package, summarised. Never "clean" unread. */
-export async function atcPackage(cfg, session, journal, pkg) {
+export async function atcPackage(cfg, session, journal, pkg, { maxFindings = DEFAULT_FINDINGS } = {}) {
   let body;
   try {
     body = buildPackageRunBody({ packageName: pkg });
@@ -113,8 +125,9 @@ export async function atcPackage(cfg, session, journal, pkg) {
     ...(checkedNothing ? { reason: 'the worklist names no object: the run checked nothing, so no finding is not a clean package' } : {}),
     count: run.count,
     byPriority: run.byPriority,
-    findings: run.findings.slice(0, FINDINGS_SHOWN),
-    ...(run.count > FINDINGS_SHOWN ? { moreFindings: run.count - FINDINGS_SHOWN } : {}),
+    findings: run.findings.slice(0, maxFindings),
+    returned: Math.min(run.findings.length, maxFindings),
+    truncated: run.count > Math.min(run.findings.length, maxFindings),
     note: 'the findings of one run over the package, read from the worklist it left (adt_atc_run reads one object)',
   };
 }
@@ -124,8 +137,11 @@ export async function runPackageHealth(cfg, session, args = {}, journal = null, 
   if (!pkg) throw new Error('adt_package_health needs a package.');
   if (!session?.raw) throw new Error('this session has no raw client: the syntax checks cannot be asked.');
   const max = capOf(args.maxChecks);
+  const maxFindings = Number.isInteger(args.maxFindings) ? Math.min(Math.max(args.maxFindings, 1), MAX_FINDINGS) : DEFAULT_FINDINGS;
   const progress = progressOf(extra);
   const listing = await listPackage(session.api, pkg, { recursive: args.recursive !== false, signal: extra.signal });
+  // The listing is shared by every part: its limits are said once, here.
+  const incomplete = packageIncomplete({ notListed: listing.notListed, limits: listing.limits });
 
   let cleanCore;
   try {
@@ -134,44 +150,77 @@ export async function runPackageHealth(cfg, session, args = {}, journal = null, 
       listing,
       tool: TOOL,
     });
+    const total = scan.findingsPage.total;
+    const shown = scan.findings.slice(0, maxFindings);
     cleanCore = {
       read: true,
-      complete: scan.scope.complete,
+      complete: scan.complete,
       views: scan.scope.objects,
       viewsRead: scan.scope.read,
       levels: scan.levels,
-      findings: scan.findings.slice(0, FINDINGS_SHOWN),
-      ...(scan.findings.length > FINDINGS_SHOWN ? { moreFindings: scan.findings.length - FINDINGS_SHOWN } : {}),
+      absent: scan.absent,
+      findings: shown,
+      findingsTotal: total,
+      truncated: total > shown.length,
       ...(scan.scope.notRead ? { notRead: scan.scope.notRead } : {}),
       ...(scan.scope.skipped ? { skipped: scan.scope.skipped } : {}),
     };
+    // The scan's own entries, minus the listing's (said once above), under this part's name.
+    for (const i of scan.incomplete) {
+      if (i.list === 'packages' || i.list === 'findings') continue;
+      incomplete.push({ ...i, list: `cleanCore.${i.list}`, ...(i.next ? { next: { tool: 'adt_clean_core_scan', ...i.next } } : {}) });
+    }
+    if (cleanCore.truncated) incomplete.push({ list: 'cleanCore.findings', code: 'CAP_REACHED', returned: shown.length, total, next: { tool: 'adt_clean_core_scan', findingsOffset: 0 }, narrowBy: ['maxFindings'] });
   } catch (e) {
     if (!(e instanceof CatalogMissing)) throw e;
     // Not swallowed: CATALOG_MISSING is already filed, and the part says it did not run.
     cleanCore = { read: false, complete: false, reason: e.message };
+    incomplete.push({ list: 'cleanCore', code: 'NOT_READ', reason: 'the Clean Core catalogue is missing: npm run sync:catalog' });
   }
 
-  const syntax = await checkPackage(cfg, session, journal, listing, { max, signal: extra.signal, progress });
-  const atc =
-    args.atc === true
-      ? extra.signal?.aborted
-        ? { read: false, complete: false, reason: 'cancelled before the ATC run' }
-        : await atcPackage(cfg, session, journal, pkg)
-      : { read: false, reason: 'not asked: pass atc: true for one ATC run over the package (it leaves a result worklist)' };
-  const listed = !listing.notListed.length;
-  return {
+  const syntax = await checkPackage(cfg, session, journal, listing, { max, offset: args.checksOffset, signal: extra.signal, progress });
+  if (syntax.notChecked.length) incomplete.push({ list: 'syntax', code: 'NOT_READ', count: syntax.notChecked.length, reason: 'see syntax.notChecked' });
+  if (syntax.skipped) {
+    incomplete.push(
+      syntax.cancelled
+        ? { list: 'syntax', code: 'CANCELLED', count: syntax.skipped }
+        : { list: 'syntax', code: 'CAP_REACHED', returned: syntax.checked + syntax.notChecked.length, total: syntax.candidates, next: syntax.next }
+    );
+  }
+  if (syntax.notAsked) incomplete.push({ list: 'syntax', code: 'CAP_REACHED', count: syntax.notAsked, reason: 'before checksOffset: checked by an earlier page' });
+
+  const asked = args.atc === true;
+  let atc;
+  if (!asked) atc = { asked: false, read: false, reason: 'not asked: pass atc: true for one ATC run over the package (it leaves a result worklist)' };
+  else if (extra.signal?.aborted) {
+    atc = { asked: true, read: false, complete: false, reason: 'cancelled before the ATC run' };
+    incomplete.push({ list: 'atc', code: 'CANCELLED' });
+  } else {
+    atc = { asked: true, ...(await atcPackage(cfg, session, journal, pkg, { maxFindings })) };
+    if (!atc.read) incomplete.push({ list: 'atc', code: 'NOT_READ', reason: atc.reason });
+    else if (!atc.complete) incomplete.push({ list: 'atc', code: 'NOT_READ', reason: atc.reason ?? 'the run says its object set is not complete' });
+    if (atc.truncated) incomplete.push({ list: 'atc.findings', code: 'CAP_REACHED', returned: atc.returned, total: atc.count, next: { tool: 'adt_atc_run', worklistId: atc.worklistId }, narrowBy: ['maxFindings'] });
+  }
+
+  // What no part checks, by type: never left to read as clean.
+  const notCovered = {};
+  for (const o of listing.objects) if (SOURCE_NOT_CHECKED.includes(o.type)) notCovered[o.type] = (notCovered[o.type] ?? 0) + 1;
+  const outOfScope = Object.values(notCovered).reduce((n, c) => n + c, 0);
+  if (outOfScope) incomplete.push({ list: 'objects', code: 'OUT_OF_SCOPE', count: outOfScope, reason: 'source types no part checks: see notCovered' });
+
+  return finish({
     package: pkg,
     packages: listing.packages.length,
     objects: listing.objects.length,
-    ...(listed ? {} : { notListed: listing.notListed }),
-    complete: listed && cleanCore.complete && syntax.complete && (args.atc !== true || atc.complete),
+    ...(listing.notListed.length ? { notListed: listing.notListed } : {}),
+    notCovered,
     cleanCore,
     syntax,
     atc,
     reminder:
       'complete false means a part did not read everything: what was not read is not clean. ' +
       'Level B is reported, not recommended. The syntax part checks the stored active version.',
-  };
+  }, incomplete);
 }
 
 export function packageHealthTool(cfg, session, journal) {
@@ -192,6 +241,8 @@ export function packageHealthTool(cfg, session, journal) {
           recursive: { type: 'boolean', description: 'Include sub-packages (default true)' },
           maxObjects: { type: 'integer', minimum: 1, maximum: 300, description: 'Max CDS sources read (default 100)' },
           atc: { type: 'boolean', description: 'Also one ATC run over the package (default false)' },
+          maxFindings: { type: 'integer', minimum: 1, maximum: MAX_FINDINGS, description: `Findings shown per part (default ${DEFAULT_FINDINGS}, at most ${MAX_FINDINGS})` },
+          checksOffset: { type: 'integer', minimum: 0, description: 'First class or program to check, in name order: `syntax.next.checksOffset` of the previous answer' },
           maxChecks: {
             type: 'integer',
             minimum: 1,
