@@ -164,6 +164,18 @@ test('atc: true runs the default variant once over the whole package and summari
   assert.equal(out.atc.worklistId, WL);
   assert.equal(out.atc.count, 1);
   assert.equal(out.atc.findings[0].checkId, 'SELECT');
+  assert.equal(out.atc.objectsChecked, 1);
+
+  // A worklist that names no object is a run over nothing: never a clean package.
+  const empty = WORKLIST.replace(/<atcworklist:objects>[\s\S]*<\/atcworklist:objects>/, '<atcworklist:objects/>');
+  const session = fakeSession();
+  const request = session.raw.httpClient.request;
+  session.raw.httpClient.request = async (url, req) => (req.method === 'GET' && url.startsWith('/sap/bc/adt/atc/worklists/') ? { status: 200, body: empty, headers: {} } : request(url, req));
+  const none = await runPackageHealth(cfgFor(), session, { package: 'ZDEMO_PKG', atc: true }, journal);
+  assert.equal(none.atc.objectsChecked, 0);
+  assert.equal(none.atc.complete, false);
+  assert.match(none.atc.reason, /checked nothing/);
+  assert.equal(none.complete, false);
 });
 
 test('a failed ATC run is read: false and a gap, never a clean package', async () => {

@@ -101,11 +101,16 @@ export async function atcPackage(cfg, session, journal, pkg) {
     // Not swallowed: runVariant filed ATC_NOT_RUN or ATC_RESULT_NOT_READ before throwing.
     return { read: false, complete: false, reason: String(e?.message ?? e).slice(0, 200) };
   }
+  // A run whose worklist names no object checked nothing: zero findings there is not a clean
+  // package, so the part is incomplete and says why.
+  const checkedNothing = run.objectsChecked === 0;
   return {
     read: true,
-    complete: run.objectSetIsComplete === true,
+    complete: run.objectSetIsComplete === true && !checkedNothing,
     variant: run.variant,
     worklistId: run.worklistId,
+    objectsChecked: run.objectsChecked,
+    ...(checkedNothing ? { reason: 'the worklist names no object: the run checked nothing, so no finding is not a clean package' } : {}),
     count: run.count,
     byPriority: run.byPriority,
     findings: run.findings.slice(0, FINDINGS_SHOWN),

@@ -304,6 +304,9 @@ export async function runVariant(cfg, session, journal, v, { subject, body, incl
     byPriority: parsed.byPriority,
     truncated: shown.length < Math.max(parsed.findings.length, statsTotal),
     objectSetIsComplete: parsed.objectSetIsComplete,
+    // How many objects the worklist says were checked: it lists each one, findings or not
+    // (measured), so zero objects is a run over nothing, not a clean set.
+    objectsChecked: parsed.objects.length,
     findings: shown,
     ...definition,
     rule:
