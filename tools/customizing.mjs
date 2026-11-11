@@ -22,6 +22,7 @@ import {
   previewPost,
   parsePreview,
   truncationOf,
+  cutCodeOf,
   assertRanAsSent,
   CUSTOMIZING_TABLES,
   MAX_ROWS,
@@ -29,6 +30,7 @@ import {
   DRIFT_CODE,
   SelectViolation,
 } from '../lib/data-preview.mjs';
+import { finish } from '../lib/completeness.mjs';
 
 const asText = (value) => ({
   content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],
@@ -112,7 +114,14 @@ export function customizingTool(cfg, session, journal) {
           fallback: 'compare with the data preview in Eclipse ADT; re-measure (docs/adt-api-reference.md)',
         });
       }
-      return asText({
+      // The data preview has no offset: a cut is narrowed by the filter, the columns or the cap.
+      const code = cutCodeOf(parsed, built.rows);
+      const narrowBy = ['where', 'fields', 'rows'];
+      const incomplete = [];
+      if (code) incomplete.push({ list: 'rows', code, returned: parsed.rows.length, total: parsed.totalRows, narrowBy });
+      if (parsed.rowsLost) incomplete.push({ list: 'rows', code: 'PARSE_FAILED', count: parsed.rowsLost, reason: 'the columns disagree on the row count: rows past the shortest column are not listed' });
+      if (parsed.drift.length) incomplete.push({ list: 'rows', code: 'PARSE_FAILED', count: parsed.drift.length, reason: 'see drift' });
+      return asText(finish({
         table: built.table,
         why: CUSTOMIZING_TABLES.get(built.table).why,
         sql: built.sql,
@@ -123,11 +132,13 @@ export function customizingTool(cfg, session, journal) {
         totalRows: parsed.totalRows,
         count: parsed.rows.length,
         truncated: truncationOf(parsed, built.rows),
+        ...(code ? { narrowBy } : {}),
+        ...(parsed.rowsLost ? { rowsLost: parsed.rowsLost } : {}),
         ...(parsed.countNote ? { countNote: parsed.countNote } : {}),
         columns: parsed.columns,
         rows: parsed.rows,
         ...(parsed.drift.length ? { drift: parsed.drift } : {}),
-      });
+      }, incomplete));
     },
   };
 }

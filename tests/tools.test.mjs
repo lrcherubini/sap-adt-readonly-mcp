@@ -1239,6 +1239,9 @@ test('adt_customizing reads an allow-listed table by POST and audits the table, 
   assert.equal(out.count, 2);
   assert.equal(out.totalRows, 9400);
   assert.equal(out.truncated, true);
+  assert.deepEqual(out.narrowBy, ['where', 'fields', 'rows'], 'no offset exists: the cut names the filters that narrow it');
+  assert.deepEqual(out.incomplete.map((i) => `${i.code}:${i.total}`), ['CAP_REACHED:9400']);
+  assert.deepEqual(contractErrors(out), []);
   assert.deepEqual(out.rows[1], { KALSM: 'ZDEMO2', KOFRM: '0000953' });
   assert.equal(out.drift, undefined);
   const audit = log.at(-1);

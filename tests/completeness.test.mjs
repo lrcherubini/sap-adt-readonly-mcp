@@ -56,7 +56,7 @@ test('contractErrors names every way an answer breaks the contract', () => {
 });
 
 /** Files that still hedge with 'possible'. Each cycle removes its own; the list only shrinks. */
-const STILL_HEDGING = new Set(['lib/data-preview.mjs']);
+const STILL_HEDGING = new Set([]);
 
 test("no answer hedges with 'possible': the literal is gone from every migrated file", () => {
   const offenders = [];

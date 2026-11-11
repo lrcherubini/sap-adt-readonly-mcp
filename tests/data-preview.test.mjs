@@ -18,6 +18,7 @@ import {
   assertRanAsSent,
   likeLiteral,
   truncationOf,
+  cutCodeOf,
 } from '../lib/data-preview.mjs';
 
 /** Column-major, exactly as the system answered `SELECT KALSM, STUNR, KOFRM FROM T683S ... UP TO 2 ROWS`. */
@@ -332,7 +333,8 @@ test('a count the reply contradicts is unknown, and an unknown count at the cap 
   assert.equal(broken.totalRows, null, 'never 0 beside a row');
   assert.match(broken.countNote, /not usable.*answered 0 with a message/);
   assert.deepEqual(broken.drift, [], 'message is a measured node, not drift');
-  assert.equal(truncationOf(broken, 1), 'possible', 'as many rows as asked: may be cut');
+  assert.equal(truncationOf(broken, 1), true, 'as many rows as asked: may be cut');
+  assert.equal(cutCodeOf(broken, 1), 'SERVER_PAGE_FULL', 'and says it is the full page, not a count');
   assert.equal(truncationOf(broken, 50), false, 'fewer than asked: nothing was cut');
 
   // Fewer counted than returned is impossible, with or without a message.
@@ -343,5 +345,16 @@ test('a count the reply contradicts is unknown, and an unknown count at the cap 
   assert.equal(fine.totalRows, 24);
   assert.equal(fine.countNote, undefined);
   assert.equal(truncationOf(fine, 1), true);
+  assert.equal(cutCodeOf(fine, 1), 'CAP_REACHED');
   assert.equal(truncationOf(parsePreview(replyWith({ total: 1, rows: ['ZDEMO_A'] })), 1), false);
+});
+
+test('rows a longer column holds beyond the shortest are counted, never lost in silence', () => {
+  const col = (name, values) =>
+    `<dataPreview:columns><dataPreview:metadata dataPreview:name="${name}" dataPreview:type="C" dataPreview:description="${name}" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>` +
+    `<dataPreview:dataSet>${values.map((v) => `<dataPreview:data>${v}</dataPreview:data>`).join('')}</dataPreview:dataSet></dataPreview:columns>`;
+  const xml = `<dataPreview:tableData xmlns:dataPreview="x"><dataPreview:totalRows>3</dataPreview:totalRows>${col('A', ['1', '2', '3'])}${col('B', ['x'])}</dataPreview:tableData>`;
+  const p = parsePreview(xml);
+  assert.equal(p.rows.length, 1);
+  assert.equal(p.rowsLost, 2);
 });
