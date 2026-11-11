@@ -16,6 +16,7 @@ import { namedGet, transportFor } from '../lib/adt-get.mjs';
 import { API_RELEASE_OBJECT, parseApiRelease } from '../lib/api-release.mjs';
 import { buildNetworkRequest, networkPost, parseNetwork, ObjectRelationsViolation } from '../lib/object-relations.mjs';
 import { parsePackageDocument } from '../lib/package-document.mjs';
+import { finish } from '../lib/completeness.mjs';
 
 const TOOL = 'adt_used_objects';
 export const MAX_RELEASE_READS = 25;
@@ -78,12 +79,12 @@ export function usedObjectsTool(cfg, session, journal) {
     const notRead = [];
     for (const [i, p] of crossing.entries()) {
       if (i >= MAX_PACKAGE_READS) {
-        notRead.push({ package: p, reason: `past the ceiling of ${MAX_PACKAGE_READS} package documents` });
+        notRead.push({ package: p, code: 'CAP_REACHED', reason: `past the ceiling of ${MAX_PACKAGE_READS} package documents` });
         continue;
       }
       const d = await readPackage(p);
       docs.set(p, d);
-      if (!d.read) notRead.push({ package: p, reason: d.reason });
+      if (!d.read) notRead.push({ package: p, code: 'NOT_READ', reason: d.reason });
     }
     if (crossing.length > MAX_PACKAGE_READS) {
       journal?.gap?.({
@@ -151,11 +152,16 @@ export function usedObjectsTool(cfg, session, journal) {
             maximum: MAX_RELEASE_READS,
             description: `Release states read, one call each (default ${MAX_RELEASE_READS})`,
           },
+          releaseOffset: {
+            type: 'integer',
+            minimum: 0,
+            description: 'First readable object whose release state is read: `next.releaseOffset` of the previous answer',
+          },
         },
         required: ['objectName'],
       },
     },
-    async handler({ objectName, objectType, maxReleaseReads, boundary }, extra = {}) {
+    async handler({ objectName, objectType, maxReleaseReads, releaseOffset, boundary }, extra = {}) {
       const cap = capOf(maxReleaseReads);
       if (!session?.raw) throw new ObjectRelationsViolation('this session has no raw client: the used objects cannot be asked.');
       const name = String(objectName ?? '').trim();
@@ -203,43 +209,54 @@ export function usedObjectsTool(cfg, session, journal) {
           impact: 'what this class uses is unknown -- NOT "uses nothing"',
           fallback: 'the Relation Explorer of the IDE (Used Objects)',
         });
-        return asText({
-          object,
-          read: false,
-          complete: false,
-          reason: `the server answered context ${net.activeContext ?? 'none'}, not "Used Objects": nothing is claimed`,
-          contexts: net.contexts,
-        });
+        const reason = `the server answered context ${net.activeContext ?? 'none'}, not "Used Objects": nothing is claimed`;
+        return asText(finish({ object, read: false, reason, contexts: net.contexts }, [{ list: 'used', code: 'NOT_READ', reason }]));
       }
 
-      // The used objects: the reply's references minus the class itself, de-duplicated by URI.
+      // The used objects: the reply's references minus the class itself, de-duplicated by URI (or,
+      // for a reference without one, by type and name). A reference without a URI is listed too:
+      // dropping it would make the list shorter than the server's.
       const used = [];
+      const keyOf = (o) => o.uri ?? `${o.type}|${o.name}`;
       for (const o of net.objects) {
-        if (!o.uri || o.uri === built.uri || used.some((u) => u.uri === o.uri)) continue;
-        used.push({ ...o, crossesPackage: Boolean(object.package && o.package && o.package !== object.package) });
+        if (o.uri === built.uri || used.some((u) => keyOf(u) === keyOf(o))) continue;
+        used.push({ ...o, uri: o.uri ?? null, crossesPackage: Boolean(object.package && o.package && o.package !== object.package) });
       }
 
-      // The release state, at most `cap` reads, in list order. Every object not read says why.
+      // The release state, at most `cap` reads, in list order, from `releaseOffset` on (counted
+      // over the readable objects). Every object not read says why, with its completeness code.
+      const from = Number.isInteger(releaseOffset) && releaseOffset > 0 ? releaseOffset : 0;
+      let readable = 0;
       let reads = 0;
+      let lastAsked = from;
       const notRead = [];
       for (const u of used) {
-        if (!API_RELEASE_OBJECT.test(u.uri)) {
-          u.apiRelease = { read: false, reason: 'the release state is measured for classes, interfaces, CDS, tables, data elements and function modules only' };
+        const position = API_RELEASE_OBJECT.test(String(u.uri ?? '')) ? readable++ : -1;
+        if (!u.uri) {
+          u.apiRelease = { read: false, code: 'NOT_READ', reason: 'the server listed this use without a URI: its release state cannot be asked' };
+        } else if (position < 0) {
+          u.apiRelease = { read: false, code: 'OUT_OF_SCOPE', reason: 'the release state is measured for classes, interfaces, CDS, tables, data elements and function modules only' };
+        } else if (position < from) {
+          u.apiRelease = { read: false, code: 'CAP_REACHED', reason: 'before releaseOffset: read by an earlier page' };
         } else if (extra.signal?.aborted) {
-          u.apiRelease = { read: false, reason: 'cancelled before this read' };
+          u.apiRelease = { read: false, code: 'CANCELLED', reason: 'cancelled before this read' };
         } else if (reads >= cap) {
-          u.apiRelease = { read: false, reason: `past maxReleaseReads (${cap})` };
+          u.apiRelease = { read: false, code: 'CAP_REACHED', reason: `past maxReleaseReads (${cap})` };
         } else {
+          lastAsked = position + 1;
           reads += 1;
           let out;
           try {
             out = await namedGet(transportFor(session.raw), 'apiRelease', { uri: u.uri });
             const parsed = parseApiRelease(out.body);
-            u.apiRelease = {
-              read: true,
-              anyReleased: parsed.anyReleased,
-              states: parsed.contracts.map((c) => ({ contract: c.contract, state: c.state })),
-            };
+            // A reply without its root is not "not released": it is a reply this parser does not know.
+            u.apiRelease = parsed.drift.some((d) => d.where === 'root missing')
+              ? { read: false, code: 'PARSE_FAILED', reason: 'the reply has no ars:apiRelease root' }
+              : {
+                  read: true,
+                  anyReleased: parsed.anyReleased,
+                  states: parsed.contracts.map((c) => ({ contract: c.contract, state: c.state })),
+                };
           } catch (e) {
             journal?.gap?.({
               code: 'API_RELEASE_NOT_READ',
@@ -248,13 +265,14 @@ export function usedObjectsTool(cfg, session, journal) {
               impact: 'whether this object is released for use is unknown: this is NOT "not released"',
               fallback: 'the API State tab of the object in the IDE, or adt_object_info',
             });
-            u.apiRelease = { read: false, reason: `${e.name ?? 'Error'}: ${e.message}`.slice(0, 200) };
+            u.apiRelease = { read: false, code: 'NOT_READ', reason: `${e.name ?? 'Error'}: ${e.message}`.slice(0, 200) };
           } finally {
             record(cfg, TOOL, `${u.type} ${u.name}#apirelease`, out?.bytes ?? 0);
           }
         }
-        if (!u.apiRelease.read) notRead.push({ object: `${u.type} ${u.name}`, reason: u.apiRelease.reason });
+        if (!u.apiRelease.read) notRead.push({ object: `${u.type} ${u.name}`, code: u.apiRelease.code, reason: u.apiRelease.reason });
       }
+      const pastCap = notRead.filter((n) => /^past maxReleaseReads/.test(n.reason)).length;
 
       const read = used.filter((u) => u.apiRelease.read);
       if (notRead.some((n) => /^past maxReleaseReads/.test(n.reason))) {
@@ -267,7 +285,23 @@ export function usedObjectsTool(cfg, session, journal) {
         });
       }
       const packageBoundary = boundary === true ? await boundaryOf(object, used, subject) : null;
-      return asText({
+      // One entry per code; the cap names the next page.
+      const incomplete = [];
+      const byCode = (code) => notRead.filter((n) => n.code === code);
+      for (const code of ['NOT_READ', 'PARSE_FAILED', 'OUT_OF_SCOPE', 'CANCELLED']) {
+        if (byCode(code).length) incomplete.push({ list: 'releaseState', code, count: byCode(code).length, reason: 'see releaseState.notRead' });
+      }
+      if (pastCap) incomplete.push({ list: 'releaseState', code: 'CAP_REACHED', count: pastCap, total: readable, next: { releaseOffset: lastAsked } });
+      if (from) incomplete.push({ list: 'releaseState', code: 'CAP_REACHED', count: Math.min(from, readable), reason: 'before releaseOffset: read by an earlier page' });
+      if (net.drift.length) incomplete.push({ list: 'used', code: 'PARSE_FAILED', count: net.drift.length, reason: 'nodes the measured shape does not describe: see drift' });
+      if (packageBoundary) {
+        if (packageBoundary.ownPackage.read === false) incomplete.push({ list: 'packageBoundary.ownPackage', code: 'NOT_READ', reason: packageBoundary.ownPackage.reason });
+        for (const code of ['NOT_READ', 'CAP_REACHED']) {
+          const n = (packageBoundary.notRead ?? []).filter((x) => x.code === code).length;
+          if (n) incomplete.push({ list: 'packageBoundary.uses', code, count: n, ...(code === 'CAP_REACHED' ? { reason: `at most ${MAX_PACKAGE_READS} package documents per call` } : {}) });
+        }
+      }
+      return asText(finish({
         object,
         context: 'ENV (Used Objects), one level deep',
         count: used.length,
@@ -278,15 +312,14 @@ export function usedObjectsTool(cfg, session, journal) {
           notReleased: read.filter((u) => u.apiRelease.anyReleased === false).length,
           notRead,
         },
-        ...(packageBoundary ? { packageBoundary } : {}),
-        complete: notRead.length === 0 && (!packageBoundary || packageBoundary.complete),
+        ...(packageBoundary ? { packageBoundary } : { packageBoundary: { asked: false } }),
         rule:
           'every object the server lists as used is here; the release counts cover only the ' +
           'objects whose state was read. An object in notRead has NO verdict -- never released, ' +
           'never unreleased. crossesPackage compares packages only: whether a use is allowed by a ' +
           'package interface is not read here.',
         ...(net.drift.length ? { drift: net.drift } : {}),
-      });
+      }, incomplete));
     },
   };
 }

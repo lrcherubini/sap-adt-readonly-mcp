@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import { buildCheckBody, checkRunPost, parseCheckRun, countByType, SyntaxCheckViolation, CHECK_RUN_URL } from '../lib/syntax-check.mjs';
 import { syntaxCheckTool } from '../tools/syntax-check.mjs';
 import { resetBudget } from '../lib/audit.mjs';
+import { contractErrors } from '../lib/completeness.mjs';
 
 const fixture = (name) => fs.readFileSync(new URL(`./fixtures/checkrun/${name}`, import.meta.url), 'utf8');
 const versionDoc = (v) => fs.readFileSync(new URL(`./fixtures/versions/zdemo_report2.object-${v}.xml`, import.meta.url), 'utf8');
@@ -186,4 +187,27 @@ test('a message with a quickfix carries its marker; the link is never followed',
   ]);
   const other = parseCheckRun(fixture('error-quickfix.xml').replace('categories/quickfixes', 'categories/other'));
   assert.deepEqual(other.drift.map((d) => d.node), ['atom:link'], 'another link is drift, not a quickfix');
+});
+
+test('every report of the reply counts: a second report not processed is never clean', async () => {
+  const second = '<chkrun:checkReport chkrun:reporter="otherReporter" chkrun:triggeringUri="x" chkrun:status="notProcessed" chkrun:statusText="not run"/>';
+  const reply = fixture('error.xml').replace('</chkrun:checkRunReports>', `${second}</chkrun:checkRunReports>`);
+  const out = json(await harness({ reply }).tool.handler({ objectName: 'ZDEMO_REPORT4' }));
+  assert.equal(out.checked, true);
+  assert.equal(out.clean, false);
+  assert.equal(out.reports.length, 2);
+  assert.equal(out.reportsNotProcessed, 1);
+  assert.deepEqual(contractErrors(out), []);
+  assert.deepEqual(out.incomplete.map((i) => `${i.list}:${i.code}`), ['reports:NOT_READ']);
+});
+
+test('the check answers the contract: a verdict is complete, a report not processed is NOT_READ', async () => {
+  const ok = json(await harness().tool.handler({ objectName: 'ZDEMO_REPORT4' }));
+  assert.deepEqual(contractErrors(ok), []);
+  assert.equal(ok.complete, true);
+  const bad = json(await harness({ reply: fixture('not-processed.xml') }).tool.handler({ objectName: 'ZDEMO_REPORT4' }));
+  assert.deepEqual(contractErrors(bad), []);
+  assert.deepEqual(bad.incomplete.map((i) => i.code), ['NOT_READ']);
+  const none = json(await harness({ docVersion: 'active' }).tool.handler({ objectName: 'ZDEMO_REPORT4', version: 'inactive' }));
+  assert.equal(none.complete, true, 'no inactive version is an answer, not a gap');
 });

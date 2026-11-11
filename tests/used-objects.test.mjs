@@ -10,6 +10,7 @@ import { usedObjectsTool } from '../tools/used-objects.mjs';
 import { parsePackageDocument } from '../lib/package-document.mjs';
 import { buildUrl, RouteViolation } from '../lib/adt-get.mjs';
 import { resetBudget } from '../lib/audit.mjs';
+import { contractErrors } from '../lib/completeness.mjs';
 
 const fixture = (...p) => fs.readFileSync(path.join(import.meta.dirname, 'fixtures', ...p), 'utf8');
 const NETWORK = fixture('object-relations', 'network.xml');
@@ -181,5 +182,38 @@ test('boundary: true describes each use into another package by what both sides 
   assert.doesNotMatch(JSON.stringify(out), /violat/i);
   assert.equal(h.seen.filter((x) => x.url.startsWith('/sap/bc/adt/packages/')).length, 3, 'own package plus the two used ones');
   const plain = json(await harness().tool.handler({ objectName: 'ZCL_DEMO_RATE_SERVICE' }));
-  assert.equal(plain.packageBoundary, undefined, 'nothing is read without boundary: true');
+  assert.deepEqual(plain.packageBoundary, { asked: false }, 'nothing is read without boundary: true, and the answer says so');
+});
+
+// --- the completeness contract (lib/completeness.mjs) ----------------------------
+
+test('the release states are paged: two pages read every readable object once', async () => {
+  const h = harness();
+  const one = json(await h.tool.handler({ objectName: 'ZCL_DEMO_RATE_SERVICE', maxReleaseReads: 2 }));
+  assert.deepEqual(contractErrors(one), []);
+  const cap = one.incomplete.find((i) => i.code === 'CAP_REACHED' && i.next);
+  assert.deepEqual(cap.next, { releaseOffset: 2 });
+  const two = json(await h.tool.handler({ objectName: 'ZCL_DEMO_RATE_SERVICE', maxReleaseReads: 2, releaseOffset: 2 }));
+  assert.deepEqual(contractErrors(two), []);
+  const readIn = (out) => out.used.filter((u) => u.apiRelease.read).map((u) => u.name);
+  assert.deepEqual([...readIn(one), ...readIn(two)], ['BAPI_EXCHANGERATE_CREATE', 'IF_OO_ADT_CLASSRUN', 'ZCX_DEMO_ERROR']);
+  assert.ok(one.incomplete.some((i) => i.code === 'OUT_OF_SCOPE' && i.count === 1), 'the structure: a family not measured');
+});
+
+test('a release reply without its root is PARSE_FAILED, never "not released"', async () => {
+  const h = harness({ release: { '/sap/bc/adt/oo/classes/zcx_demo_error': '<?xml version="1.0"?><other/>' } });
+  const out = json(await h.tool.handler({ objectName: 'ZCL_DEMO_RATE_SERVICE' }));
+  const u = out.used.find((x) => x.name === 'ZCX_DEMO_ERROR');
+  assert.equal(u.apiRelease.read, false);
+  assert.equal(u.apiRelease.code, 'PARSE_FAILED');
+  assert.equal(out.releaseState.notReleased, 0);
+  assert.ok(out.incomplete.some((i) => i.code === 'PARSE_FAILED'));
+  assert.deepEqual(contractErrors(out), []);
+});
+
+test('another context answers the contract with NOT_READ', async () => {
+  const other = harness({ network: NETWORK.replace('<oro:activeContext>ENV<', '<oro:activeContext>WUL<') });
+  const out = json(await other.tool.handler({ objectName: 'ZCL_DEMO_RATE_SERVICE' }));
+  assert.deepEqual(contractErrors(out), []);
+  assert.deepEqual(out.incomplete.map((i) => i.code), ['NOT_READ']);
 });

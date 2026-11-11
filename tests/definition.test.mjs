@@ -8,6 +8,7 @@ import { definitionTool } from '../tools/definition.mjs';
 import { resetBudget } from '../lib/audit.mjs';
 
 const URI = '/sap/bc/adt/oo/classes/zcl_demo_probe';
+
 const SOURCE = Array.from({ length: 37 }, (_, i) => (i === 0 ? 'CLASS zcl_demo_probe DEFINITION' : `  " line ${i + 1}`)).join('\n');
 const REPLY = '<?xml version="1.0" encoding="utf-8"?><adtcore:objectReference xmlns:adtcore="http://www.sap.com/adt/core" adtcore:uri="/sap/bc/adt/oo/classes/zcl_demo_probe/source/main#start=10,18"/>';
 
@@ -46,10 +47,11 @@ test('the POST goes out only with a built request, with the measured headers', a
 });
 
 test('the target is the reference the server names: source URI, object URI, line and column', () => {
-  assert.deepEqual(parseNavigationTarget(REPLY), {
-    target: { uri: `${URI}/source/main#start=10,18`, sourceUri: `${URI}/source/main`, objectUri: URI, line: 10, column: 18 },
-    drift: [],
-  });
+  const one = { uri: `${URI}/source/main#start=10,18`, sourceUri: `${URI}/source/main`, objectUri: URI, line: 10, column: 18 };
+  assert.deepEqual(parseNavigationTarget(REPLY), { target: one, targets: [one], drift: [] });
+  // Two references are both named: an ambiguity is never resolved in silence.
+  const two = REPLY.replace(/(<adtcore:objectReference\s[^>]*\/>)/, '$1$1');
+  assert.equal(parseNavigationTarget(two).targets.length, 2);
   assert.equal(parseNavigationTarget('<?xml version="1.0"?>').target, null);
   assert.deepEqual(parseNavigationTarget(REPLY.replace('/>', '><adtcore:extra/></adtcore:objectReference>')).drift, [{ node: 'adtcore:extra' }]);
 });
@@ -106,4 +108,15 @@ test('no reference is "named none", a failed POST is a gap, and only a class is 
   await assert.rejects(() => prog.tool.handler({ objectName: 'ZCL_DEMO_PROBE', line: 1, column: 0 }), NavigationViolation);
   assert.equal(prog.seen.length, 0, 'nothing read, nothing sent');
   await assert.rejects(() => harness().tool.handler({ objectName: 'ZCL_DEMO_PROBE', objectType: 'PROG/P', line: 1, column: 0 }), NavigationViolation);
+});
+
+test('the definition answers the contract, and drift is PARSE_FAILED', async () => {
+  const { contractErrors } = await import('../lib/completeness.mjs');
+  const ok = json(await harness().tool.handler({ objectName: 'ZCL_DEMO_PROBE', line: 26, column: 10 }));
+  assert.deepEqual(contractErrors(ok), []);
+  assert.equal(ok.complete, true);
+  assert.equal(ok.targetCount, 1);
+  const drifted = json(await harness({ reply: REPLY.replace('/>', '><adtcore:extra/></adtcore:objectReference>') }).tool.handler({ objectName: 'ZCL_DEMO_PROBE', line: 26, column: 10 }));
+  assert.deepEqual(contractErrors(drifted), []);
+  assert.deepEqual(drifted.incomplete.map((i) => i.code), ['PARSE_FAILED']);
 });

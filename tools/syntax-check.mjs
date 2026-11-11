@@ -15,6 +15,7 @@ import { record } from '../lib/audit.mjs';
 import { resolveObject } from '../lib/resolve.mjs';
 import { derivedGet, transportFor } from '../lib/adt-get.mjs';
 import { documentVersion } from '../lib/source-versions.mjs';
+import { finish } from '../lib/completeness.mjs';
 import {
   buildCheckBody,
   checkRunPost,
@@ -26,6 +27,15 @@ import {
 } from '../lib/syntax-check.mjs';
 
 const asText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] });
+
+/** The incomplete entries of one verdict of `checkStored`. */
+export function verdictIncomplete(v, list = 'messages') {
+  const out = [];
+  if (!v.checked) out.push({ list, code: 'NOT_READ', reason: v.reason });
+  if (v.reportsNotProcessed) out.push({ list: 'reports', code: 'NOT_READ', count: v.reportsNotProcessed, reason: 'reports the server did not process: see reports' });
+  if (v.drift?.length) out.push({ list, code: 'PARSE_FAILED', count: v.drift.length, reason: 'nodes the measured shape does not describe: see drift' });
+  return out;
+}
 
 /**
  * One check run on a body built by `buildCheckBody`, and the verdict. Shared by
@@ -59,7 +69,10 @@ export async function checkStored(cfg, session, journal, { subject, body, versio
       fallback: 're-read the raw reply and update lib/syntax-check.mjs and docs/adt-api-reference.md',
     });
   }
+  // Every report of the reply, not only the main one: a second reporter's messages are messages,
+  // and a report it did not process is a part not checked.
   const report = reports.find((r) => r.reporter === 'abapCheckRun') ?? reports[0] ?? null;
+  const summary = reports.map((r) => ({ reporter: r.reporter ?? null, status: r.status ?? null, statusText: r.statusText ?? null, count: r.messages?.length ?? 0 }));
   if (!report || report.status !== 'processed') {
     journal?.gap?.({
       code: 'SYNTAX_NOT_CHECKED',
@@ -73,14 +86,23 @@ export async function checkStored(cfg, session, journal, { subject, body, versio
       status: report?.status ?? null,
       statusText: report?.statusText ?? null,
       reason: 'the server did not process the check: no statement is made about this source',
+      reports: summary,
+      ...(drift.length ? { drift } : {}),
     };
   }
+  const processed = reports.filter((r) => r.status === 'processed');
+  const tagged = reports.length > 1;
+  const messages = processed.flatMap((r) => (tagged ? r.messages.map((m) => ({ ...m, reporter: r.reporter ?? null })) : r.messages));
+  const reportsNotProcessed = reports.length - processed.length;
   return {
     checked: true,
-    clean: report.messages.length === 0,
-    count: report.messages.length,
-    byType: countByType(report.messages),
-    messages: report.messages,
+    // Clean only when every report was processed and none has a message.
+    clean: messages.length === 0 && reportsNotProcessed === 0,
+    count: messages.length,
+    byType: countByType(messages),
+    messages,
+    reports: summary,
+    ...(reportsNotProcessed ? { reportsNotProcessed } : {}),
     ...(drift.length ? { drift } : {}),
   };
 }
@@ -128,18 +150,21 @@ export function syntaxCheckTool(cfg, session, journal) {
           record(cfg, 'adt_syntax_check', `${subject} object?version=inactive`, out?.bytes ?? 0);
         }
         if (said !== 'inactive') {
-          return asText({
+          // An answer, not a gap: there is no inactive version to check.
+          return asText(finish({
             object,
             version: v,
             checked: false,
             reason:
               `no inactive version: the object document says '${said ?? 'nothing'}'. A check of ` +
               'inactive would check an empty source (measured); ask version active.',
-          });
+            inactiveExists: false,
+          }, []));
         }
       }
 
-      return asText({ object, version: v, ...(await checkStored(cfg, session, journal, { subject, body, version: v })) });
+      const verdict = await checkStored(cfg, session, journal, { subject, body, version: v });
+      return asText(finish({ object, version: v, ...verdict }, verdictIncomplete(verdict)));
     },
   };
 }

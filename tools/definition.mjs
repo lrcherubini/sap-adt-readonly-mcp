@@ -9,6 +9,7 @@
 import { record } from '../lib/audit.mjs';
 import { resolveObject } from '../lib/resolve.mjs';
 import { buildNavigationRequest, navigationPost, parseNavigationTarget, NavigationViolation } from '../lib/navigation.mjs';
+import { finish } from '../lib/completeness.mjs';
 
 const TOOL = 'adt_find_definition';
 const asText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] });
@@ -49,6 +50,15 @@ export function definitionTool(cfg, session, journal) {
       let source;
       try {
         source = await session.api.getObjectSource(sourceUri);
+      } catch (e) {
+        journal?.gap?.({
+          code: 'SOURCE_NOT_READ',
+          subject,
+          detail: `${e.name ?? 'Error'}: ${e.message}`.slice(0, 300),
+          impact: 'the position could not be sent: where this symbol is defined is unknown -- NOT "defined nowhere"',
+          fallback: 'adt_read_source on the class, or F3 in the IDE',
+        });
+        throw e;
       } finally {
         record(cfg, TOOL, `${subject} source`, String(source ?? '').length);
       }
@@ -71,7 +81,7 @@ export function definitionTool(cfg, session, journal) {
         // One line per call: the object and the position, never a line of source.
         record(cfg, TOOL, `${subject} ${built.line},${built.column}`, res?.bytes ?? 0);
       }
-      const { target, drift } = parseNavigationTarget(res.body);
+      const { target, targets, drift } = parseNavigationTarget(res.body);
       if (drift.length) {
         journal?.gap?.({
           code: 'SHAPE_DRIFT',
@@ -81,18 +91,21 @@ export function definitionTool(cfg, session, journal) {
           fallback: 're-read the raw reply and update lib/navigation.mjs and docs/adt-api-reference.md',
         });
       }
-      return asText({
+      const incomplete = drift.length ? [{ list: 'target', code: 'PARSE_FAILED', count: drift.length, reason: 'nodes the measured shape does not describe: see drift' }] : [];
+      return asText(finish({
         object,
         position: { line: built.line, column: built.column },
         found: Boolean(target),
+        targetCount: targets.length,
         ...(target
           ? { target: { ...target, sameObject: target.objectUri === object.uri } }
           : { reason: 'the server named no definition for this position: it answered, and named none' }),
+        ...(targets.length > 1 ? { targets: targets.map((t) => ({ ...t, sameObject: t.objectUri === object.uri })) } : {}),
         rule:
           'the definition the server resolves in the stored active source; an unsaved editor ' +
           'buffer is not seen. Read the target with adt_read_source.',
         ...(drift.length ? { drift } : {}),
-      });
+      }, incomplete));
     },
   };
 }
