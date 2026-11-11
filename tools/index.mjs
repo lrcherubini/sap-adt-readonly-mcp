@@ -32,6 +32,7 @@ import { launchpadTool } from './launchpad.mjs';
 import { syntaxCheckTool } from './syntax-check.mjs';
 import { packageHealthTool } from './package-health.mjs';
 import { definitionTool } from './definition.mjs';
+import { usedObjectsTool } from './used-objects.mjs';
 import { publish, schemaErrors, closeSchema, withStructuredContent } from '../lib/tool-meta.mjs';
 
 // Z*, Y* and /NAMESPACE/ objects are ours; anything else is SAP standard.
@@ -1424,6 +1425,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
     // A POST that reads: go to definition, its body the stored source just read, never caller
     // text (docs/security.md, 2026-11-10).
     definitionTool(cfg, session, journal),
+    // A POST that reads: the Relation Explorer's "Used Objects" of one class, its body naming the
+    // class and nothing else, then the release state of each (docs/security.md, 2026-11-10).
+    usedObjectsTool(cfg, session, journal),
   ];
 
   // Validated INSIDE the journal wrapper, so a refused call is still one line in logs/calls.

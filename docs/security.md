@@ -1143,6 +1143,23 @@ the tool does not follow it. Nothing is left on the server. A failed POST is a g
 (`DEFINITION_NOT_READ`), never "defined nowhere". The audit line names the class and the position,
 never a line of source. Programs, interfaces and CDS stay refused until measured.
 
+### The objects a class uses: the Relation Explorer's network -- 2026-11-10
+
+An agent judging the Clean Core level of a class needs what the class uses and whether each of
+those objects is released, not their full sources. The IDE's Relation Explorer answers the first
+half in one POST (`objectrelations/network`, measured the same day, `adt-api-reference.md`); the
+route `apiRelease` already answers the second. The owner confirmed the composition (D6) with depth
+1 and a ceiling of 25, on one condition: the ceiling must never produce a false "clean".
+
+**What it admits.** `adt_used_objects`: one POST through the raw transport, fixed path and media
+types, the body naming the class resolved by the guarded search (`name`, `type`, `uri`) and nothing
+else: no source, no context. A class is the one family measured. If the server answers another
+context than `ENV` ("Used Objects"), nothing is claimed. Then one `apiRelease` GET per used object
+of a measured family, at most 25. Every used object is listed, because the network reply names them
+all; an object without a release verdict is named with its reason and makes the answer incomplete,
+and the counts cover only what was read. Nothing is left on the server. `crossesPackage` compares
+package names only; whether a use passes a package interface is not read here.
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:
