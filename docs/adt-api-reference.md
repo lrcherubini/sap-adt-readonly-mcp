@@ -3691,6 +3691,62 @@ Accept: application/vnd.sap.adt.objectrelations.response.network.v1+xml
   (a behaviour definition) answered an empty `oro:componentsResponse`. How a context other than
   the default is asked of `network` was not seen.
 
+### The logon on the wire, and the reads behind the guard's members — MEASURED 2026-11-10
+
+One probe, one logon (`library-removal`), to learn what replacing `abap-adt-api` needs. Values of
+cookies, tokens and credentials were never written; names, lengths and attributes only.
+
+**The logon without the library** (`node:https`, the exchange `AdtHTTP` performs):
+
+```
+GET /sap/bc/adt/compatibility/graph?sap-client=<c>&sap-language=<l>      no credential
+-> 401  text/html (9.3 KB), sap-system: <SID>, www-authenticate: Basic realm="…", set-cookie sap-usercontext
+
+GET  same, Authorization: Basic …, x-csrf-token: fetch, X-sap-adt-sessiontype: stateless,
+     Accept: */*, Cache-Control: no-cache
+-> 200  application/xml (32 KB, the compatibility graph), x-csrf-token: <24 chars>,
+        set-cookie sap-usercontext (path) and SAP_SESSIONID_<SID>_<client> (path, secure, httponly),
+        cache-control: no-store
+
+GET /sap/bc/adt/discovery, Cookie only (no Authorization)                -> 200  (303 KB)
+POST …/virtualfolders/contents, Cookie, no x-csrf-token                  -> 403  text/plain
+        "CSRF token validation failed" (logon-language text, translated), x-csrf-token: Required
+POST same, Cookie and the token                                          -> 200
+GET /sap/public/bc/icf/logoff, Cookie                                    -> 200  text/html; set-cookie expires
+        sap-usercontext, SAP_SESSIONID_<SID>_<client> and sap-XSRF_<SID>_<client>
+GET /sap/bc/adt/discovery with the same Cookie                           -> 401  (the session ended)
+```
+
+- The session is the `SAP_SESSIONID_<SID>_<client>` cookie: after the logon no request needs the
+  password. The token comes in a reply header of the logon, not in a cookie, and is required by a
+  POST only; a missing token is a loud `403` with `x-csrf-token: Required`, never a silent answer.
+- The logoff ends the session server-side: the old cookie answers `401`.
+- A 401 body is an HTML logon page in the logon language: status and headers are the answer.
+
+**The reads behind the guard's members**, sent as the library sends them (path, query and Accept
+read from its 8.4.3 build), all `200` except where said:
+
+| Member | Request | Reply |
+|---|---|---|
+| `searchObject` | `GET …/informationsystem/search?operation=quickSearch&query&maxResults`, Accept `application/*` | `application/xml`, 0.3 KB |
+| `objectStructure` | `GET <object uri>`, Accept `*/*` | class `…oo.classes.v4+xml` 8.6 KB, program `…programs.programs.v3+xml` 3 KB, CDS `…ddlSource+xml` 2.3 KB |
+| `objectStructureElements` | `GET <class uri>/objectstructure?version=active&withShortDescriptions=true` | `…objectstructure.v2+xml` 7.7 KB |
+| `getObjectSource` | `GET <uri>/source/main`, Accept `*/*` | `text/plain` |
+| `objectEnhancements` | `GET <uri>/source/main/enhancements` | **404** on this release; the S/4 path `…/enhancements/elements` answers `…enhancements.v3+xml` (an empty `enh:enhancements` when none) |
+| `ddicElement` | `GET /sap/bc/adt/ddic/ddl/elementinfo?getTargetForAssociation=false&getExtensionViews=true&getSecondaryObjects=true&path=<entity>` | `…elementinfo+xml` 13.7 KB |
+| `annotationDefinitions` | `GET /sap/bc/adt/ddic/cds/annotation/definitions`, Accept v1 and v2 | `…definitions.v2+xml` **188 KB** |
+| `getDataElementProperties` / `getDomainProperties` | `GET …/ddic/dataelements/<n>` / `…/ddic/domains/<n>` | `…dataelements.v2+xml` 2.9 KB / `…domains.v2+xml` 2.2 KB |
+| `findObjectPath` | `POST /sap/bc/adt/repository/nodepath?uri=<object uri>`, no body | 0.7 KB |
+| `nodeContents` | `POST /sap/bc/adt/repository/nodestructure?parent_type=DEVC/K&withShortDescriptions=true&parent_name=<pkg>`, no body | `asx:abap` (`SEU_ADT_REPOSITORY_OBJ_NODE` rows), 5 KB |
+| `usageReferences` | `POST …/informationsystem/usageReferences?uri=<object uri>`, a constant body | `usageReferences:usageReferenceResult`, 8 KB |
+| `usageReferenceSnippets` | `POST …/informationsystem/usageSnippets`, the object identifiers of the previous reply | 3.6 KB |
+
+- Two library behaviours read from its source: `objectStructureElements` swallows every error and
+  answers `[]` (so "not read" reads as "no elements"), and `objectEnhancements` asks the ECC path
+  first and falls back to the S/4 path only after a 404: one wasted call per read here.
+- Four members are POSTs the server already sends through the library today: their measured
+  forms above are what a replacement sends, and each needs its dated decision.
+
 ## How to reproduce
 
 The readings above used a **temporary** probe: `lib/ddic-probe.mjs` plus a four-line

@@ -25,9 +25,12 @@ node contents, DDIC, discovery, enhancements). Every newer read already goes thr
 reference (`userTransports`, the quick-search facet, `revisions`), and the guard exists because
 the library hands out unguarded objects.
 
-**What to measure and decide.** The raw reply of each of the 20 members, transcribed before its
-route replaces it; the order of the migration, one member per cycle; the logon and CSRF exchange
-measured on the wire; and what `lib/guard.mjs` becomes once no client is left to wrap.
+**Measured 2026-11-10** (`adt-api-reference.md`, *The logon on the wire*): the logon, the session
+cookie, the CSRF token and its refusal, the logoff, and the request and reply of each member,
+four of them POSTs. **What to decide.** Whether to start; if so, the order (the own HTTP client
+first, then one member per cycle, each with its parser and, for a POST, its dated decision);
+whether a session that expired logs on again with the password already validated; and what
+`lib/guard.mjs` becomes once no client is left to wrap.
 
 ---
 
