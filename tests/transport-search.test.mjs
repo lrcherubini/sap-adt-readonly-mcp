@@ -86,6 +86,7 @@ test('saved: true reads the saved configuration and the list it drives, requests
     ['DEVK900140', 'modifiable', 0],
   ]);
   assert.equal(out.requests[0].tasks[0].objectCount, 2);
+  assert.deepEqual(out.requests.map((r) => r.target), ['QAS', 'QAS', 'QAS'], 'the target comes from the tm:target wrapper');
   assert.doesNotMatch(JSON.stringify(out.requests), /ZCL_DEMO|ZDEMO_REPORT/, 'objects are counted, never listed');
   assert.deepEqual(out.scope.serverStated, ['Modifiable', 'Released (From Last 2 Weeks)']);
   assert.equal(h.audit.length, 3);
