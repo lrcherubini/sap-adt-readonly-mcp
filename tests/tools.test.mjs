@@ -1450,9 +1450,13 @@ test('adt_atc_run caps the findings it lists itself, most severe first, because 
   assert.equal(one.findings[0].priority, 1, 'the most severe finding survives the cap');
   assert.deepEqual(one.byPriority, { 1: 1, 2: 1, 3: 0 }, 'the counts cover every finding, listed or not');
   assert.equal(one.truncated, true);
+  assert.deepEqual(one.truncatedBy, ['maxFindings']);
+  assert.deepEqual(contractErrors(one), []);
+  assert.deepEqual(one.incomplete.map((i) => i.code), ['CAP_REACHED']);
   const all = jsonOf(await tool.handler({ objectName: 'ZCL_T', variant: 'DEFAULT', maxFindings: 2 }));
   assert.equal(all.shown, 2);
   assert.equal(all.truncated, false, 'exactly at the cap is complete, not "possible"');
+  assert.deepEqual(contractErrors(all), []);
 });
 
 test('adt_atc_run refuses a variant outside the set, a bad count and an ENHO/XH before any request, and needs a raw client', async () => {

@@ -22,6 +22,7 @@ import { progressOf } from '../lib/tool-meta.mjs';
 import { resolveObject } from '../lib/resolve.mjs';
 import { namedGet, transportFor } from '../lib/adt-get.mjs';
 import { isClasenh, CLASENH_WHERE } from '../lib/object-properties.mjs';
+import { finish } from '../lib/completeness.mjs';
 import {
   ATC_VARIANTS,
   DEFAULT_VARIANT,
@@ -158,14 +159,19 @@ export function atcTool(cfg, session, journal) {
       }
       progress(list.length, list.length, 'done');
       if (!runs.length) throw new AtcViolation(`no variant ran on ${subject}: ${failures.map((f) => `${f.variant}: ${f.error}`).join('; ')}`);
-      if (list.length === 1) return asText({ object, ...runs[0] });
-      return asText({
+      if (list.length === 1) {
+        const { incomplete, ...run } = runs[0];
+        return asText(finish({ object, ...run }, incomplete));
+      }
+      const incomplete = runs.flatMap((r) => r.incomplete.map((i) => ({ ...i, list: `${r.variant}.${i.list}` })));
+      for (const f of failures) incomplete.push({ list: f.variant, code: /cancelled/.test(f.error) ? 'CANCELLED' : 'NOT_READ', reason: f.error.slice(0, 200) });
+      return asText(finish({
         object,
         variants: list,
         summary: runs.map((r) => ({ variant: r.variant, count: r.count, byPriority: r.byPriority, worklistId: r.worklistId })),
-        runs,
+        runs: runs.map(({ incomplete: _i, ...r }) => r),
         ...(failures.length ? { notRun: failures, note: 'a variant listed in notRun has NO verdict for this object -- not a clean one' } : {}),
-      });
+      }, incomplete));
     },
   };
 }
@@ -292,6 +298,18 @@ export async function runVariant(cfg, session, journal, v, { subject, body, incl
   const stats = runReply.byPriority;
   const statsTotal = stats ? stats[1] + stats[2] + stats[3] : 0;
   const shown = [...parsed.findings].sort((a, b) => (a.priority ?? 9) - (b.priority ?? 9)).slice(0, body.maxVerdicts);
+  // Why the list is short, from a closed list: our cap, or a worklist holding fewer findings
+  // than the run's own stats (the rest is not readable from this worklist).
+  const cut = shown.length < parsed.findings.length;
+  const short = Boolean(stats) && parsed.findings.length < statsTotal;
+  const truncatedBy = [...(cut ? ['maxFindings'] : []), ...(short ? ['worklist'] : [])];
+  const exempted = parsed.findings.filter((f) => f.exemption).length;
+  const incomplete = [];
+  if (cut) incomplete.push({ list: 'findings', code: 'CAP_REACHED', returned: shown.length, total: parsed.findings.length, narrowBy: ['maxFindings'] });
+  if (short) incomplete.push({ list: 'findings', code: 'NOT_READ', count: statsTotal - parsed.findings.length, reason: `the run counted ${statsTotal}, the worklist holds ${parsed.findings.length}` });
+  if (runReply.statsState === 'unparsed') incomplete.push({ list: 'runStats', code: 'PARSE_FAILED', reason: 'FINDING_STATS is not three integers' });
+  if (!parsed.objectSetIsComplete) incomplete.push({ list: 'objects', code: 'NOT_READ', reason: 'the worklist says its object set is not complete' });
+  if (parsed.drift.length) incomplete.push({ list: 'findings', code: 'PARSE_FAILED', count: parsed.drift.length, reason: 'see drift' });
   return {
     variant: v,
     variantWhy: ATC_VARIANTS.get(v),
@@ -302,7 +320,10 @@ export async function runVariant(cfg, session, journal, v, { subject, body, incl
     count: parsed.findings.length,
     shown: shown.length,
     byPriority: parsed.byPriority,
-    truncated: shown.length < Math.max(parsed.findings.length, statsTotal),
+    truncated: truncatedBy.length > 0,
+    ...(truncatedBy.length ? { truncatedBy, narrowBy: ['maxFindings'] } : {}),
+    runStatsState: runReply.statsState,
+    exempted: { listed: exempted, asked: includeExempted === true },
     objectSetIsComplete: parsed.objectSetIsComplete,
     // How many objects the worklist says were checked: it lists each one, findings or not
     // (measured), so zero objects is a run over nothing, not a clean set.
@@ -313,5 +334,6 @@ export async function runVariant(cfg, session, journal, v, { subject, body, incl
       'a run leaves a result worklist on the server and nothing else; the findings above are the ' +
       `verdict of variant ${v} on this one object, read from that worklist (measured)`,
     ...(parsed.drift.length ? { drift: parsed.drift } : {}),
+    incomplete,
   };
 }

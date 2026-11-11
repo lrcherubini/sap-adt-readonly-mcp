@@ -237,3 +237,25 @@ test('a package is one object reference, the virtual-folders selection the IDE s
   // A body that only looks built is still refused.
   await assert.rejects(() => atcPost(raw, 'run', { worklistId: '0123456789ABCDEF0123456789ABCDEF', body: { uri: b.uri, xml: b.xml, maxVerdicts: b.maxVerdicts } }), AtcViolation);
 });
+
+test('a self-closed object or finding ends itself: it never swallows the next object', () => {
+  const xml =
+    '<atcworklist:worklist xmlns:atcworklist="x"><atcworklist:objects>' +
+    '<atcobject:object adtcore:name="ZCL_DEMO_CLEAN" adtcore:uri="/sap/bc/adt/oo/classes/zcl_demo_clean"/>' +
+    '<atcobject:object adtcore:name="ZCL_DEMO_DIRTY"><atcobject:findings>' +
+    '<atcfinding:finding atcfinding:priority="2" atcfinding:checkId="C1"/>' +
+    '<atcfinding:finding atcfinding:priority="1" atcfinding:checkId="C2"></atcfinding:finding>' +
+    '</atcobject:findings></atcobject:object></atcworklist:objects></atcworklist:worklist>';
+  const w = parseWorklist(xml);
+  assert.deepEqual(w.objects.map((o) => [o.name, o.findings.length]), [['ZCL_DEMO_CLEAN', 0], ['ZCL_DEMO_DIRTY', 2]]);
+  assert.deepEqual(w.findings.map((f) => f.object), ['ZCL_DEMO_DIRTY', 'ZCL_DEMO_DIRTY']);
+});
+
+test('FINDING_STATS that is not three integers is unparsed, never zeros', () => {
+  const odd = RUN_REPLY.replace('<atcinfo:description>1,1,0</atcinfo:description>', '<atcinfo:description>1,x,0</atcinfo:description>');
+  const r = parseRunReply(odd);
+  assert.equal(r.byPriority, null);
+  assert.equal(r.statsState, 'unparsed');
+  assert.equal(parseRunReply(RUN_REPLY).statsState, 'read');
+  assert.equal(parseRunReply('<x/>').statsState, 'absent');
+});
