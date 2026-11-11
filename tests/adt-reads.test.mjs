@@ -282,3 +282,16 @@ test('a search reply of another shape is an error, never an empty list', async (
   const raw = fakeRaw(() => ({ status: 200, body: '<html><body>logon</body></html>', headers: {} }));
   await assert.rejects(() => ownReads(raw).searchObject('ZCL_DEMO'), /not adtcore:objectReferences/);
 });
+
+test('enhancements: another document is an error, never "none"; other element kinds are counted', async () => {
+  const { parseEnhancements } = await import('../lib/adt-reads.mjs');
+  assert.throws(() => parseEnhancements('<html/>'), /not enh:enhancements/);
+  assert.deepEqual(parseEnhancements(''), { implementations: [] }, 'an empty body is the measured "none"');
+  const out = parseEnhancements(
+    '<enh:enhancements xmlns:enh="e" xmlns:adtcore="a"><enh:enhancementImplementations adtcore:name="ZDEMO_ENH" adtcore:type="ENHO/XHH">' +
+      '<enh:elements><enh:sourceCodePlugin enh:id="1" enh:full_name="X"/></enh:elements><enh:elements><enh:otherPlugin/></enh:elements>' +
+      '</enh:enhancementImplementations></enh:enhancements>'
+  );
+  assert.equal(out.implementations[0].elements.length, 1);
+  assert.equal(out.implementations[0].otherElements, 1);
+});

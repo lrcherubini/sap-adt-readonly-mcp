@@ -527,6 +527,48 @@ test('"no enhancements" and "I could not ask" are different answers', async () =
   assert.match(failed, /define view entity ZI_TEST/, 'the source itself is still returned');
 });
 
+test('adt_read_source answers what was asked, read and left out as structured content next to the source', async () => {
+  const tools = (over) => toolsWith(fakeApi(over));
+  const plain = await byName(tools({}), 'adt_read_source').handler({ objectName: 'ZI_TEST' });
+  assert.match(plain.content[0].text, /define view entity ZI_TEST/, 'the source stays the first text');
+  assert.deepEqual(JSON.parse(plain.content[1].text), plain.structuredContent, 'and the structure is also given as JSON text');
+  assert.equal(plain.structuredContent.complete, true);
+  assert.deepEqual(plain.structuredContent.enhancements, { asked: false });
+  assert.deepEqual(plain.structuredContent.textElements, { asked: false });
+  assert.deepEqual(contractErrors(plain.structuredContent), []);
+
+  const withEnh = (await byName(tools({ objectEnhancements: () => ENHANCEMENTS }), 'adt_read_source').handler({ objectName: 'ZI_TEST', enhancements: true })).structuredContent;
+  assert.equal(withEnh.enhancements.read, true);
+  assert.equal(withEnh.enhancements.count, 1);
+  // No raw client: the switch of each implementation is not read, and the answer says so in a field.
+  assert.equal(withEnh.complete, false);
+  assert.deepEqual(withEnh.incomplete, [{ list: 'enhancements.switch', code: 'NOT_READ', count: 1, reason: 'no raw client in this session' }]);
+  assert.deepEqual(contractErrors(withEnh), []);
+
+  const failed = (await byName(tools({ objectEnhancements: () => { throw new Error('HTTP 406'); } }), 'adt_read_source').handler({ objectName: 'ZI_TEST', enhancements: true })).structuredContent;
+  assert.deepEqual([failed.enhancements.read, failed.incomplete[0].list, failed.incomplete[0].code], [false, 'enhancements', 'NOT_READ']);
+
+  const odd = Object.assign(new Error('the enhancements answered <html>, not enh:enhancements'), { name: 'XmlError' });
+  const parse = (await byName(tools({ objectEnhancements: () => { throw odd; } }), 'adt_read_source').handler({ objectName: 'ZI_TEST', enhancements: true })).structuredContent;
+  assert.equal(parse.incomplete[0].code, 'PARSE_FAILED', 'a reply of another shape is never "none"');
+
+  const text = (await byName(tools({ searchObject: () => CLASS_HITS, objectStructure: () => CLASS_STRUCTURE }), 'adt_read_source').handler({ objectName: 'ZCL_T', textElements: true })).structuredContent;
+  assert.deepEqual(text.textElements, { asked: true, read: false, reason: 'no raw client in this session' });
+  assert.deepEqual(text.incomplete, [{ list: 'textElements', code: 'NOT_READ', reason: 'no raw client in this session' }]);
+});
+
+test('a batch is complete only when every item is read in full', async () => {
+  const api = fakeApi({ getObjectSource: (url) => { if (/zcl_t/.test(url)) throw new Error('HTTP 500'); return 'define view entity ZI_TEST as select from t001 {}'; } });
+  const out = jsonOf(await byName(toolsWith(api), 'adt_read_source').handler({ objectNames: ['ZI_TEST'] }));
+  assert.equal(out.complete, true);
+  assert.equal(out.items[0].complete, true);
+  const api2 = fakeApi({ searchObject: (q) => (q === 'ZCL_T' ? CLASS_HITS : CDS_HITS), objectStructure: (u) => (/zcl_t/.test(u) ? CLASS_STRUCTURE : CDS_STRUCTURE), getObjectSource: (url) => { if (/zcl_t/.test(url)) throw new Error('HTTP 500'); return 'define view entity ZI_TEST as select from t001 {}'; } });
+  const mixed = jsonOf(await byName(toolsWith(api2), 'adt_read_source').handler({ objectNames: ['ZI_TEST', 'ZCL_T'] }));
+  assert.equal(mixed.complete, false);
+  assert.deepEqual(mixed.incomplete, [{ list: 'items', code: 'NOT_READ', count: 1, reason: 'see the error of each item' }]);
+  assert.deepEqual(contractErrors(mixed), []);
+});
+
 test('adt_read_source follows a class include when one is asked for', async () => {
   const api = fakeApi({ searchObject: () => CLASS_HITS, objectStructure: () => CLASS_STRUCTURE });
   await byName(toolsWith(api), 'adt_read_source').handler({

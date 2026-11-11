@@ -227,16 +227,21 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
   const enhancementSwitches = async (impls) => {
     const switchOf = new Map();
     const switchNotes = [];
-    if (!impls.length) return { switchOf, switchNotes };
+    const switchGaps = [];
+    if (!impls.length) return { switchOf, switchNotes, switchGaps };
     if (!session.raw) {
       switchNotes.push('switch state not read: this session has no raw client for the data preview');
-      return { switchOf, switchNotes };
+      switchGaps.push({ code: 'NOT_READ', count: impls.length, reason: 'no raw client in this session' });
+      return { switchOf, switchNotes, switchGaps };
     }
     try {
       const query = previewQuery(session.raw, { audit: (target, n) => record(cfg, 'adt_read_source', target, n) });
-      const { packages, notes } = await packagesOf('ENHO', impls.map((i) => i.name), query);
+      const { packages, notes, gaps } = await packagesOf('ENHO', impls.map((i) => i.name), query);
       const chain = await switchChain([...packages.values()], query, { client: cfg?.client });
       switchNotes.push(...notes, ...chain.notes);
+      switchGaps.push(...(gaps ?? []), ...(chain.gaps ?? []));
+      const unpackaged = impls.filter((i) => !packages.get(String(i.name).toUpperCase())).length;
+      if (unpackaged) switchGaps.push({ code: 'NOT_READ', count: unpackaged, reason: 'package not found in TADIR' });
       for (const i of impls) {
         const name = String(i.name).toUpperCase();
         const pkg = packages.get(name);
@@ -244,8 +249,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
       }
     } catch (e) {
       switchNotes.push(`switch state not read: ${e.name ?? 'Error'}: ${e.message}`);
+      switchGaps.push({ code: 'NOT_READ', count: impls.length, reason: `${e.name ?? 'Error'}: ${e.message}`.slice(0, 200) });
     }
-    return { switchOf, switchNotes };
+    return { switchOf, switchNotes, switchGaps };
   };
 
   // One method of a class, sliced from the include its outline names (lib/class-components.mjs,
@@ -304,7 +310,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
       (warning ? `* WARNING: ${warning}\n` : '') +
       `* method: ${shown} (${m.visibility ?? '?'}, ${m.level ?? '?'})${m.description ? ` -- ${m.description}` : ''}\n` +
       `* ${which}: ${pos.include} lines ${pos.start.line}-${pos.end.line}, version ${v}\n\n`;
-    return { hit, foundBy, warning, header, source: slice, enhFooter: '' };
+    return { hit, foundBy, warning, header, source: slice, enhFooter: '', meta: { method: { name: shown, include: pos.include, start: pos.start.line, end: pos.end.line, version: v } } };
   };
 
   // The text elements of a program or a class, the three categories (MEASURED 2026-11-10). A
@@ -312,8 +318,22 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
   const readTextElements = async (hit) => {
     const name = hit['adtcore:name'];
     const m = String(hit['adtcore:uri'] ?? '').match(/^\/sap\/bc\/adt\/(oo\/classes|programs\/programs)\/([^/]+)$/i);
-    if (!m) return `\n\n* ===== text elements: only programs and classes have them here (${hit['adtcore:type']}) =====\n`;
-    if (!session.raw) return '\n\n* ===== text elements NOT read: this session has no raw client =====\n';
+    if (!m) {
+      return {
+        text: `\n\n* ===== text elements: only programs and classes have them here (${hit['adtcore:type']}) =====\n`,
+        meta: { asked: true, applicable: false },
+        gaps: [],
+      };
+    }
+    if (!session.raw) {
+      return {
+        text: '\n\n* ===== text elements NOT read: this session has no raw client =====\n',
+        meta: { asked: true, read: false, reason: 'no raw client in this session' },
+        gaps: [{ list: 'textElements', code: 'NOT_READ', reason: 'no raw client in this session' }],
+      };
+    }
+    const categories = {};
+    const gaps = [];
     const kind = m[1].startsWith('oo') ? 'Class' : 'Program';
     const lines = [`\n\n* ===== text elements of ${name} =====`];
     for (const category of ['symbols', 'selections', 'headings']) {
@@ -322,6 +342,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
       try {
         out = await namedGet(transportFor(session.raw), route, { name: m[2].toLowerCase() });
         lines.push(`* --- ${category} ---`, out.body.trim() ? out.body.trimEnd() : '* (none)');
+        categories[category] = { read: true, lines: out.body.trim() ? out.body.trimEnd().split(/\r?\n/).length : 0 };
       } catch (e) {
         journal?.gap?.({
           code: 'TEXT_ELEMENTS_NOT_READ',
@@ -331,11 +352,13 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           fallback: 'the text elements in the IDE (or SE38 / SE24)',
         });
         lines.push(`* --- ${category}: NOT read (${e.message}) -- this is not the same as "none" ---`);
+        categories[category] = { read: false, reason: String(e.message).slice(0, 200) };
+        gaps.push({ list: `textElements.${category}`, code: 'NOT_READ', reason: String(e.message).slice(0, 200) });
       } finally {
         record(cfg, 'adt_read_source', `${name} text elements ${category}`, out?.bytes ?? 0);
       }
     }
-    return lines.join('\n') + '\n';
+    return { text: lines.join('\n') + '\n', meta: { asked: true, read: !gaps.length, categories }, gaps };
   };
 
   // A stored version of one class or program, or two of them compared (lib/source-versions.mjs,
@@ -372,15 +395,21 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
                 added: r.diff.added,
                 removed: r.diff.removed,
                 hunks: r.diff.hunks,
-                complete: r.diff.complete,
                 ...(r.diff.reason ? { reason: r.diff.reason } : {}),
                 identical: r.diff.complete && r.diff.added === 0 && r.diff.removed === 0,
                 diff: r.diff.text,
               }
-            : { complete: false, diff: null }),
+            : { diff: null }),
           ...(r.notes.length ? { notes: r.notes } : {}),
         };
-        return { hit, foundBy, warning, json };
+        // The diff is cut at an edit or a line limit (lib/line-diff.mjs): a narrower read (one
+        // include, one method) is the way to the rest. A side that does not exist is not compared.
+        const gaps = r.diff
+          ? r.diff.complete
+            ? []
+            : [{ list: 'diff', code: 'CAP_REACHED', reason: r.diff.reason ?? 'the diff was cut', narrowBy: ['include'] }]
+          : [{ list: 'diff', code: 'NOT_READ', reason: 'one of the two versions does not exist' }];
+        return { hit, foundBy, warning, json: finish(json, gaps) };
       }
       const one = await readVersion({ ...ctx, version });
       if (!one.exists) {
@@ -395,9 +424,10 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
             'read it with version: active.\n',
           source: '',
           enhFooter: '',
+          meta: { version: { asked: one.version ?? version, exists: false, label: one.label } },
         };
       }
-      return { hit, foundBy, warning, header: `${header}* version: ${one.label}\n\n`, source: one.source, enhFooter: '' };
+      return { hit, foundBy, warning, header: `${header}* version: ${one.label}\n\n`, source: one.source, enhFooter: '', meta: { version: { asked: one.version ?? version, exists: true, label: one.label } } };
     } catch (e) {
       // A request that names nothing to read (the same version twice, a malformed number) is
       // the caller's mistake and is answered as one; only a read that could not be made is filed.
@@ -438,7 +468,11 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         `* WARNING: a class enhancement (CLASENH) or function-module interface enhancement (FUGRENH) has no ` +
         `source through the ADT, and its structure was NOT read (the resource dumps the server). ${CLASENH_WHERE}.\n` +
         '* enhanced object: not readable through the ADT for this type (the abapGit .enho.xml names it: <CLASS> or <FUGR>)\n\n';
-      return { hit, foundBy, warning: 'ENHO/XH: no source through the ADT', header, source: '', enhFooter: '', enhancedObject: null, clasenh: true };
+      return {
+        hit, foundBy, warning: 'ENHO/XH: no source through the ADT', header, source: '', enhFooter: '', enhancedObject: null, clasenh: true,
+        meta: { source: { exists: false, reason: 'a class or function-module interface enhancement has no source through the ADT' } },
+        gaps: [{ list: 'enhancedObject', code: 'NOT_READ', reason: 'the structure of this type dumps the server, so it is not asked' }],
+      };
     }
     if (/^ENHO\//.test(String(hit['adtcore:type']))) {
       let structure = resolved.structure;
@@ -480,7 +514,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           ? `* enhanced object: ${enhancedObject.kind} ${enhancedObject.name} (${enhancedObject.uri})\n`
           : '* enhanced object: none published (a BAdI implementation implements a spot)\n') +
         '\n';
-      return { hit, foundBy, warning: 'ENHO has no source of its own', header, source: '', enhFooter: '', enhancedObject };
+      return { hit, foundBy, warning: 'ENHO has no source of its own', header, source: '', enhFooter: '', enhancedObject, meta: { source: { exists: false, reason: 'an enhancement implementation has no source of its own' } } };
     }
     const structure = resolved.structure ?? (await api.objectStructure(hit['adtcore:uri']));
     let sourceUrl;
@@ -505,6 +539,8 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
     // "no enhancements" and "I could not ask" are different answers, and the second
     // one read as the first is how customer code stays invisible.
     let enhFooter = '';
+    const gaps = [];
+    let enhMeta = { asked: false };
     if (enhancements || enhancementSource) {
       try {
         const found = await api.objectEnhancements(sourceUrl, context, !!enhancementSource);
@@ -512,7 +548,19 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         // Bound is not running: the listing ignores switches (measured on SAPMV45A). So each
         // implementation gets the stored state of the switch its package hangs on -- TADIR,
         // SFW_PACKAGE, SFW_SWITCH_STATE, three reads for the whole list (lib/switch-chain.mjs).
-        const { switchOf, switchNotes } = await enhancementSwitches(impls);
+        const { switchOf, switchNotes, switchGaps } = await enhancementSwitches(impls);
+        for (const g of switchGaps) gaps.push({ list: 'enhancements.switch', ...g });
+        const otherElements = impls.reduce((n, i) => n + (i.otherElements ?? 0), 0);
+        if (otherElements) gaps.push({ list: 'enhancements.elements', code: 'OUT_OF_SCOPE', count: otherElements, reason: 'elements of another kind than a source code plugin are not shown' });
+        const noSource = enhancementSource ? impls.reduce((n, i) => n + (i.elements ?? []).filter((e) => !e.source).length, 0) : 0;
+        if (noSource) gaps.push({ list: 'enhancements.source', code: 'NOT_READ', count: noSource, reason: 'the element carried no source' });
+        enhMeta = {
+          asked: true,
+          read: true,
+          count: impls.length,
+          elements: impls.reduce((n, i) => n + (i.elements ?? []).length, 0),
+          implementations: impls.map((i) => ({ name: i.name, type: i.type, version: i.version, elements: (i.elements ?? []).length })),
+        };
         // `version` is the OBJECT's version (adtcore:version), not its switch: the listing names
         // implementations whose package sits behind a switch with no active business function
         // too (measured on SAPMV45A, 2026-11-09). So the heading says "bound to", never "runs".
@@ -545,6 +593,8 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         enhFooter =
           `\n\n* ===== enhancements NOT read: ${e.name ?? 'Error'}: ${e.message} =====\n` +
           '* This is not the same as "there are none".\n';
+        enhMeta = { asked: true, read: false, reason: `${e.name ?? 'Error'}: ${e.message}`.slice(0, 200) };
+        gaps.push({ list: 'enhancements', code: e?.name === 'XmlError' ? 'PARSE_FAILED' : 'NOT_READ', reason: enhMeta.reason });
         // The footer tells whoever reads this one answer. The gap tells whoever
         // reads the journal in a month -- and this is the read that stands between
         // the workspace and an inventory of customer code hidden inside standard
@@ -582,8 +632,14 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           `${hit['adtcore:uri']} directly. Package unknown on this path.\n`
         : '') +
       `\n`;
-    const textFooter = textElements ? await readTextElements(hit) : '';
-    return { hit, foundBy, warning, header, source, enhFooter: enhFooter + textFooter, enhancedObject };
+    const text = textElements ? await readTextElements(hit) : null;
+    if (text) gaps.push(...text.gaps);
+    return {
+      hit, foundBy, warning, header, source, enhFooter: enhFooter + (text?.text ?? ''), enhancedObject,
+      alternatives: resolved.alternatives ?? [],
+      meta: { enhancements: enhMeta, textElements: text?.meta ?? { asked: false } },
+      gaps,
+    };
   };
 
   const tools = [
@@ -799,9 +855,13 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           for (const name of objectNames) {
             try {
               const one = await readOne(name, flags);
+              const itemGaps = one.gaps ?? [];
               items.push({ name, type: one.hit['adtcore:type'], package: one.hit['adtcore:packageName'] ?? null,
                 foundBy: one.foundBy, ...(one.warning ? { warning: one.warning } : {}),
                 ...(one.enhancedObject !== undefined ? { enhancedObject: one.enhancedObject } : {}),
+                ...(one.meta ?? {}),
+                complete: !itemGaps.length,
+                incomplete: itemGaps,
                 source: one.header + one.source + one.enhFooter });
             } catch (e) {
               // A name that resolves to nothing is an ANSWER, the same one a single call gives
@@ -825,12 +885,37 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
           }
           const notFound = items.filter((i) => i.notFound).length;
           const failed = items.filter((i) => i.error && !i.notFound).length;
-          return asText({ count: items.length, read: items.length - failed - notFound, notFound, failed, items });
+          const partial = items.filter((i) => i.incomplete?.length).length;
+          return asText(
+            finish({ count: items.length, read: items.length - failed - notFound, notFound, failed, items }, [
+              failed ? { list: 'items', code: 'NOT_READ', count: failed, reason: 'see the error of each item' } : null,
+              partial ? { list: 'items', code: 'NOT_READ', count: partial, reason: 'items read in part: see the incomplete of each item' } : null,
+            ])
+          );
         }
         if (!objectName) throw new Error('objectName (or objectNames) is required.');
         const one = await readOne(objectName, flags);
         if (one.json) return asText(one.json);
-        return asText(one.header + one.source + one.enhFooter);
+        // The source stays the text a person reads; what was asked, read and left out is the
+        // structured answer, given as JSON text too (the MCP rule: structured content and its text).
+        const structured = finish(
+          {
+            object: { name: one.hit['adtcore:name'], type: one.hit['adtcore:type'], package: one.hit['adtcore:packageName'] ?? null, uri: one.hit['adtcore:uri'] },
+            foundBy: one.foundBy,
+            ...(one.warning ? { warning: one.warning } : {}),
+            ...(one.alternatives?.length ? { alternatives: one.alternatives.map((h) => ({ name: h['adtcore:name'], type: h['adtcore:type'], package: h['adtcore:packageName'] ?? null })) } : {}),
+            ...(one.enhancedObject !== undefined ? { enhancedObject: one.enhancedObject } : {}),
+            ...(one.meta ?? {}),
+          },
+          one.gaps ?? []
+        );
+        return {
+          content: [
+            { type: 'text', text: one.header + one.source + one.enhFooter },
+            { type: 'text', text: JSON.stringify(structured, null, 2) },
+          ],
+          structuredContent: structured,
+        };
       },
     },
 
