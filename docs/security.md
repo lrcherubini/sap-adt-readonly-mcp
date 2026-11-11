@@ -1462,7 +1462,10 @@ internal CA) has two ways out, in order of preference:
 Two runtime dependencies, both pinned to exact versions with a committed lockfile, installed
 with `npm ci --ignore-scripts` so no lifecycle script from the dependency tree executes:
 
-- `abap-adt-api` (MIT) — session, CSRF, URI resolution and XML parsing. It is confined behind
+- `abap-adt-api` (MIT) — the parsing of the guard's members, while they are migrated (see
+  *Removing `abap-adt-api`*). It no longer holds the session: since 2026-11-11 the logon, the
+  cookie and the CSRF token are `lib/adt-http.mjs`, and the library's requests ride on that
+  client (`lib/library-bridge.mjs`), so axios is no longer on the path. It is confined behind
   the guard proxy: the rest of the code cannot reach a method the guard denies.
 - `@modelcontextprotocol/sdk` — MCP transport and tool registration.
 

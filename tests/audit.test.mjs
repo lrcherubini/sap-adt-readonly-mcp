@@ -6,7 +6,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { record, recordStart, recordStop, recordLogonRefused, resetBudget } from '../lib/audit.mjs';
+import { record, recordStart, recordStop, recordLogonRefused, recordRelogon, resetBudget } from '../lib/audit.mjs';
+import { httpError } from '../lib/adt-http.mjs';
 import { logonWith, connectOrExit } from '../lib/session.mjs';
 import { runsFromAudit, renderRuns, refusedSinceLastStart } from '../lib/audit-runs.mjs';
 import fs from 'node:fs';
@@ -217,6 +218,27 @@ test('logonWith records an answered refusal before the error leaves, and tries o
   assert.equal(lines[0].event, 'logon-refused');
   assert.equal(lines[0].status, 401);
   assert.equal(JSON.stringify(lines[0]).includes('Unauthorized'), false, "the server's text stays out");
+});
+
+test('the own client refuses with the status in err, and logonWith still records it and stops', async () => {
+  const [cfg, lines] = sink();
+  const refusing = { login: async () => { throw httpError(401, '<html/>', { 'content-type': 'text/html' }, '/sap/bc/adt/compatibility/graph'); } };
+  await assert.rejects(() => logonWith(cfg, refusing, 'DEVUSER1'), /NOT retrying/);
+  assert.deepEqual(lines.map((l) => [l.event, l.status]), [['logon-refused', 401]]);
+});
+
+test('a session logged on again is one run line, counted per run, with no text of the server', () => {
+  const [cfg, lines] = sink();
+  recordRelogon(cfg, { status: 401, user: 'DEVUSER1' });
+  assert.deepEqual([lines[0].event, lines[0].status, lines[0].user], ['relogon', 401, 'DEVUSER1']);
+  const file = tempFile([
+    { ts: '2026-11-11T09:00:00.000Z', run: 'r1', event: 'start', user: 'DEVUSER1' },
+    { ts: '2026-11-11T11:00:00.000Z', run: 'r1', event: 'relogon', status: 401, user: 'DEVUSER1' },
+  ]);
+  const run = runsFromAudit(file).runs.find((r) => r.run === 'r1');
+  assert.equal(run.relogons, 1);
+  assert.equal(run.reads, 0, 'a logon again is not a read');
+  assert.match(renderRuns(runsFromAudit(file)), /logged on again 1x/);
 });
 
 test('a logon that never reached the system writes nothing; a logon that worked writes nothing', async () => {
