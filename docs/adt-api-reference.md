@@ -110,6 +110,11 @@ DDLS/STOB I_PlantStdVH
   inherits from its data element (`OBJECTMODEL.UPPERCASE`, the labels) and from the view it
   projects. The note that read "`annotations` is empty on every node" described abap-adt-api's
   parser, whose matcher never filled them, not the endpoint.
+  Measured the same day on an SAP-standard purchase order item API view: the semantic
+  annotations of its source come back on the fields that carry them (`SEMANTICS.CURRENCYCODE`,
+  `SEMANTICS.UNITOFMEASURE`, and the `SEMANTICS.QUANTITY.UNITOFMEASURE` /
+  `SEMANTICS.AMOUNT.CURRENCYCODE` references naming their key field), and a field the source
+  does not annotate carries none.
 - **No domain.** That is what the next two calls are for.
 
 #### On a TABLE the answer is FLAT and includes the appends — MEASURED 2026-09-22
