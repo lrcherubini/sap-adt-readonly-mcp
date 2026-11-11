@@ -23,6 +23,7 @@ import {
 } from '../lib/runtime-feeds.mjs';
 import { TEMPLATES, buildUrl, RouteViolation } from '../lib/adt-get.mjs';
 import { runtimeErrorsTool, auditKeyOf } from '../tools/runtime-errors.mjs';
+import { contractErrors } from '../lib/completeness.mjs';
 
 const fx = (name) => fs.readFileSync(path.join(import.meta.dirname, 'fixtures', name), 'utf8');
 const CATALOG = fx('feed-catalog-measured.xml');
@@ -313,9 +314,12 @@ test('adt_runtime_errors list: the page and the generated $query reach the wire;
   assert.equal(sent[0].url, '/sap/bc/adt/runtime/dumps?%24query=and+%28+equals+%28+user+%2C+DEMOUSER+%29+%29&%24skip=4&%24top=2');
   assert.equal(out.mode, 'list');
   assert.equal(out.query, 'and ( equals ( user , DEMOUSER ) )');
-  assert.deepEqual(out.page, { top: 2, skip: 4 });
+  assert.deepEqual(out.page, { top: 2, skip: 4, returned: 2, truncated: true, next: { skip: 6 } });
   assert.equal(out.count, 2);
-  assert.equal(out.truncated, 'possible', 'a full page is not proof of a complete list');
+  assert.equal(out.complete, false, 'a full page is not proof of a complete list');
+  assert.deepEqual(out.incomplete.find((i) => i.code === 'SERVER_PAGE_FULL').next, { skip: 6 });
+  assert.deepEqual(contractErrors(out), []);
+  assert.equal(typeof out.serverWindow.source, 'string');
   assert.equal(out.entries[0].report, undefined, 'light by default');
   assert.equal(out.groups.reduce((n, g) => n + g.count, 0), out.count, 'every dump of the page is in one group');
   assert.ok(out.groups.every((g) => !('line' in g)));
@@ -326,7 +330,8 @@ test('adt_runtime_errors list: the page and the generated $query reach the wire;
 
   const full = jsonOf(await tool.handler({ list: { feed: 'dumps', report: true } }));
   assert.equal(sent[1].url, '/sap/bc/adt/runtime/dumps?%24top=50');
-  assert.equal(full.truncated, false);
+  assert.equal(full.page.truncated, false);
+  assert.deepEqual(contractErrors(full), []);
   assert.equal(full.entries[0].report.stack.length, 13);
   assert.equal(full.groups.find((g) => g.program === full.entries[0].program).line, 30, 'with the report the line joins the key');
   await assert.rejects(() => tool.handler({ list: { feed: 'dumps', filters: [{ attribute: 'user', value: 'X ) or' }] } }), /character the query alphabet/);
@@ -373,6 +378,8 @@ test('adt_runtime_errors detail: one dump by id, found in the page, then its res
   assert.equal(sent[4].url, `${DUMP_KEY}/formatted`);
   assert.equal(sent[4].headers.Accept, 'text/plain');
   assert.match(full.formatted, /LV_X = 42/);
+  assert.deepEqual([full.resourcePart, full.formattedPart], [{ read: true }, { asked: true, read: true }]);
+  assert.deepEqual(contractErrors(full), []);
   assert.equal(log.at(-1).target, 'dump 20260912153234vhdemohost_DEV_00 21 formatted');
 
   // The resource failing leaves the summary-based detail standing and files DUMP_NOT_READ.
@@ -382,6 +389,8 @@ test('adt_runtime_errors detail: one dump by id, found in the page, then its res
   assert.equal(b.resource, undefined);
   assert.match(b.resourceNote, /not read/);
   assert.match(b.formattedNote, /not read/);
+  assert.deepEqual(b.incomplete.map((i) => `${i.list}:${i.code}`), ['resource:NOT_READ', 'formatted:NOT_READ']);
+  assert.deepEqual(contractErrors(b), []);
   assert.equal(journalLines.filter((l) => l.code === 'DUMP_NOT_READ').length, 2);
   journalLines.length = 0;
   assert.equal(auditKeyOf(id), '20260912153234vhdemohost_DEV_00 21', 'the adt:// id is reduced the same way');

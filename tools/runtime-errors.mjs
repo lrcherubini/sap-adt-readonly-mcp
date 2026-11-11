@@ -41,6 +41,14 @@ import {
   dumpPathOf,
   auditKeyOf,
 } from '../lib/runtime-feeds.mjs';
+import { finish } from '../lib/completeness.mjs';
+
+/** The server's own "since" of a feed: the `from` of its self link (yyyymmddhhmmss), or null. */
+const windowOf = (self) => {
+  const from = /[?&]from=(\d{14})/.exec(String(self ?? ''))?.[1] ?? null;
+  return { from, source: from ? 'the feed self link (?from=)' : 'the feed states none' };
+};
+const driftEntry = (list, drift) => (drift?.length ? [{ list, code: 'PARSE_FAILED', count: drift.length, reason: 'the reply carries what the measured shape does not describe: see drift' }] : []);
 
 export const DEFAULT_MAX = 50;
 export const MAX_MAX = 100;
@@ -99,7 +107,7 @@ export function runtimeErrorsTool(cfg, session, journal) {
     record(cfg, 'adt_runtime_errors', 'feeds', out.bytes);
     const parsed = parseFeedCatalog(out.body);
     driftGap('feed catalogue', parsed.drift);
-    return asText({
+    return asText(finish({
       mode: 'feeds',
       route: out.route,
       url: out.url,
@@ -112,7 +120,7 @@ export function runtimeErrorsTool(cfg, session, journal) {
       updated: parsed.updated,
       feeds: parsed.feeds,
       ...(parsed.drift.length ? { drift: parsed.drift } : {}),
-    });
+    }, driftEntry('feeds', parsed.drift)));
   }
 
   // The dump resource and, on request, the formatted report -- both through derivedGet
@@ -120,13 +128,15 @@ export function runtimeErrorsTool(cfg, session, journal) {
   // detail standing and says what was not read; it never reads as "no such chapter".
   async function resourceOf(hit, key, full) {
     const path = dumpPathOf(hit.links?.self);
-    if (!path) return { resourceNote: 'the entry publishes no /runtime/dump/ self link; the resource was not asked' };
+    const formattedPart = { asked: full === true, read: false };
+    if (!path) return { resourcePart: { read: false }, formattedPart, resourceNote: 'the entry publishes no /runtime/dump/ self link; the resource was not asked' };
     const transport = transportFor(session.raw);
-    const out = {};
+    const out = { resourcePart: { read: false }, formattedPart };
     try {
       const r = await derivedGet(transport, path, path, { kind: 'runtimeDump' });
       record(cfg, 'adt_runtime_errors', `dump ${key} resource`, r.bytes);
       out.resource = parseDumpResource(r.body);
+      out.resourcePart = { read: true };
       driftGap(`dump resource`, out.resource.drift);
     } catch (e) {
       gap({
@@ -143,6 +153,7 @@ export function runtimeErrorsTool(cfg, session, journal) {
         const t = await derivedGet(transport, path, 'formatted', { kind: 'runtimeDumpText' });
         record(cfg, 'adt_runtime_errors', `dump ${key} formatted`, t.bytes);
         out.formatted = t.body;
+        formattedPart.read = true;
       } catch (e) {
         gap({
           code: 'DUMP_NOT_READ',
@@ -194,7 +205,10 @@ export function runtimeErrorsTool(cfg, session, journal) {
         throw new Error(`dump '${wanted}' is not among the ${parsed.entries.length} entries read (max=${top}). Raise max, or list first and pass the id it answers.`);
       }
       const more = await resourceOf(hit, auditKeyOf(hit.key ?? wanted), full);
-      return asText({
+      const incomplete = [...driftEntry('entry', [...parsed.drift, ...(hit.report?.drift ?? []), ...(more.resource?.drift ?? [])])];
+      if (!more.resourcePart.read) incomplete.push({ list: 'resource', code: 'NOT_READ', reason: more.resourceNote ?? 'not read' });
+      if (more.formattedPart.asked && !more.formattedPart.read) incomplete.push({ list: 'formatted', code: 'NOT_READ', reason: more.formattedNote ?? 'not read' });
+      return asText(finish({
         mode: 'detail',
         route: out.route,
         url: out.url,
@@ -208,10 +222,18 @@ export function runtimeErrorsTool(cfg, session, journal) {
         entry: hit,
         ...more,
         ...(parsed.drift.length ? { drift: parsed.drift } : {}),
-      });
+      }, incomplete));
     }
 
-    return asText({
+    // The server pages ($top/$skip) and gives no total: a full page may have more behind it,
+    // so it is SERVER_PAGE_FULL with the next skip, never a hedge.
+    const skipped = Number(params.$skip ?? 0);
+    const pageFull = parsed.entries.length >= top;
+    const next = pageFull ? { skip: skipped + parsed.entries.length } : null;
+    const reportDrift = parsed.entries.flatMap((e) => e.report?.drift ?? []);
+    const incomplete = [...driftEntry('entries', [...parsed.drift, ...reportDrift])];
+    if (pageFull) incomplete.push({ list: 'entries', code: 'SERVER_PAGE_FULL', returned: parsed.entries.length, total: null, next });
+    return asText(finish({
       mode: 'list',
       feed,
       route: out.route,
@@ -221,9 +243,9 @@ export function runtimeErrorsTool(cfg, session, journal) {
       measured: spec.entriesMeasured ? '2026-09-12' : 'envelope only (2026-09-12: the feed answered no entry); entries are returned raw and flagged',
       rule: 'released by the server as-is; $top pages, $query filters, nothing is read beyond this page',
       query,
-      page: { top, skip: Number(params.$skip ?? 0) },
+      page: { top, skip: skipped, returned: parsed.entries.length, truncated: pageFull, ...(next ? { next } : {}) },
       count: parsed.entries.length,
-      truncated: parsed.entries.length >= top ? 'possible' : false,
+      serverWindow: windowOf(parsed.self),
       ...(parsed.self ? { self: parsed.self } : {}),
       ...(parsed.measured === false ? { entriesMeasured: false } : {}),
       ...(feed === 'dumps'
@@ -234,7 +256,7 @@ export function runtimeErrorsTool(cfg, session, journal) {
         : {}),
       entries: parsed.entries,
       ...(parsed.drift.length ? { drift: parsed.drift } : {}),
-    });
+    }, incomplete));
   }
 
   return {
