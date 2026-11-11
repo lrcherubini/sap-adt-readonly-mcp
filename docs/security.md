@@ -1213,6 +1213,9 @@ one object: the members moved, and the rest still served by the library. Moved s
   printable ASCII without blanks, at most 100 characters; the library sent anything. Every value
   of a hit stays a string, where the library turned a name or a description of digits into a
   number.
+- `objectStructureElements` (2026-11-11): the derived read `objectOutline` (class or interface,
+  the library's query). The library answered `[]` on any failure; the read now throws, and
+  `adt_object_info` already reports an outline it could not read as such.
 
 ### Self-contained: every source is read from the system -- 2026-11-08
 

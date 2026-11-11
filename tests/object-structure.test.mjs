@@ -83,3 +83,29 @@ test('objectStructure reads the object URI once with the library Accept, and ref
     await assert.rejects(() => ownReads(raw).objectStructure(bad), (e) => e.name === 'RouteViolation', bad);
   }
 });
+
+test('objectStructureElements: the outline of a class as the library gave it, a failure thrown, no outline elsewhere', async () => {
+  const calls = [];
+  let fail = false;
+  const raw = {
+    httpClient: {
+      request: async (url, opts) => {
+        calls.push({ url, ...opts });
+        if (fail) throw Object.assign(new Error('HTTP 500'), { err: 500, status: 500 });
+        return { status: 200, body: fixture('outline.xml'), headers: {} };
+      },
+    },
+  };
+  const els = await ownReads(raw).objectStructureElements(CLASS);
+  assert.equal(calls[0].url, `${CLASS}/objectstructure?version=active&withShortDescriptions=true`);
+  assert.equal(els.length, 9);
+  const add = els.find((e) => e.name === 'ADD');
+  assert.equal(add.type, 'CLAS/OM');
+  assert.ok(Array.isArray(add.links) && Array.isArray(add.children));
+  const local = els.find((e) => e.name === 'LCL_COUNTER');
+  assert.deepEqual(local.children.map((c) => c.name), ['CONSTRUCTOR', 'NEXT', 'MV_VALUE'], 'nested elements keep their nesting');
+  assert.deepEqual(await ownReads(raw).objectStructureElements(PROG), [], 'a program has no outline, and nothing is asked');
+  assert.equal(calls.length, 1);
+  fail = true;
+  await assert.rejects(() => ownReads(raw).objectStructureElements(CLASS), (e) => e.status === 500, 'a failure is never an empty outline');
+});
