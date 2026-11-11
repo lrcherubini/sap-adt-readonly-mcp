@@ -70,7 +70,7 @@ test('the mixed api: own members from here, every other allowlisted one from the
   assert.throws(() => api.lock, ReadOnlyViolation);
   assert.throws(() => api.httpClient, ReadOnlyViolation);
   assert.deepEqual(Object.keys(mixedApi(library, {})).sort(), allowedMethods());
-  assert.deepEqual([...OWN_READS], ['getObjectSource', 'objectStructure', 'searchObject', 'objectStructureElements', 'getDataElementProperties', 'getDomainProperties', 'ddicElement', 'annotationDefinitions']);
+  assert.deepEqual([...OWN_READS], ['getObjectSource', 'objectStructure', 'searchObject', 'objectStructureElements', 'getDataElementProperties', 'getDomainProperties', 'ddicElement', 'annotationDefinitions', 'objectEnhancements']);
 });
 
 test('searchObject asks the quick search with the major type, as the library did, and keeps every hit field', async () => {
@@ -206,4 +206,50 @@ test('annotationDefinitions: the DDLA text of the one CDATA, line ends read as t
   assert.equal(text, ` ${ddla.replace(/\r\n/g, '\n')} `);
   const other = fakeRaw(() => ({ status: 200, body: '<other/>', headers: {} }));
   assert.equal(await ownReads(other).annotationDefinitions(), undefined, 'another document gives no DDLA, as the library gave none');
+});
+
+test('objectEnhancements: the S/4 path first, the ECC path only after its 404, the context encoded, the library shape', async () => {
+  const src = Buffer.from('* demo\nWRITE 1.').toString('base64');
+  const body =
+    '<?xml version="1.0" encoding="utf-8"?><enh:enhancements xmlns:enh="http://www.sap.com/adt/abapsource/enhancements" xmlns:adtcore="http://www.sap.com/adt/core">' +
+    '<enh:enhancementImplementations adtcore:name="ZDEMO_ENH" adtcore:type="ENHO/XHH" adtcore:version="active"><enh:elements>' +
+    `<enh:sourceCodePlugin enh:uri="/sap/bc/adt/enhancements/enhoxhh/zdemo_enh/source/main#start=1" enh:id=" 1 " enh:full_name="\PR:ZDEMO\SE:BEGIN\EI" enh:replacing="true"><enh:source>${src}</enh:source>` +
+    '<enh:option><enh:sourceCodePluginOption><enh:position adtcore:uri="/sap/bc/adt/programs/includes/zdemo_inc/source/main#start=12,0"/></enh:sourceCodePluginOption></enh:option></enh:sourceCodePlugin>' +
+    '</enh:elements><enh:enhancedObject adtcore:uri="/sap/bc/adt/programs/programs/zdemo" adtcore:type="PROG/P" adtcore:name="ZDEMO"/></enh:enhancementImplementations></enh:enhancements>';
+  const raw = fakeRaw(() => ({ status: 200, body, headers: {} }));
+  const out = await ownReads(raw).objectEnhancements('/sap/bc/adt/programs/includes/zdemo_inc', '/sap/bc/adt/programs/programs/zdemo', true);
+  assert.equal(raw.calls.length, 1);
+  assert.equal(raw.calls[0].url, '/sap/bc/adt/programs/includes/zdemo_inc/source/main/enhancements/elements?context=%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fzdemo');
+  assert.match(raw.calls[0].headers.Accept, /^application\/vnd\.sap\.adt\.enhancements\.v3\+xml, /);
+  const [impl] = out.implementations;
+  assert.deepEqual([impl.name, impl.type, impl.version, impl.enhancedObject.name], ['ZDEMO_ENH', 'ENHO/XHH', 'active', 'ZDEMO']);
+  assert.deepEqual(impl.elements[0], {
+    uri: '/sap/bc/adt/enhancements/enhoxhh/zdemo_enh/source/main#start=1',
+    id: '1',
+    fullname: '\PR:ZDEMO\SE:BEGIN\EI',
+    mode: '',
+    replacing: true,
+    source: '* demo\nWRITE 1.',
+    position: { uri: '/sap/bc/adt/programs/includes/zdemo_inc/source/main#start=12,0', startLine: 11, startColumn: 0 },
+  });
+
+  let first = true;
+  const ecc = fakeRaw(() => {
+    if (first) {
+      first = false;
+      throw Object.assign(new Error('HTTP 404'), { err: 404, status: 404 });
+    }
+    return { status: 200, body: '', headers: {} };
+  });
+  assert.deepEqual(await ownReads(ecc).objectEnhancements('/sap/bc/adt/oo/classes/zcl_demo/includes/main'), { implementations: [] });
+  assert.deepEqual(ecc.calls.map((c) => c.url), [
+    '/sap/bc/adt/oo/classes/zcl_demo/includes/main/enhancements/elements',
+    '/sap/bc/adt/oo/classes/zcl_demo/includes/main/enhancements',
+  ]);
+  const failing = fakeRaw(() => {
+    throw Object.assign(new Error('HTTP 500'), { err: 500, status: 500 });
+  });
+  await assert.rejects(() => ownReads(failing).objectEnhancements('/sap/bc/adt/programs/programs/zdemo'), (e) => e.status === 500);
+  assert.equal(failing.calls.length, 1, 'only a 404 asks the other path');
+  await assert.rejects(() => ownReads(raw).objectEnhancements('/sap/bc/adt/programs/programs/zdemo', '/sap/bc/adt/../x'), (e) => e.name === 'RouteViolation');
 });

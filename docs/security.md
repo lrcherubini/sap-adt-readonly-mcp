@@ -1229,6 +1229,12 @@ one object: the members moved, and the rest still served by the library. Moved s
 - `annotationDefinitions` (2026-11-11): the named route `cdsAnnotationDefinitions`, the DDLA text
   of its one CDATA section, line ends read as the XML rule says (the reply comes with CR LF, and
   the library's parser normalised them too): the same 182 KB of text, checked identical.
+- `objectEnhancements` (2026-11-11): the derived read `objectEnhancements`, a source's
+  `…/enhancements/elements` first and `…/enhancements` only after its 404, the reverse of the
+  library's order (measured: the first answers on this release, the second is a 404, so the
+  library spent a call on every read). `context`, the containing program of an include, is the
+  one query a caller gives: an ADT object URI by pattern, percent-encoded. `derivedGet` gained
+  that form, `optional`, for it.
 
 ### Self-contained: every source is read from the system -- 2026-11-08
 
