@@ -437,6 +437,29 @@ not read, and every package it could not list, is a `SOURCE_NOT_READ` gap, a rea
 journal itself cannot write, it warns once on stderr that an empty report from then on means
 **unrecorded, not clean**.
 
+### Complete or not, in fields
+
+Every answer says whether it is complete, in fields a client can test. `complete` is `true` only
+when `incomplete` is empty; each entry of `incomplete` names the list it is about, a code and
+what is known about it:
+
+| Code | Meaning |
+|---|---|
+| `CAP_REACHED` | this server cut the list; `returned`, `total` and `next` say how far |
+| `SERVER_PAGE_FULL` | the system answered a full page and gives no total; `next` or `narrowBy` |
+| `NOT_READ` | items or parts that failed, with the reason |
+| `PARSE_FAILED` | a reply whose shape was not recognised (drift) |
+| `CANCELLED` | the call was cancelled before this part |
+| `BUDGET_REACHED` | the call budget ran out (`maxCalls`, `maxKeyLookups`, `upstream`) |
+| `DEPTH_LIMIT` | a depth limit left sub-packages or hops unwalked, named |
+| `OUT_OF_SCOPE` | types or parts the tool does not cover, counted |
+
+No cut is final: a list cut by a size parameter pages (`offset`, `rowsOffset`, `findingsOffset`,
+`fieldsOffset`, `objectsOffset`, `keysOffset`, `releaseOffset`, `checksOffset`, `payloadOffset`, or
+the system's own `skip`), and `next` gives the value to pass; where nothing can page, `narrowBy`
+names the filters that make the answer smaller. A part not asked for says `asked: false` and
+is not incompleteness. An empty list is "none" only when `complete` is `true`.
+
 Every call is also written to `%LOCALAPPDATA%\sap-adt\audit.log` — tool, target, result size.
 **Never the payload.**
 

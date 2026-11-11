@@ -1,7 +1,7 @@
 // The completeness contract (lib/completeness.mjs): every answer says in fields whether it is
 // complete, every cut says how to get the rest, and no value hedges. The helpers are tested here;
-// each tool's answers are checked against `contractErrors` in its own test file, and the list
-// below names the tools whose answers do not follow the contract yet -- it only shrinks.
+// each tool's answers are checked against `contractErrors` in its own test file, and every
+// answer a tool returns is built by `finish` (the static check at the end).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -55,7 +55,7 @@ test('contractErrors names every way an answer breaks the contract', () => {
   assert.match(contractErrors({ complete: false, incomplete: [] })[0], /says nothing/);
 });
 
-/** Files that still hedge with 'possible'. Each cycle removes its own; the list only shrinks. */
+/** Files that still hedge with 'possible': none. A new entry needs a reason, and it only shrinks. */
 const STILL_HEDGING = new Set([]);
 
 test("no answer hedges with 'possible': the literal is gone from every migrated file", () => {
@@ -68,6 +68,34 @@ test("no answer hedges with 'possible': the literal is gone from every migrated 
       const hedges = /['"]possible['"]/.test(text);
       if (hedges && !STILL_HEDGING.has(rel)) offenders.push(rel);
       if (!hedges && STILL_HEDGING.has(rel)) offenders.push(`${rel} no longer hedges: remove it from STILL_HEDGING`);
+    }
+  }
+  assert.deepEqual(offenders, []);
+});
+
+/**
+ * Answers a tool returns without `finish` on the same expression, each with why it is one: the
+ * value was built by `finish` where it was made.
+ */
+const FINISHED_ELSEWHERE = new Map([['tools/index.mjs', ['asText(one.json)']]]);
+
+test('every answer a tool returns is built by finish: complete and incomplete are never left out', () => {
+  const offenders = [];
+  for (const f of fs.readdirSync(path.join(root, 'tools')).filter((n) => n.endsWith('.mjs'))) {
+    const rel = `tools/${f}`;
+    const text = fs.readFileSync(path.join(root, 'tools', f), 'utf8');
+    const allowed = FINISHED_ELSEWHERE.get(rel) ?? [];
+    for (const m of text.matchAll(/return (asText|json)\(/g)) {
+      const call = text.slice(m.index + 'return '.length, m.index + 200);
+      if (/^(asText|json)\(\s*finish\(/.test(call)) continue;
+      if (allowed.some((a) => call.startsWith(a))) continue;
+      const line = text.slice(0, m.index).split('\n').length;
+      offenders.push(`${rel}:${line} returns an answer not built by finish`);
+    }
+    // A tool that hands its answer to the MCP envelope itself must have built it with finish.
+    for (const m of text.matchAll(/return \{ content: \[\{ type: 'text', text: JSON\.stringify\((\w+)/g)) {
+      const name = m[1];
+      if (!new RegExp(`const ${name} = await run\\w+\\(`).test(text)) offenders.push(`${rel}: ${name} is not the result of a run* function`);
     }
   }
   assert.deepEqual(offenders, []);

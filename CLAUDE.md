@@ -91,8 +91,9 @@ Each one has a test that fails the build. Fix the cause, never the test.
 - **No silent errors.**
   - Every journal code is registered in `lib/journal-codes.mjs` and has an emitter.
   - A `catch` that swallows its error must be on the listed exceptions, with a reason.
-  - An empty answer must never mean "not looked". Report `complete: false`, or file a gap code.
-  - Test: `no-silent-errors`.
+  - An empty answer must never mean "not looked". Every answer is built by `finish`
+    (`lib/completeness.mjs`): `incomplete` names each cut, with a `next` page or `narrowBy`.
+  - Tests: `no-silent-errors`, `completeness`.
 - **MCP conformance.** Each tool has:
   - a `title`;
   - behaviour annotations (`readOnlyHint: true`, `destructiveHint: false`, an honest

@@ -1334,6 +1334,35 @@ carry titles and behaviour annotations; input schemas are closed and enforced; a
 `instructions`. Pinned by `tests/mcp-protocol.test.mjs`, which drives the server with the SDK's
 own client over a real loopback connection.
 
+### Completeness in fields, and no cut without a way past it -- 2026-11-11
+
+The owner asked that every tool returning a list say whether it is complete, that every cut be
+declared, and that no answer be subjective. A list that came back shorter than the truth reads
+as a cleaner system, which is the failure this server exists to refuse; a hedge such as
+`truncated: 'possible'` leaves the reader to guess. Decided:
+
+- **Every answer carries `complete` and `incomplete`.** `complete` is derived, never set by
+  hand: it is true only when `incomplete` is empty (`lib/completeness.mjs`, `finish`). Each
+  entry names the list it is about and a code from a closed set (`CAP_REACHED`,
+  `SERVER_PAGE_FULL`, `NOT_READ`, `PARSE_FAILED`, `CANCELLED`, `BUDGET_REACHED`,
+  `DEPTH_LIMIT`, `OUT_OF_SCOPE`), with counts where they are known.
+- **No cut is final.** Every cap has a size parameter up to a ceiling stated in the schema.
+  Where the ceiling still cuts, the list pages: the answer gives `next` (an offset, or the
+  server's own `skip`), and `costsCalls` when the next page reads the resource again. Where
+  neither the server nor this server can page (the quick search, the data preview), the cut is
+  `complete: false` with `narrowBy`: the filters that make the answer smaller.
+- **Not asked is not incomplete.** A part the caller did not ask for says `asked: false`; it
+  does not enter `incomplete`. An answer is not a gap either: a field with no data element,
+  a table that answers 404 upstream, an object with no inactive version.
+- **An unexpected reply is `PARSE_FAILED`, never an empty list.** The parsers of the search,
+  the enhancements, the node path, the where-used, the snippets and the package tree throw on a
+  root they do not know, and a release state without its root is not "not released".
+
+No route and no read were added: the decision changes the shape of the answers (every tool
+input and result changed, so it is a breaking version), not what the server may read. Pinned by
+`tests/completeness.test.mjs` (the helpers, no hedge anywhere, every tool answer built by
+`finish`) and by the contract checks in each tool's own test file.
+
 ## What is written to disk
 
 Everything lives in `%LOCALAPPDATA%\sap-adt\`, and the server **refuses to start** if that
