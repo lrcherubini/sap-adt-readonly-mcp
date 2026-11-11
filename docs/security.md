@@ -1197,6 +1197,13 @@ the owner the same day:
 - The password stays in the client's closure and is dropped at logoff. No error, header map or
   message the client hands out carries a cookie, a token or an Authorization value.
 
+**The members, one by one.** Each moves to `lib/adt-reads.mjs` in the shape the library returned,
+through the closed seams of `lib/adt-get.mjs`. Until the last moves, `mixedApi` hands the guard
+one object: the members moved, and the rest still served by the library. Moved so far:
+
+- `getObjectSource` (2026-11-11): the derived read `objectSource`, a source URI only
+  (`…/source/main` or a class include), with the library's `Accept: */*`.
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:

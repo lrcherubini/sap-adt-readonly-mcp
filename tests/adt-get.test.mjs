@@ -779,6 +779,7 @@ test('an ENHO/XHB body is read at the object URI itself, with the one Accept, an
     'runtimeDumpText',
     'versionContent',
     'sourceVersion',
+    'objectSource',
     'classComponents',
     'objectVersion',
   ]);
