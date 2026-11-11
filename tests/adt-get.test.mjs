@@ -58,6 +58,7 @@ test('the route table is closed, and these are the routes in it', () => {
     'atcCustomizing',
     'atcVerdicts',
     'atcWorklist',
+    'cdsAnnotationDefinitions',
     'ddicElementInfo',
     'fdmPage',
     'fdmPages',

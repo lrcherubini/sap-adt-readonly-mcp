@@ -1226,6 +1226,9 @@ one object: the members moved, and the rest still served by the library. Moved s
   annotations of each element (`annotationKey.n` / `annotationValue.n`), and the library's
   matcher never filled them, so `annotations` stays empty, as it always was. Reading them is a
   change of the answer, not of the transport, and is left for its own decision.
+- `annotationDefinitions` (2026-11-11): the named route `cdsAnnotationDefinitions`, the DDLA text
+  of its one CDATA section, line ends read as the XML rule says (the reply comes with CR LF, and
+  the library's parser normalised them too): the same 182 KB of text, checked identical.
 
 ### Self-contained: every source is read from the system -- 2026-11-08
 

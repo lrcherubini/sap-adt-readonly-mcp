@@ -70,7 +70,7 @@ test('the mixed api: own members from here, every other allowlisted one from the
   assert.throws(() => api.lock, ReadOnlyViolation);
   assert.throws(() => api.httpClient, ReadOnlyViolation);
   assert.deepEqual(Object.keys(mixedApi(library, {})).sort(), allowedMethods());
-  assert.deepEqual([...OWN_READS], ['getObjectSource', 'objectStructure', 'searchObject', 'objectStructureElements', 'getDataElementProperties', 'getDomainProperties', 'ddicElement']);
+  assert.deepEqual([...OWN_READS], ['getObjectSource', 'objectStructure', 'searchObject', 'objectStructureElements', 'getDataElementProperties', 'getDomainProperties', 'ddicElement', 'annotationDefinitions']);
 });
 
 test('searchObject asks the quick search with the major type, as the library did, and keeps every hit field', async () => {
@@ -194,4 +194,16 @@ test('ddicElement: the element tree by entity name, typed as the library typed i
   assert.equal(assoc.children[0].properties.elementProps.ddicDataElement, undefined);
   await assert.rejects(() => ownReads(raw).ddicElement(['A', 'B']), (e) => e.name === 'RouteViolation');
   await assert.rejects(() => ownReads(raw).ddicElement('A B'), (e) => e.name === 'RouteViolation');
+});
+
+test('annotationDefinitions: the DDLA text of the one CDATA, line ends read as the XML rule says', async () => {
+  const ddla = '\r\n@Scope: [#ANNOTATION]\r\nannotation DemoAnnotation {\r\n  hidden : Boolean default true;\r\n};\r\n';
+  const body = `<?xml version="1.0" encoding="utf-8"?> <cds:annotation xmlns:cds="http://www.sap.com/ddic/cds"> <cds:definitions> <![CDATA[${ddla}]]> </cds:definitions> </cds:annotation>`;
+  const raw = fakeRaw(() => ({ status: 200, body, headers: {} }));
+  const text = await ownReads(raw).annotationDefinitions();
+  assert.equal(raw.calls[0].url, '/sap/bc/adt/ddic/cds/annotation/definitions');
+  assert.match(raw.calls[0].headers.Accept, /annotation\.definitions\.v1\+xml, .*definitions\.v2\+xml/);
+  assert.equal(text, ` ${ddla.replace(/\r\n/g, '\n')} `);
+  const other = fakeRaw(() => ({ status: 200, body: '<other/>', headers: {} }));
+  assert.equal(await ownReads(other).annotationDefinitions(), undefined, 'another document gives no DDLA, as the library gave none');
 });

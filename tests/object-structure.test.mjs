@@ -66,6 +66,7 @@ test('the XML reader: entities, CDATA, comments; a DOCTYPE, a mismatch or two ro
   assert.equal(el.children[0].name, 'b');
   assert.equal(el.text, 't<<raw>AB');
   assert.equal(decode('&unknown;'), '&unknown;');
+  assert.equal(parseXml('<a>x\r\ny\rz</a>').text, 'x\ny\nz', 'CR LF and a lone CR are read as LF');
   for (const bad of ['<!DOCTYPE a [<!ENTITY e "x">]><a/>', '<a><b></a>', '<a/><b/>', '<a>', '<a', '<!-- x']) {
     assert.throws(() => parseXml(bad), XmlError, bad);
   }
