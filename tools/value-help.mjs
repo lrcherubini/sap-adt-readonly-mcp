@@ -288,7 +288,8 @@ export const MAX_CANDIDATES = 20;
 function fieldIncomplete(f) {
   const out = [];
   const at = `fields.${f.field}`;
-  if (f.degraded) out.push({ list: at, code: 'NOT_READ', reason: String(f.degraded).slice(0, 200) });
+  // A failed step of the DDIC chain; a field without a data element is an answer, not a gap.
+  if (f.degraded && !f.noDataElement) out.push({ list: at, code: 'NOT_READ', reason: String(f.degraded).slice(0, 200) });
   if (f.candidatesTotal > (f.candidates?.length ?? 0)) out.push({ list: `${at}.candidates`, code: 'CAP_REACHED', returned: f.candidates?.length ?? 0, total: f.candidatesTotal, narrowBy: ['maxCandidates'] });
   const byBudget = (f.candidates ?? []).filter((c) => c.unverifiedBy === 'budget').length;
   const byRead = (f.candidates ?? []).filter((c) => c.unverifiedBy === 'read').length;
@@ -350,6 +351,7 @@ async function analyseField(ctx, field) {
   // A step of the DDIC chain that failed is carried into the answer. Losing it here
   // would turn "I could not resolve this field" into "this field needs no value help".
   if (field.reason) out.degraded = field.reason;
+  if (field.noDataElement) out.noDataElement = true;
 
   // Already bound? The entity's own source (read from the system) says, and proposing a
   // duplicate would be noise at best and a conflicting second definition at worst.

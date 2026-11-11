@@ -994,3 +994,10 @@ test('exposure checked on part of the services is inconclusive: no missing entit
   assert.deepEqual(part.missing, [], 'never a SRVD_EXPOSURE_MISSING on a partial read');
   assert.deepEqual(part.notInServicesRead.map((m) => m.entity), ['I_PlantStdVH']);
 });
+
+test('a field without a data element is an answer, not a gap: it adds no incomplete entry', async () => {
+  const api = fakeApi({ tree: { ZC_TEST: [{ name: 'X1', type: 'STOB/DOF', properties: { elementProps: {} } }] } });
+  const r = await analyseValueHelp(api, sources, { entity: 'ZC_Test', validate: false, exposure: false });
+  assert.equal(fieldOf(r, 'X1').noDataElement, true);
+  assert.equal(r.incomplete.some((i) => i.list === 'fields.X1'), false);
+});
