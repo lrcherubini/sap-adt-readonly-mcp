@@ -41,23 +41,11 @@ Each needs a measurement on the system and a dated decision before it is built.
   each, the request body from the log).
 - **Quickfix proposals, never applied.** Measured 2026-11-10 (`adt-api-reference.md`, *Backlog
   reads*): the body is a constant empty element, the object, position and marker go in the query,
-  and the server evaluates its stored source. Build: the fifth POST, its dated decision, a tool
-  or a mode that lists proposals and never follows their apply URI.
-- **Package boundary violations.** A customer object that uses an object of another customer
-  package outside that package's declared interface (`PINF`): the dependency side of Clean Core,
-  next to what `adt_clean_core_scan` says about consumed SAP objects. Measured 2026-11-10: the
-  package document names its interfaces, but only by their SAP GUI URI, so their members were
-  not read. The Relation Explorer's network (above) gives the package path of every object an
-  object uses, so a use that crosses packages is visible; whether it goes through the other
-  package's interface still needs the interface's members. Measured since: the package document
-  lists the use accesses a package declares (interface, owning package, severity) and whether it
-  is encapsulated; `checkuseaccess` is a validation, not a read; the interface's members are not
-  reachable from ADT (the IDE opens the interface in SAP GUI). What is buildable: a use that
-  crosses into another package, with whether the user package declares a use access to an
-  interface of that package, and never "violation" (the members decide). The package check run
-  (the package URI, no `reporters`) gave no message for a package built to violate, so it cannot
-  stand in for the members: the measured system has the package check switched off
-  (`PAKPARAM` `GLOBAL_SWITCH` = `OFF`), as customer systems often do.
+  and the server evaluates its stored source. Build: a POST of its own, its dated decision, a
+  mode that lists proposals and never follows their apply URI. Measure first: the IDE sent
+  `start=l,c;end=l,c` with the end of the token, and a check message carries the start only.
+  Capture Ctrl+1 at a caret with no selection on a marked line, to see whether `end` equal to
+  `start` is answered.
 
 ---
 

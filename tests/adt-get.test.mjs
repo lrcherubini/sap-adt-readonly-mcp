@@ -75,6 +75,7 @@ test('the route table is closed, and these are the routes in it', () => {
     'odataMetadataV2Path',
     'odataMetadataV4',
     'odataMetadataV4Path',
+    'packageDocument',
     'quickSearch',
     'runtimeDumps',
     'serviceBinding',

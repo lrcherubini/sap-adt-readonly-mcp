@@ -1160,6 +1160,15 @@ all; an object without a release verdict is named with its reason and makes the 
 and the counts cover only what was read. Nothing is left on the server. `crossesPackage` compares
 package names only; whether a use passes a package interface is not read here.
 
+**The package boundary, the same day, as a description.** With `boundary: true` the tool reads the
+package document (`packageDocument`, one named GET route, the name held to the customer alphabet
+with an optional namespace; no `$` package, not measured) of the class's package and of at most
+ten used packages. It answers what each side declares: the class's use accesses, and the used
+package's encapsulation and published interfaces. It never answers "violation". The members of an
+interface are not in any ADT document (the IDE opens an interface in SAP GUI), and the measured
+system had the package check switched off system-wide, where the check run reports nothing either
+way. A package document not read is named, and the part is incomplete.
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:

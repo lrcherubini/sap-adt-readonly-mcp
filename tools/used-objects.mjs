@@ -15,9 +15,19 @@ import { resolveObject } from '../lib/resolve.mjs';
 import { namedGet, transportFor } from '../lib/adt-get.mjs';
 import { API_RELEASE_OBJECT, parseApiRelease } from '../lib/api-release.mjs';
 import { buildNetworkRequest, networkPost, parseNetwork, ObjectRelationsViolation } from '../lib/object-relations.mjs';
+import { parsePackageDocument } from '../lib/package-document.mjs';
 
 const TOOL = 'adt_used_objects';
 export const MAX_RELEASE_READS = 25;
+/** Package documents read for `boundary`: the class's own, plus at most this many used ones. */
+export const MAX_PACKAGE_READS = 10;
+
+/** A package name as the packageDocument route takes it, or null when its alphabet is not admitted. */
+const packageSegment = (name) => {
+  const n = String(name ?? '').trim().toLowerCase();
+  const m = /^(?:\/([a-z0-9_]{1,10})\/)?([a-z0-9_]{1,30})$/.exec(n);
+  return m ? (m[1] ? `%2f${m[1]}%2f${m[2]}` : m[2]) : null;
+};
 const asText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] });
 
 const capOf = (value) => {
@@ -30,6 +40,93 @@ const capOf = (value) => {
 };
 
 export function usedObjectsTool(cfg, session, journal) {
+  /** One package document, or {read:false, reason}. A failure is a gap, never "declares nothing". */
+  async function readPackage(name) {
+    const segment = packageSegment(name);
+    if (!segment) return { read: false, reason: `package '${name}' is outside the measured alphabet (a $ package is not measured)` };
+    let out;
+    try {
+      out = await namedGet(transportFor(session.raw), 'packageDocument', { name: segment });
+      return { read: true, ...parsePackageDocument(out.body) };
+    } catch (e) {
+      journal?.gap?.({
+        code: 'ADT_ERROR',
+        subject: `DEVC/K ${name}`,
+        detail: `HTTP ${e?.status ?? '?'} on ${e?.url ?? 'packageDocument'}`,
+        impact: 'what this package declares about its boundary is unknown -- NOT "declares nothing"',
+        fallback: 'the package in the IDE or in SE21',
+      });
+      return { read: false, reason: `${e.name ?? 'Error'}: ${e.message}`.slice(0, 200) };
+    } finally {
+      record(cfg, TOOL, `DEVC/K ${name} document`, out?.bytes ?? 0);
+    }
+  }
+
+  /**
+   * The package boundary of each use into another package: what the class's package declares
+   * (its use accesses) next to what the used package declares (encapsulated, the interfaces it
+   * publishes). Never a verdict: the interface members, which decide, are not in ADT.
+   */
+  async function boundaryOf(object, used, subject) {
+    const rule =
+      'what each side DECLARES, never a verdict: whether the used object is a member of one of ' +
+      'those interfaces is not readable over ADT (the IDE opens an interface in SAP GUI), and ' +
+      'whether the system enforces the package check (a system-wide setting) is not read here.';
+    const own = object.package ? await readPackage(object.package) : { read: false, reason: 'the search named no package for this class' };
+    const crossing = [...new Set(used.filter((u) => u.crossesPackage && u.package).map((u) => u.package))];
+    const docs = new Map();
+    const notRead = [];
+    for (const [i, p] of crossing.entries()) {
+      if (i >= MAX_PACKAGE_READS) {
+        notRead.push({ package: p, reason: `past the ceiling of ${MAX_PACKAGE_READS} package documents` });
+        continue;
+      }
+      const d = await readPackage(p);
+      docs.set(p, d);
+      if (!d.read) notRead.push({ package: p, reason: d.reason });
+    }
+    if (crossing.length > MAX_PACKAGE_READS) {
+      journal?.gap?.({
+        code: 'SCAN_AT_CAP',
+        subject: `${TOOL} ${subject} boundary`,
+        detail: `${crossing.length - MAX_PACKAGE_READS} of ${crossing.length} used package(s) not read`,
+        impact: 'the boundary of the uses into those packages is not described: unread is not allowed or refused',
+        fallback: 'the package documents in the IDE, or SE21',
+      });
+    }
+    const declared = own.read ? own.useAccesses : [];
+    const uses = used
+      .filter((u) => u.crossesPackage && u.package)
+      .map((u) => {
+        const d = docs.get(u.package);
+        const path = u.packagePath?.length ? u.packagePath : [u.package];
+        // A use access names an interface and, when the system knows it, its owning package: it
+        // relates to this use when that package is the used object's package or one of its parents,
+        // or when the interface is one the used package publishes.
+        const useAccesses = declared
+          .filter((a) => (a.package && path.includes(a.package)) || (d?.read && d.interfaces.includes(a.interface)))
+          .map((a) => a.interface);
+        return {
+          object: `${u.type} ${u.name}`,
+          package: u.package,
+          packagePath: path,
+          encapsulated: d?.read ? d.isEncapsulated : null,
+          publishedInterfaces: d?.read ? d.interfaces : null,
+          useAccessesDeclared: own.read ? useAccesses : null,
+          ...(d?.read ? {} : { notRead: d ? d.reason : 'package document not read (ceiling)' }),
+        };
+      });
+    return {
+      ownPackage: own.read
+        ? { name: own.name, encapsulated: own.isEncapsulated, useAccesses: own.useAccesses }
+        : { name: object.package, read: false, reason: own.reason },
+      uses,
+      ...(notRead.length ? { notRead } : {}),
+      complete: own.read && notRead.length === 0,
+      rule,
+    };
+  }
+
   return {
     definition: {
       name: TOOL,
@@ -44,6 +141,10 @@ export function usedObjectsTool(cfg, session, journal) {
         properties: {
           objectName: { type: 'string', description: 'The class, e.g. ZCL_DEMO' },
           objectType: { type: 'string', description: 'Optional ADT type: CLAS/OC' },
+          boundary: {
+            type: 'boolean',
+            description: 'Also the package boundary of each use into another package (package documents, at most 11)',
+          },
           maxReleaseReads: {
             type: 'integer',
             minimum: 0,
@@ -54,7 +155,7 @@ export function usedObjectsTool(cfg, session, journal) {
         required: ['objectName'],
       },
     },
-    async handler({ objectName, objectType, maxReleaseReads }, extra = {}) {
+    async handler({ objectName, objectType, maxReleaseReads, boundary }, extra = {}) {
       const cap = capOf(maxReleaseReads);
       if (!session?.raw) throw new ObjectRelationsViolation('this session has no raw client: the used objects cannot be asked.');
       const name = String(objectName ?? '').trim();
@@ -165,6 +266,7 @@ export function usedObjectsTool(cfg, session, journal) {
           fallback: 'adt_object_info on each, or the API State tab in the IDE',
         });
       }
+      const packageBoundary = boundary === true ? await boundaryOf(object, used, subject) : null;
       return asText({
         object,
         context: 'ENV (Used Objects), one level deep',
@@ -176,7 +278,8 @@ export function usedObjectsTool(cfg, session, journal) {
           notReleased: read.filter((u) => u.apiRelease.anyReleased === false).length,
           notRead,
         },
-        complete: notRead.length === 0,
+        ...(packageBoundary ? { packageBoundary } : {}),
+        complete: notRead.length === 0 && (!packageBoundary || packageBoundary.complete),
         rule:
           'every object the server lists as used is here; the release counts cover only the ' +
           'objects whose state was read. An object in notRead has NO verdict -- never released, ' +

@@ -7,6 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { buildNetworkRequest, networkPost, parseNetwork, displayNameOf, ObjectRelationsViolation, NETWORK_URL } from '../lib/object-relations.mjs';
 import { usedObjectsTool } from '../tools/used-objects.mjs';
+import { parsePackageDocument } from '../lib/package-document.mjs';
+import { buildUrl, RouteViolation } from '../lib/adt-get.mjs';
 import { resetBudget } from '../lib/audit.mjs';
 
 const fixture = (...p) => fs.readFileSync(path.join(import.meta.dirname, 'fixtures', ...p), 'utf8');
@@ -60,7 +62,10 @@ test('the reply: context, relations, every object with package and package path;
   assert.deepEqual(parseNetwork(NETWORK.replace('<oro:activeContext>', '<oro:extra/><oro:activeContext>')).drift, [{ node: 'oro:extra' }]);
 });
 
-function harness({ network = NETWORK, release = {}, failNetwork = false } = {}) {
+const OWN_PACKAGE = fixture('package-document', 'zdemo_pkg.xml');
+const BCUR = fixture('package-document', 'bcur.xml');
+
+function harness({ network = NETWORK, release = {}, failNetwork = false, packages = {} } = {}) {
   const seen = [];
   const gaps = [];
   const api = {
@@ -73,6 +78,11 @@ function harness({ network = NETWORK, release = {}, failNetwork = false } = {}) 
         if (opts.method === 'POST') {
           if (failNetwork) throw Object.assign(new Error('Service unavailable'), { err: 503 });
           return { status: 200, body: network };
+        }
+        if (url.startsWith('/sap/bc/adt/packages/')) {
+          const p = packages[url.slice('/sap/bc/adt/packages/'.length)];
+          if (!p || p instanceof Error) throw p ?? Object.assign(new Error('Not Found'), { err: 404 });
+          return { status: 200, body: p, headers: {} };
         }
         const target = decodeURIComponent(url.replace('/sap/bc/adt/apireleases/', ''));
         const r = release[target] ?? RELEASED;
@@ -133,4 +143,43 @@ test('a failed release read is no verdict; a failed POST or another context is "
   assert.ok(other.gaps.some((g) => g.code === 'USED_OBJECTS_NOT_READ'));
 
   await assert.rejects(() => harness().tool.handler({ objectName: 'ZDEMO_I_VIEW', objectType: 'DDLS/DF' }), /adt_clean_core_scan/);
+});
+
+test('the package document: encapsulation, the use accesses declared, the interfaces published', () => {
+  const own = parsePackageDocument(OWN_PACKAGE);
+  assert.equal(own.isEncapsulated, false);
+  assert.deepEqual(own.useAccesses, [
+    { interface: 'BCUR_API', package: null, severity: 'none' },
+    { interface: '_ABA_DEFAULT', package: 'ABA', severity: 'none' },
+  ]);
+  assert.deepEqual(own.interfaces, ['ZDEMO_PKI']);
+  assert.deepEqual(parsePackageDocument(BCUR).interfaces, ['BCUR_API']);
+  assert.equal(buildUrl('packageDocument', { name: 'zdemo_pkg' }), '/sap/bc/adt/packages/zdemo_pkg');
+  assert.equal(buildUrl('packageDocument', { name: '%2fdemo%2fpkg' }), '/sap/bc/adt/packages/%2fdemo%2fpkg');
+  for (const name of ['$tmp', 'zdemo/../x', 'ZDEMO_PKG', 'zdemo_pkg?x=1']) {
+    assert.throws(() => buildUrl('packageDocument', { name }), RouteViolation, name);
+  }
+});
+
+test('boundary: true describes each use into another package by what both sides declare, never a verdict', async () => {
+  const h = harness({ packages: { zdemo_pkg: OWN_PACKAGE, bcur: BCUR } });
+  const out = json(await h.tool.handler({ objectName: 'ZCL_DEMO_RATE_SERVICE', boundary: true }));
+  const b = out.packageBoundary;
+  assert.equal(b.ownPackage.name, 'ZDEMO_PKG');
+  assert.deepEqual(b.uses.map((u) => u.object), ['FUGR/FF BAPI_EXCHANGERATE_CREATE', 'INTF/OI IF_OO_ADT_CLASSRUN', 'TABL/DS BAPI1093_0']);
+  const fm = b.uses[0];
+  assert.equal(fm.encapsulated, true);
+  assert.deepEqual(fm.publishedInterfaces, ['BCUR_API']);
+  assert.deepEqual(fm.useAccessesDeclared, ['BCUR_API', '_ABA_DEFAULT'], 'by published interface, and by an owning package on the path');
+  const intf = b.uses[1];
+  assert.equal(intf.encapsulated, null);
+  assert.match(intf.notRead, /Not Found|404/);
+  assert.deepEqual(b.notRead.map((n) => n.package), ['SOO_ADT']);
+  assert.equal(b.complete, false);
+  assert.equal(out.complete, false);
+  assert.match(b.rule, /never a verdict/);
+  assert.doesNotMatch(JSON.stringify(out), /violat/i);
+  assert.equal(h.seen.filter((x) => x.url.startsWith('/sap/bc/adt/packages/')).length, 3, 'own package plus the two used ones');
+  const plain = json(await harness().tool.handler({ objectName: 'ZCL_DEMO_RATE_SERVICE' }));
+  assert.equal(plain.packageBoundary, undefined, 'nothing is read without boundary: true');
 });
