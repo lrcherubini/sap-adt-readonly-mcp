@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ownReads, mixedApi, splitSourceUri, OWN_READS } from '../lib/adt-reads.mjs';
+import { ownReads, splitSourceUri, OWN_READS } from '../lib/adt-reads.mjs';
 import { readOnly, allowedMethods, ReadOnlyViolation } from '../lib/guard.mjs';
 
 function fakeRaw(answer = () => ({ status: 200, body: 'REPORT zdemo.', headers: { 'content-type': 'text/plain' } })) {
@@ -60,17 +60,16 @@ test('a refused read keeps its status for the callers and the dump lookup', asyn
   assert.equal(e.status, 404);
 });
 
-test('the mixed api: own members from here, every other allowlisted one from the library, the guard on top', async () => {
-  const library = { objectStructure: function () { return this === library ? 'library' : 'unbound'; }, getObjectSource: () => 'library source' };
-  Object.defineProperty(library, 'username', { get: () => 'DEVUSER1' });
-  const api = readOnly(mixedApi(library, { getObjectSource: async () => 'own source' }));
-  assert.equal(await api.getObjectSource('/x'), 'own source', 'a migrated member never reaches the library');
-  assert.equal(api.objectStructure(), 'library', 'a library member stays bound to the library');
-  assert.equal(api.username, 'DEVUSER1');
-  assert.throws(() => api.lock, ReadOnlyViolation);
-  assert.throws(() => api.httpClient, ReadOnlyViolation);
-  assert.deepEqual(Object.keys(mixedApi(library, {})).sort(), allowedMethods());
-  assert.deepEqual([...OWN_READS], ['getObjectSource', 'objectStructure', 'searchObject', 'objectStructureElements', 'getDataElementProperties', 'getDomainProperties', 'ddicElement', 'annotationDefinitions', 'objectEnhancements', 'nodeContents', 'findObjectPath', 'usageReferences', 'usageReferenceSnippets']);
+test('the guard wraps exactly these reads: every one allowlisted, nothing else reachable', async () => {
+  const reads = ownReads(fakeRaw());
+  assert.deepEqual(Object.keys(reads).sort(), [...OWN_READS].sort());
+  assert.deepEqual([...OWN_READS].sort(), allowedMethods(), 'the allowlist names the reads, and only them');
+  const api = readOnly(reads);
+  assert.equal(await api.getObjectSource('/sap/bc/adt/programs/programs/zdemo/source/main'), 'REPORT zdemo.');
+  for (const m of ['lock', 'httpClient', 'setObjectSource', 'username', 'baseUrl']) assert.throws(() => api[m], ReadOnlyViolation, m);
+  assert.throws(() => {
+    api.getObjectSource = () => 'x';
+  }, ReadOnlyViolation);
 });
 
 test('searchObject asks the quick search with the major type, as the library did, and keeps every hit field', async () => {

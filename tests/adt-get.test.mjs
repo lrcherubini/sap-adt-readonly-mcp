@@ -6,6 +6,7 @@
 // `adt_http(method, path, body)` would have allowed and this module refuses before a
 // socket is opened.
 
+import { httpError } from '../lib/adt-http.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -431,28 +432,24 @@ test('hidden-with-a-UI-role is filed as a finding even though nothing conflicts'
   assert.equal(journalLines.some((l) => l.stream === 'gaps'), false);
 });
 
-// --- the status the ADT client hides ---
-// MEASURED 2026-09-09 on the development system and reproduced offline here: the real AdtHTTP does not
-// return a 4xx response, it THROWS. Everything this module knew about failure lived in a
-// branch that read `res.status`, so against the real system the journal recorded
-// `HTTP ?` on every ADT error. These two tests are the regression, and the first one
-// builds the exception with the LIBRARY'S OWN class rather than a hand-rolled stub --
-// a stub would keep passing on the day the library moves the field.
+// --- the status a thrown client error carries ---
+// MEASURED 2026-09-09 on the development system: the client THROWS on a 4xx instead of returning
+// it, so everything this module knew about failure has to come from the thrown error -- an early
+// version read only `res.status` and journaled `HTTP ?` on every ADT error. The error is built
+// here with the client's OWN constructor (lib/adt-http.mjs, httpError, over an ADT exception
+// document), so the test fails the day the client moves a field.
 
-test("a thrown ADT error still yields the status: the library carries it in `err`", async () => {
-  const { AdtErrorException } = await import('abap-adt-api');
-  const thrown = new AdtErrorException(
+test("a thrown ADT error still yields the status, the exception type and the localised message", async () => {
+  const thrown = httpError(
     406,
-    { 'com.sap.adt.communicationFramework.subType': 'con_not_acceptable' },
-    'ExceptionResourceNotAcceptable',
-    'Resource does not support the requested content type',
-    undefined,
-    'com.sap.adt',
-    'The resource does not support the requested content type'
+    '<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework">' +
+      '<namespace id="com.sap.adt"/><type id="ExceptionResourceNotAcceptable"/>' +
+      '<message lang="EN">Resource does not support the requested content type</message>' +
+      '<localizedMessage lang="EN">The resource does not support the requested content type</localizedMessage></exc:exception>',
+    { 'content-type': 'application/xml' },
+    '/sap/bc/adt/cts/transportrequests/DEVK900107'
   );
-  // The shape the old code looked for, absent on this path -- which is the whole defect.
-  assert.equal(thrown.status, undefined);
-  assert.equal(thrown.response, undefined);
+  assert.equal(thrown.err, 406);
 
   const transport = async () => {
     throw thrown;

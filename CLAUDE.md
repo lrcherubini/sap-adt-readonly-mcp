@@ -70,9 +70,10 @@ Each cycle:
 
 Each one has a test that fails the build. Fix the cause, never the test.
 
-- **Read-only by allowlist.** Every ADT call goes through `lib/guard.mjs` (an allowlist of client
-  members) and every raw GET through the closed route table in `lib/adt-get.mjs`. Adding a member
-  or a route needs three things: a measured shape in `docs/adt-api-reference.md`, a dated
+- **Read-only by allowlist.** Every read of the tools goes through `lib/guard.mjs` (an allowlist
+  of the reads in `lib/adt-reads.mjs`), every GET through the closed route table in
+  `lib/adt-get.mjs`, every POST through a module with a fixed path. Adding a read or a route
+  needs three things: a measured shape in `docs/adt-api-reference.md`, a dated
   decision in `docs/security.md`, and a test. Tests: `guard`, `adt-get`.
 - **Public repository: no landscape data anywhere.** That covers code, docs, fixtures and commit
   messages: no host, client, SID, user, transport number, customer object name or local path.

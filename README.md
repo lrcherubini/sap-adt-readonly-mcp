@@ -58,14 +58,14 @@ cannot do in [Limitations](#limitations).
 
 ## Safety model
 
-1. **Read-only by absence of capability.** Every ADT call passes through a proxy
-   (`lib/guard.mjs`) built on an **allowlist**: of the 161 members `ADTClient` declares in
-   its 8.4.3 `.d.ts`, **22 are reachable** and the other 139 throw before a request is
-   issued — each addition justified in [`docs/security.md`](docs/security.md). Writing through
-   ADT requires locking first, so `lock` being absent is the effective brake. An allowlist
-   also fails closed — a method a future library release adds is unreachable until someone
-   adds it on purpose. Raw GETs go only through a closed table of named routes
-   (`lib/adt-get.mjs`). Covered by `npm run test:guard`, which runs offline.
+1. **Read-only by absence of capability.** The tools reach the system through a proxy
+   (`lib/guard.mjs`) built on an **allowlist** of the 13 reads of `lib/adt-reads.mjs`; anything
+   else throws before a request is issued — each read justified in
+   [`docs/security.md`](docs/security.md). Every GET goes through a closed table of named
+   routes (`lib/adt-get.mjs`), every POST through a module with a fixed path and a body built
+   from validated values, and no generic HTTP call exists. There is no client library between
+   this server and the system: the logon, the cookie and the CSRF token are `lib/adt-http.mjs`,
+   on `node:https`. Covered by `npm run test:guard`, which runs offline.
 2. **The session is stateless.** A stateful ADT session is what holds locks and enqueues;
    switching it is refused at runtime.
 3. **The SAP password is never stored.** It is typed once per server start and lives only in
@@ -557,7 +557,7 @@ tag, `v0.1.0`, on the last commit that belongs to that version.
 | `lib/api-release.mjs` | the API release state of one object, per contract, and its parser |
 | `lib/system-check.mjs` | the system confirmed before the password prompt: one GET without credentials, the SID and client its 401 names |
 | `tools/` | the 19 MCP tools |
-| `lib/` | the HTTP client and the logon (`adt-http.mjs`), the guard (`guard.mjs`), the named GET routes (`adt-get.mjs`), package reads (`package-sources.mjs`), the session, the store and its validation (`store.mjs`, `environment.mjs`), the catalogue and its sync, parsers and the journal |
+| `lib/` | the HTTP client and the logon (`adt-http.mjs`), the reads behind the guard (`adt-reads.mjs`, `repository-posts.mjs`, over the dependency-free `xml.mjs`), the guard (`guard.mjs`), the named GET routes (`adt-get.mjs`), package reads (`package-sources.mjs`), the session, the store and its validation (`store.mjs`, `environment.mjs`), the catalogue and its sync, parsers and the journal |
 | `scripts/` | the npm scripts above, each with its usage in its header comment |
 | `data/defaults/` | the SAP-standard half of every fence: customizing tables, ATC variant `DEFAULT`, launchpad OData roots |
 | `docs/` | `security.md` (every decision, dated), `adt-api-reference.md` (measured endpoint shapes), `phase0-report.md` (checking a system with the probe), `backlog.md` (open decisions and measurements) |
@@ -569,8 +569,8 @@ tag, `v0.1.0`, on the last commit that belongs to that version.
 
 ## License
 
-[MIT](LICENSE). `abap-adt-api` (MIT) and `@modelcontextprotocol/sdk` are pinned to exact versions
-and installed with `--ignore-scripts`.
+[MIT](LICENSE). The one runtime dependency, `@modelcontextprotocol/sdk`, is pinned to an exact
+version and installed with `--ignore-scripts`.
 
 **Third-party data.** The Clean Core catalogue that `npm run sync:catalog` downloads is SAP's
 Cloudification Repository, [`SAP/abap-atc-cr-cv-s4hc`](https://github.com/SAP/abap-atc-cr-cv-s4hc),

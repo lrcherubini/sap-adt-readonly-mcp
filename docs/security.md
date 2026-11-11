@@ -51,14 +51,15 @@ one, never wrong. Pinned by `tests/system-check.test.mjs`.
 
 Not by reviewing each call site — by removing the capability.
 
-`lib/guard.mjs` wraps the ADT client in a `Proxy` driven by an **allowlist**. Of the 161
-members `ADTClient` declares in its 8.4.3 `.d.ts`, **20 are reachable**; every other access throws
-`ReadOnlyViolation` **before a request is issued**.
+`lib/guard.mjs` wraps the tools' reads in a `Proxy` driven by an **allowlist**: the 13 reads of
+`lib/adt-reads.mjs`; every other access throws `ReadOnlyViolation` **before a request is
+issued**. Until 2026-11-11 it wrapped abap-adt-api's `ADTClient` (161 members in its 8.4.3
+`.d.ts`, 22 then 20 reachable); the reads replaced it member by member (see *Removing
+`abap-adt-api`* below), and the reasons each read was admitted, recorded below, are unchanged.
 
-Five of those 20 read DDIC metadata or the enhancements of an object, and each was added on
-the strength of a measurement, not a preference. Two more, `ddicRepositoryAccess` and
-`adtDiscovery`, were admitted the same way and left on 2026-11-10: no tool called them (see
-*Removing `abap-adt-api`* below).
+Five of those reads concern DDIC metadata or the enhancements of an object, and each was added
+on the strength of a measurement, not a preference. Two more, `ddicRepositoryAccess` and
+`adtDiscovery`, were admitted the same way and left on 2026-11-10: no tool called them.
 
 `ddicElement`, `annotationDefinitions` and `ddicRepositoryAccess` (since removed) came first. In a CDS
 projection a field inherits its type without restating it (`key Plant,` and nothing
@@ -1256,6 +1257,13 @@ there, a brand that proves it, and the raw client only.
   object carries an identifier, not a URI: `adt_where_used` no longer maps a `uri` that never
   existed.
 
+**Closed -- 2026-11-11.** With the last member moved, the library left `package.json`, and the
+temporary bridge that let it ride on the own client left with it. The guard wraps the reads of
+`lib/adt-reads.mjs`, 13 of them: the library's introspection members (`baseUrl`, `client`,
+`language`, `username`, `loggedin`, `isStateful`, `sessionID`) were never read by a tool and
+were not rewritten. The denied list stays as it was: it names the write paths a client library
+offers, so that none could come back unnoticed.
+
 ### Self-contained: every source is read from the system -- 2026-11-08
 
 The repository owner asked for a server with **no dependency on anything else on the machine**:
@@ -1518,15 +1526,14 @@ internal CA) has two ways out, in order of preference:
 
 ## Third-party code
 
-Two runtime dependencies, both pinned to exact versions with a committed lockfile, installed
-with `npm ci --ignore-scripts` so no lifecycle script from the dependency tree executes:
+One runtime dependency, pinned to an exact version with a committed lockfile, installed with
+`npm ci --ignore-scripts` so no lifecycle script from the dependency tree executes:
 
-- `abap-adt-api` (MIT) — the parsing of the guard's members, while they are migrated (see
-  *Removing `abap-adt-api`*). It no longer holds the session: since 2026-11-11 the logon, the
-  cookie and the CSRF token are `lib/adt-http.mjs`, and the library's requests ride on that
-  client (`lib/library-bridge.mjs`), so axios is no longer on the path. It is confined behind
-  the guard proxy: the rest of the code cannot reach a method the guard denies.
 - `@modelcontextprotocol/sdk` — MCP transport and tool registration.
+
+There is no client library between this server and the SAP system since 2026-11-11 (see
+*Removing `abap-adt-api`*): the logon, the session and every request are this repository's code
+on `node:https`.
 
 There is no CI in this repository, by decision: third-party code is not run unattended in a
 hosted runner. `npm run test:guard` is meant to

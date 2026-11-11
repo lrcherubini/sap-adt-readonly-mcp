@@ -138,10 +138,12 @@ test('allowlist is the security property, and it is small', () => {
   // REST parameters, and 22 with objectEnhancements -- the read that makes customer
   // code inside standard objects visible at all. 20 since 2026-11-10: adtDiscovery and
   // ddicRepositoryAccess, which no tool called, left as the first step of removing the library.
+  // 13 since 2026-11-11: the library left, and its introspection members (baseUrl, client,
+  // language, username, loggedin, isStateful, sessionID), which no tool read, left with it.
   // The cap is deliberately close to the real number: growing the
   // allowlist should require editing this line and saying why, not slipping under a
   // generous bound.
-  assert.equal(allowedMethods().length, 20, 'changing the allowlist size is a decision');
+  assert.equal(allowedMethods().length, 13, 'changing the allowlist size is a decision');
   assert.ok(allowedMethods().length < 25, 'it must stay small enough to audit by eye');
   assert.ok(!allowedMethods().includes('lock'));
 });
