@@ -1216,6 +1216,10 @@ one object: the members moved, and the rest still served by the library. Moved s
 - `objectStructureElements` (2026-11-11): the derived read `objectOutline` (class or interface,
   the library's query). The library answered `[]` on any failure; the read now throws, and
   `adt_object_info` already reports an outline it could not read as such.
+- `getDataElementProperties` and `getDomainProperties` (2026-11-11): the object document through
+  `objectDocument`, parsed in the library's shapes (checked on the measured data element and
+  domain). Texts of digits stay text: a fixed value `01` keeps its zero and `0` is not read as
+  empty, both of which the library's number conversion lost.
 
 ### Self-contained: every source is read from the system -- 2026-11-08
 

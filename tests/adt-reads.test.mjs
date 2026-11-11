@@ -70,7 +70,7 @@ test('the mixed api: own members from here, every other allowlisted one from the
   assert.throws(() => api.lock, ReadOnlyViolation);
   assert.throws(() => api.httpClient, ReadOnlyViolation);
   assert.deepEqual(Object.keys(mixedApi(library, {})).sort(), allowedMethods());
-  assert.deepEqual([...OWN_READS], ['getObjectSource', 'objectStructure', 'searchObject', 'objectStructureElements']);
+  assert.deepEqual([...OWN_READS], ['getObjectSource', 'objectStructure', 'searchObject', 'objectStructureElements', 'getDataElementProperties', 'getDomainProperties']);
 });
 
 test('searchObject asks the quick search with the major type, as the library did, and keeps every hit field', async () => {
@@ -98,4 +98,67 @@ test('searchObject asks the quick search with the major type, as the library did
   for (const bad of [['two words'], ['x', 'CLAS/OC', 0], ['', 'CLAS/OC'], ['x'.repeat(101)]]) {
     await assert.rejects(() => ownReads(raw).searchObject(...bad), (e) => e.name === 'RouteViolation', JSON.stringify(bad));
   }
+});
+
+test('a data element and a domain, in the library shapes; digits keep their zeros, a failure is thrown', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const doc = (n) => fs.readFileSync(path.join(import.meta.dirname, 'fixtures', 'ddic-documents', n), 'utf8');
+  const withFixValues = doc('werks.xml').replace(
+    '<doma:fixValues/>',
+    '<doma:fixValues><doma:fixValue><doma:low>01</doma:low><doma:text>First</doma:text></doma:fixValue><doma:fixValue><doma:low>0</doma:low><doma:high>9</doma:high></doma:fixValue></doma:fixValues>'
+  );
+  const bodies = { '/sap/bc/adt/ddic/dataelements/werks_d': doc('werks_d.xml'), '/sap/bc/adt/ddic/domains/werks': withFixValues };
+  const raw = fakeRaw((url) => {
+    if (!bodies[url]) throw Object.assign(new Error('HTTP 404'), { err: 404, status: 404 });
+    return { status: 200, body: bodies[url], headers: {} };
+  });
+  const reads = ownReads(raw);
+  const dtel = await reads.getDataElementProperties('/sap/bc/adt/ddic/dataelements/werks_d');
+  assert.equal(raw.calls[0].headers.Accept, '*/*');
+  assert.deepEqual(dtel.metaData, {
+    name: 'WERKS_D', description: 'Plant', language: 'EN', masterLanguage: 'DE', masterSystem: 'SAP', responsible: 'SAP',
+    packageName: 'BM', packageDescription: undefined, packageUri: '/sap/bc/adt/packages/bm',
+  });
+  assert.equal(dtel.properties.typeName, 'WERKS');
+  assert.equal(dtel.properties.dataType, 'CHAR');
+  assert.equal(dtel.properties.dataTypeLength, 4);
+  assert.equal(dtel.properties.searchHelp, 'H_T001W_C');
+  assert.equal(dtel.properties.defaultComponentName, 'PLANT');
+  assert.equal(dtel.properties.changeDocument, true);
+  assert.equal(dtel.properties.fieldLabels.headingFieldLength, 4);
+  const doma = await reads.getDomainProperties('/sap/bc/adt/ddic/domains/werks');
+  assert.deepEqual(doma.properties.typeInformation, { datatype: 'CHAR', length: 4, decimals: 0 });
+  assert.equal(doma.properties.outputInformation.conversionExit, undefined);
+  assert.equal(doma.properties.outputInformation.lowercase, false);
+  assert.equal(doma.properties.valueInformation.valueTableRef, 'T001W');
+  assert.deepEqual(doma.properties.valueInformation.fixValues, [
+    { low: '01', high: undefined, text: 'First' },
+    { low: '0', high: '9', text: undefined },
+  ]);
+  assert.equal(doma.metaData.packageName, 'BV');
+  await assert.rejects(() => reads.getDomainProperties('/sap/bc/adt/ddic/domains/nope'), (e) => e.status === 404);
+});
+
+test('a bare document answers the library defaults: empty strings, zero, undefined, never a throw', async () => {
+  const { parseDataElement, parseDomain, parseOutline } = await import('../lib/adt-reads.mjs');
+  const dtel = parseDataElement('<blue:wbobj adtcore:name="ZDEMO_DE"><dtel:dataElement/></blue:wbobj>');
+  assert.deepEqual(dtel.metaData, {
+    name: 'ZDEMO_DE', description: '', language: undefined, masterLanguage: '', masterSystem: '', responsible: undefined,
+    packageName: '', packageDescription: undefined, packageUri: undefined,
+  });
+  assert.equal(dtel.properties.typeName, '');
+  assert.equal(dtel.properties.dataTypeLength, 0);
+  assert.equal(dtel.properties.fieldLabels.shortFieldLength, undefined);
+  assert.equal(dtel.properties.searchHelp, undefined);
+  assert.equal(dtel.properties.changeDocument, false);
+  const doma = parseDomain('<doma:domain adtcore:name="ZDEMO_DO"/>');
+  assert.deepEqual(doma.properties.typeInformation, { datatype: '', length: 0, decimals: 0 });
+  assert.equal(doma.properties.outputInformation.style, undefined);
+  assert.equal(doma.properties.valueInformation, undefined);
+  const noTable = parseDomain('<doma:domain><doma:content><doma:valueInformation><doma:fixValues/></doma:valueInformation></doma:content></doma:domain>');
+  assert.deepEqual(noTable.properties.valueInformation, { valueTableRef: '', appendExists: false, fixValues: undefined });
+  assert.deepEqual(parseOutline('<other/>'), []);
+  const one = parseOutline('<abapsource:objectStructureElement><abapsource:objectStructureElement final="false" constant="x"/></abapsource:objectStructureElement>');
+  assert.deepEqual([one[0].name, one[0].type, one[0].final, one[0].constant], ['', '', false, undefined]);
 });
