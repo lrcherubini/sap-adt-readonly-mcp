@@ -1223,10 +1223,10 @@ one object: the members moved, and the rest still served by the library. Moved s
   empty, both of which the library's number conversion lost.
 - `ddicElement` (2026-11-11): the named route `ddicElementInfo`, the three flags fixed as the
   library sent them and one entity name the only argument; the tree parsed in its shape (checked
-  identical on the measured CDS view). One finding kept as it was: the reply carries the
-  annotations of each element (`annotationKey.n` / `annotationValue.n`), and the library's
-  matcher never filled them, so `annotations` stays empty, as it always was. Reading them is a
-  change of the answer, not of the transport, and is left for its own decision.
+  identical on the measured CDS view). The reply carries the annotations of each element
+  (`annotationKey.n` / `annotationValue.n`), which the library's matcher never filled; on the
+  owner's request the same day they are read (`{key, value}` per pair), and the field
+  inventory of `lib/ddic.mjs` carries them. No call is added: they come in the reply already read.
 - `annotationDefinitions` (2026-11-11): the named route `cdsAnnotationDefinitions`, the DDLA text
   of its one CDATA section, line ends read as the XML rule says (the reply comes with CR LF, and
   the library's parser normalised them too): the same 182 KB of text, checked identical.

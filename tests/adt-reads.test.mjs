@@ -180,7 +180,7 @@ test('ddicElement: the element tree by entity name, typed as the library typed i
   assert.deepEqual(raw.calls[0].headers, { Accept: 'application/vnd.sap.adt.elementinfo+xml' });
   assert.deepEqual([tree.type, tree.name], ['DDLS/STOB', 'ZDEMO_I_Rate']);
   assert.equal(tree.properties.elementProps, false, 'no DDIC type on the root: false, as the library answered');
-  assert.deepEqual(tree.properties.annotations, [], 'the library never filled them; the shape stays');
+  assert.deepEqual(tree.properties.annotations, [{ key: 'ENDUSERTEXT.LABEL', value: 'Exchange rate' }], 'the pairs the library never read');
   const [key, assoc] = tree.children;
   assert.deepEqual(key.properties.elementProps, {
     ddicIsKey: true, ddicDataElement: 'zdemo_rate_type', ddicDataType: 'char', ddicLength: 4, ddicDecimals: undefined,
@@ -251,4 +251,29 @@ test('objectEnhancements: the S/4 path first, the ECC path only after its 404, t
   await assert.rejects(() => ownReads(failing).objectEnhancements('/sap/bc/adt/programs/programs/zdemo'), (e) => e.status === 500);
   assert.equal(failing.calls.length, 1, 'only a 404 asks the other path');
   await assert.rejects(() => ownReads(raw).objectEnhancements('/sap/bc/adt/programs/programs/zdemo', '/sap/bc/adt/../x'), (e) => e.name === 'RouteViolation');
+});
+
+test('the inventory of an entity carries each field\'s annotations as the system resolved them', async () => {
+  const { inventory } = await import('../lib/ddic.mjs');
+  const { parseElementInfo } = await import('../lib/adt-reads.mjs');
+  const tree = parseElementInfo(
+    '<abapsource:elementInfo adtcore:type="DDLS/STOB" adtcore:name="ZDEMO_C_Item" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">' +
+      '<abapsource:elementInfo adtcore:type="STOB/DOF" adtcore:name="Quantity"><abapsource:properties>' +
+      '<abapsource:entry abapsource:key="ddicDataType">quan</abapsource:entry>' +
+      '<abapsource:entry abapsource:key="annotationKey.1">ENDUSERTEXT.LABEL</abapsource:entry><abapsource:entry abapsource:key="annotationValue.1">Quantity</abapsource:entry>' +
+      '<abapsource:entry abapsource:key="annotationKey.0">SEMANTICS.QUANTITY.UNITOFMEASURE</abapsource:entry><abapsource:entry abapsource:key="annotationValue.0">QuantityUnit</abapsource:entry>' +
+      '<abapsource:entry abapsource:key="annotationKey.2">OBJECTMODEL.MANDATORY</abapsource:entry>' +
+      '</abapsource:properties></abapsource:elementInfo></abapsource:elementInfo>'
+  );
+  assert.deepEqual(tree.children[0].properties.annotations, [
+    { key: 'SEMANTICS.QUANTITY.UNITOFMEASURE', value: 'QuantityUnit' },
+    { key: 'ENDUSERTEXT.LABEL', value: 'Quantity' },
+    { key: 'OBJECTMODEL.MANDATORY', value: '' },
+  ], 'in n order, a key without its value kept with an empty value');
+  const inv = await inventory({ ddicElement: async () => tree }, 'ZDEMO_C_Item');
+  assert.deepEqual(inv.fields[0].annotations, {
+    'SEMANTICS.QUANTITY.UNITOFMEASURE': 'QuantityUnit',
+    'ENDUSERTEXT.LABEL': 'Quantity',
+    'OBJECTMODEL.MANDATORY': '',
+  });
 });

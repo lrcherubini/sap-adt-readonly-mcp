@@ -104,9 +104,12 @@ DDLS/STOB I_PlantStdVH
 - `elementProps` is `false` on nodes that are not fields (root, package, secondary
   object) — filter on its presence, not on `type`.
 - `ddicDataElement` comes back **lower case**.
-- **`annotations` is empty** on every node, at every path shape, with the flags the client
-  sends. Annotations are not available from this endpoint as called: parse them from
-  source, or use the annotation-chain collection above once it is reachable.
+- **The annotations are in the reply** (corrected 2026-11-11): each node's `abapsource:properties`
+  carries `annotationKey.<n>` / `annotationValue.<n>` pairs, the key in upper case
+  (`ENDUSERTEXT.LABEL`), the value as the system resolves it -- including what the field
+  inherits from its data element (`OBJECTMODEL.UPPERCASE`, the labels) and from the view it
+  projects. The note that read "`annotations` is empty on every node" described abap-adt-api's
+  parser, whose matcher never filled them, not the endpoint.
 - **No domain.** That is what the next two calls are for.
 
 #### On a TABLE the answer is FLAT and includes the appends — MEASURED 2026-09-22
