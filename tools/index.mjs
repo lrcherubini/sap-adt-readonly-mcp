@@ -2,7 +2,7 @@
 // the ADT REST API or the SAP-standard launchpad OData services (/UI2); nothing here
 // can change the system, and nothing reads a local checkout: every source comes from the system.
 
-import { ADTClient } from 'abap-adt-api';
+import { mainInclude, classIncludes } from '../lib/object-structure.mjs';
 import { record, budgetLeft } from '../lib/audit.mjs';
 import { enhancedObjectOf, parseEnhoXhb } from '../lib/enhancement-target.mjs';
 import { resolveObject, parseObjectReferences, FACET_ONLY_TYPES } from '../lib/resolve.mjs';
@@ -481,13 +481,13 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
     const structure = resolved.structure ?? (await api.objectStructure(hit['adtcore:uri']));
     let sourceUrl;
     if (include && include !== 'main' && structure.objectUrl?.includes('/oo/classes/')) {
-      const includes = ADTClient.classIncludes(structure);
+      const includes = classIncludes(structure);
       sourceUrl = includes.get(include);
       if (!sourceUrl) {
         throw new Error(`Include '${include}' not available for ${objectName}.`);
       }
     } else {
-      sourceUrl = ADTClient.mainInclude(structure);
+      sourceUrl = mainInclude(structure);
     }
     if (method) return await readMethod({ hit, foundBy, warning, method, version });
     if (version || compareTo) {

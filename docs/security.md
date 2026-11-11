@@ -1203,6 +1203,11 @@ one object: the members moved, and the rest still served by the library. Moved s
 
 - `getObjectSource` (2026-11-11): the derived read `objectSource`, a source URI only
   (`…/source/main` or a class include), with the library's `Accept: */*`.
+- `objectStructure` (2026-11-11): the derived read `objectDocument`, the object URI itself, parsed
+  by `lib/object-structure.mjs` over `lib/xml.mjs` (no dependency; a DOCTYPE is refused, so no
+  entity is ever declared). `mainInclude` and `classIncludes` moved with it. Checked against the
+  library's own parser on the measured class, program and CDS documents: identical, except that
+  an integer too large for a number (an etag) stays an exact string.
 
 ### Self-contained: every source is read from the system -- 2026-11-08
 
