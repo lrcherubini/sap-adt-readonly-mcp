@@ -1248,6 +1248,13 @@ there, a brand that proves it, and the raw client only.
 - `findObjectPath` (2026-11-11): `POST /sap/bc/adt/repository/nodepath`, no body, one parameter:
   an ADT object URI (no query, no fragment, no dot-segment), percent-encoded. The steps root first,
   each with its attributes, checked identical on the measured reply.
+- `usageReferences` and `usageReferenceSnippets` (2026-11-11):
+  `POST …/informationsystem/usageReferences?uri=<object URI>` with the library's constant body,
+  then `POST …/informationsystem/usageSnippets` whose body carries only the object identifiers the
+  first reply handed out, escaped (at most 500). Rows and snippets parsed in the library's shapes,
+  and the two bodies byte for byte the library's, checked on the measured replies. The snippet
+  object carries an identifier, not a URI: `adt_where_used` no longer maps a `uri` that never
+  existed.
 
 ### Self-contained: every source is read from the system -- 2026-11-08
 

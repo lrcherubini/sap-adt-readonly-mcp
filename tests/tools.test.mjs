@@ -839,7 +839,8 @@ test('adt_where_used maps the rows and asks for snippets only when told to', asy
   const api2 = fakeApi({
     usageReferences: () => refs,
     usageReferenceSnippets: () => [
-      { uri: '/uri/1', snippets: [{ uri: '/uri/1#l=3', content: 'from ZI_TEST' }] },
+      // The measured shape: the snippet object carries its identifier, not a URI.
+      { objectIdentifier: 'ABAPFullName;ZI_TEST', snippets: [{ uri: '/uri/1#l=3', content: 'from ZI_TEST' }] },
     ],
   });
   const out2 = jsonOf(
@@ -849,7 +850,7 @@ test('adt_where_used maps the rows and asks for snippets only when told to', asy
     })
   );
   assert.deepEqual(out2.snippets, [
-    { uri: '/uri/1', at: '/uri/1#l=3', content: 'from ZI_TEST' },
+    { at: '/uri/1#l=3', content: 'from ZI_TEST' },
   ]);
 });
 

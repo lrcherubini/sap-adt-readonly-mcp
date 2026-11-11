@@ -1231,8 +1231,9 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         if (snippets && refs.length) {
           const fetched = await api.usageReferenceSnippets(refs);
           code = fetched.flatMap((s) =>
+            // `at` is the position of the use (uri, start, end, and the component's type and
+            // name); the snippet object itself carries no URI, so none is invented here.
             (s.snippets ?? []).map((x) => ({
-              uri: s.uri,
               at: x.uri,
               content: x.content,
             }))

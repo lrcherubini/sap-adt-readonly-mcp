@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?><usageReferences:usageSnippetResult xmlns:usageReferences="http://www.sap.com/adt/ris/usageReferences"><usageReferences:codeSnippetObjects><usageReferences:codeSnippetObject><objectIdentifier>ABAPFullName;ZBP_DEMO_I_RATE============CP;ZBP_DEMO_I_RATE============CCIMP;\TY:ZCL_DEMO;2</objectIdentifier><usageReferences:codeSnippets><usageReferences:codeSnippet uri="/sap/bc/adt/oo/classes/zbp_demo_i_rate/includes/implementations#start=18,20;end=18,23" matches="20-23,accessUnknown,gradeDirect;20-23,accessUnknown,gradeComponent;24-37,accessUnknown,gradeDirect"><content>    DATA(lo_test) = NEW zcl_demo( ).</content><description>Several kinds of use
+
+    DATA(lo_test) = NEW zcl_demo( ).</description></usageReferences:codeSnippet></usageReferences:codeSnippets></usageReferences:codeSnippetObject><usageReferences:codeSnippetObject><objectIdentifier>ABAPFullName;ZCL_DEMO=================CP;ZCL_DEMO=================CM001;\TY:ZCL_DEMO;2</objectIdentifier><usageReferences:codeSnippets><usageReferences:codeSnippet uri="/sap/bc/adt/oo/classes/zcl_demo/source/main#type=CLAS%2FOM;name=ADD;start=1,9;end=1,12" matches="9-12,accessUnknown,gradeComponent"><content>  METHOD add.</content><description>Kind of use: indirect use
+
+  METHOD add.</description></usageReferences:codeSnippet></usageReferences:codeSnippets></usageReferences:codeSnippetObject><usageReferences:codeSnippetObject><objectIdentifier>ABAPFullName;ZCL_DEMO=================CP;ZCL_DEMO=================CU;\TY:ZCL_DEMO;2</objectIdentifier><usageReferences:codeSnippets><usageReferences:codeSnippet uri="/sap/bc/adt/oo/classes/zcl_demo/source/main#start=1,6;end=1,19" matches="6-19,accessUnknown,gradeDirect"><content>CLASS zcl_demo DEFINITION</content><description>Kind of use: direct use
+
+CLASS zcl_demo DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .</description></usageReferences:codeSnippet><usageReferences:codeSnippet uri="/sap/bc/adt/oo/classes/zcl_demo/source/main#start=8,14;end=8,22" matches="14-22,accessUnknown,gradeComponent"><content>    CONSTANTS gc_demo TYPE string VALUE '-'.</content><description>Kind of use: indirect use
+
+    CONSTANTS gc_demo TYPE string VALUE '-'.</description></usageReferences:codeSnippet><usageReferences:codeSnippet uri="/sap/bc/adt/oo/classes/zcl_demo/source/main#start=10,18;end=10,21" matches="18-21,accessUnknown,gradeComponent"><content>    CLASS-METHODS add</content><description>Kind of use: indirect use
+
+    CLASS-METHODS add
+      IMPORTING iv_a           TYPE i
+                iv_b           TYPE i
+      RETURNING VALUE(rv_sum)  TYPE i.</description></usageReferences:codeSnippet><usageReferences:codeSnippet uri="/sap/bc/adt/oo/classes/zcl_demo/source/main#start=14,12;end=14,23" matches="12-23,accessUnknown,gradeComponent"><content>    METHODS constructor.</content><description>Kind of use: indirect use
+
+    METHODS constructor.</description></usageReferences:codeSnippet><usageReferences:codeSnippet uri="/sap/bc/adt/oo/classes/zcl_demo/source/main#start=15,12;end=15,20" matches="12-20,accessUnknown,gradeComponent"><content>    METHODS greeting</content><description>Kind of use: indirect use
+
+    METHODS greeting
+      RETURNING VALUE(rv_text) TYPE string.</description></usageReferences:codeSnippet></usageReferences:codeSnippets></usageReferences:codeSnippetObject></usageReferences:codeSnippetObjects></usageReferences:usageSnippetResult>
