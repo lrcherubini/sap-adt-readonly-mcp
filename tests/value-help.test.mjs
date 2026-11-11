@@ -20,6 +20,8 @@ import {
 import { loadCatalog } from '../lib/catalog.mjs';
 import { resolveDataElement } from '../lib/ddic.mjs';
 import { noDefs } from '../lib/annotation-defs.mjs';
+import { contractErrors } from '../lib/completeness.mjs';
+import { checkExposure } from '../lib/srvd-check.mjs';
 import { candidateNames, conceptsFor, semanticsFromAnnotations } from '../lib/vh-candidates.mjs';
 
 const FIX = path.join(import.meta.dirname, 'fixtures');
@@ -651,7 +653,7 @@ test('32 and 33: exposure is checked against the service definitions the system 
   // exposure: false skips the lookup entirely.
   const off = withService({ ZC_DEMOITEMRATING: [FIELD('Plant', 'werks_d')] });
   const r3 = await analyseValueHelp(off, sources, { entity: 'ZC_DemoItemRating', validate: false, exposure: false });
-  assert.equal(r3.exposure, null);
+  assert.deepEqual(r3.exposure, { asked: false, reason: 'exposure: false' }, 'not asked is said, not left null');
   assert.equal(countOf(off, 'usageReferences'), 0);
 });
 
@@ -941,4 +943,54 @@ test('the DDIC type comes from the data element first, the domain only as a fall
     },
   };
   assert.equal((await resolveDataElement(silentBoth, 'meins')).ddicType, undefined);
+});
+
+// --- the completeness contract (lib/completeness.mjs) ----------------------------
+
+test('the analysis answers the contract, and two pages of fields are every field once', async () => {
+  const tree = { ZC_TEST: [FIELD('Plant', 'werks_d'), FIELD('StorageLocation', 'lgort_d'), FIELD('CompanyCode', 'bukrs')] };
+  const one = await analyseValueHelp(fakeApi({ tree }), sources, { entity: 'ZC_Test', validate: false, exposure: false, maxFields: 2 });
+  assert.deepEqual(contractErrors(one), []);
+  assert.equal(one.complete, false);
+  assert.deepEqual(one.fieldsPage.next, { fieldsOffset: 2 });
+  const two = await analyseValueHelp(fakeApi({ tree }), sources, { entity: 'ZC_Test', validate: false, exposure: false, maxFields: 2, fieldsOffset: 2 });
+  assert.deepEqual(contractErrors(two), []);
+  assert.equal(two.fieldsPage.truncated, false);
+  assert.deepEqual([...one.fields, ...two.fields].map((f) => f.field), ['Plant', 'StorageLocation', 'CompanyCode']);
+});
+
+test('a candidate whose source does not parse is unverified, never tier C', async () => {
+  const api = fakeApi({ tree: PLANT_TREE });
+  const get = api.getObjectSource;
+  api.getObjectSource = async (url) => (/i_plantstdvh/.test(url) ? ['annotate entity broken with', '  Plant;', '  Name;', '  Region;', '  Country;'].join('\n') : get(url));
+  const r = await analyseValueHelp(api, sources, { entity: 'ZC_Test', validate: false, exposure: false });
+  const c = fieldOf(r, 'Plant').candidates.find((x) => x.name === 'I_PLANTSTDVH');
+  assert.equal(c.tier, 'unverified');
+  assert.equal(c.unverifiedBy, 'parse');
+  assert.ok(r.incomplete.some((i) => i.code === 'PARSE_FAILED' && i.list === 'fields.Plant.candidates'));
+});
+
+test('a precedent skipped for the budget is BUDGET_REACHED, not "no other binding"', async () => {
+  // The calls the analysis needs without a precedent, plus one: every candidate is verified,
+  // and the four calls a precedent costs no longer fit.
+  const base = await analyseValueHelp(fakeApi({ tree: PLANT_TREE }), sources, { entity: 'ZC_Test', validate: false, exposure: false });
+  const r = await analyseValueHelp(fakeApi({ tree: PLANT_TREE }), sources, { entity: 'ZC_Test', validate: false, exposure: false, precedent: true, maxCalls: base.adtCalls + 1 });
+  const f = fieldOf(r, 'Plant');
+  assert.equal(f.status, 'recommended');
+  assert.deepEqual(f.precedent, { asked: true, read: false, reason: 'budget' });
+  assert.ok(r.incomplete.some((i) => i.list === 'fields.Plant.precedent' && i.code === 'BUDGET_REACHED'));
+  assert.equal(base.incomplete.some((i) => i.list === 'fields.Plant.precedent'), false, 'not asked is not incompleteness');
+  assert.deepEqual(contractErrors(r), []);
+});
+
+test('exposure checked on part of the services is inconclusive: no missing entity is claimed', () => {
+  const svc = { source: 'define service ZUI_DEMO { expose ZC_DemoItem; }', file: 'ZDEMO/zui_demo.srvd' };
+  const edges = [{ entity: 'I_PlantStdVH', element: 'Plant' }];
+  const all = checkExposure(edges, [svc]);
+  assert.equal(all.conclusive, true);
+  assert.equal(all.missing.length, 1);
+  const part = checkExposure(edges, [svc], { allRead: false });
+  assert.equal(part.conclusive, false);
+  assert.deepEqual(part.missing, [], 'never a SRVD_EXPOSURE_MISSING on a partial read');
+  assert.deepEqual(part.notInServicesRead.map((m) => m.entity), ['I_PlantStdVH']);
 });

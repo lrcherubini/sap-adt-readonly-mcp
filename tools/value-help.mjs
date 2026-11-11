@@ -51,6 +51,7 @@ import { fromDdla, noDefs } from '../lib/annotation-defs.mjs';
 import { edgesFromText } from '../lib/precedent.mjs';
 import { sourceUriOf } from '../lib/package-sources.mjs';
 import { checkExposure } from '../lib/srvd-check.mjs';
+import { finish } from '../lib/completeness.mjs';
 import { summarizeUsage, precedentCandidates } from '../lib/usage.mjs';
 import { emit, renderOwnVhProposal } from '../lib/emit.mjs';
 
@@ -123,9 +124,9 @@ function variantOf(entity, catalog) {
  * it (the SRVD rows of its where-used) and read from the system -- at most three. No file name,
  * no checkout: a service that lives in another package is found just the same.
  */
-async function servicesOf(ctx, entityHit) {
+async function servicesOf(ctx, entityHit, cap = DEFAULT_SERVICES) {
   const uri = entityHit?.['adtcore:uri'];
-  if (!uri) return { services: [], note: 'the entity was not resolved, so its services were not looked up' };
+  if (!uri) return { services: [], read: false, note: 'the entity was not resolved, so its services were not looked up' };
   let rows;
   try {
     rows = await ctx.api.usageReferences(uri);
@@ -134,10 +135,11 @@ async function servicesOf(ctx, entityHit) {
     ctx.spent.calls++;
     ctx.spent.failures = ctx.spent.failures ?? [];
     ctx.spent.failures.push({ call: 'usageReferences', subject: entityHit['adtcore:name'], reason: `${e.message ?? e}` });
-    return { services: [], note: 'the where-used call failed: exposure NOT checked' };
+    return { services: [], read: false, note: 'the where-used call failed: exposure NOT checked' };
   }
-  const srvd = summarizeUsage(rows, { types: ['SRVD/SRV'], cap: 3, requireProductive: false });
+  const srvd = summarizeUsage(rows, { types: ['SRVD/SRV'], cap, requireProductive: false });
   const services = [];
+  let failed = 0;
   for (const r of srvd.rows) {
     try {
       const source = await ctx.api.getObjectSource(sourceUriOf({ type: 'SRVD/SRV', name: r.name }));
@@ -147,9 +149,18 @@ async function servicesOf(ctx, entityHit) {
       ctx.spent.calls++;
       ctx.spent.failures = ctx.spent.failures ?? [];
       ctx.spent.failures.push({ call: 'getObjectSource', subject: r.name, reason: `${e.message ?? e}` });
+      failed += 1;
     }
   }
-  return { services, note: srvd.truncated ? `${srvd.total} service definitions use it; the first ${srvd.returned} were read` : null };
+  return {
+    services,
+    read: true,
+    total: srvd.total,
+    asked: srvd.rows.length,
+    failed,
+    truncated: Boolean(srvd.truncated),
+    note: srvd.truncated ? `${srvd.total} service definitions use it; the first ${srvd.returned} were read` : null,
+  };
 }
 
 /**
@@ -162,7 +173,7 @@ async function servicesOf(ctx, entityHit) {
 async function livePrecedent(ctx, entity) {
   const read = ctx.cache.get(entity);
   const uri = read?.hit?.['adtcore:uri'];
-  if (!uri) return null;
+  if (!uri) return { failed: true, reason: `${entity} was not resolved` };
   let rows;
   try {
     rows = await ctx.api.usageReferences(uri);
@@ -175,7 +186,7 @@ async function livePrecedent(ctx, entity) {
     // second means nobody looked.
     ctx.spent.failures = ctx.spent.failures ?? [];
     ctx.spent.failures.push({ call: 'usageReferences', subject: entity, reason: `${e.message ?? e}` });
-    return null;
+    return { failed: true, reason: `the where-used of ${entity} failed` };
   }
   const summary = summarizeUsage(rows, { cap: 20 });
   for (const consumer of precedentCandidates(summary, 1)) {
@@ -224,10 +235,13 @@ async function activeSearch(ctx, field, concepts) {
   for (const c of concepts.slice(0, opts.searchConcepts ?? 2)) {
     if (!budget()) break;
     const r = await searchConceptEntities(ctx.api, c.concept, sources.catalog, ctx.spent);
-    steps.push({ route: 'repository search', ...r });
+    steps.push(searchStep(r));
     if (r.ok) harvest(r.names, c.concept, `a type:ddls search for ${r.queries.join(' / ')}`, c.strength);
   }
-  if (found.length) return { found, steps };
+  // Concepts the search did not query: the cap, or the budget before it.
+  const unasked = Math.max(0, concepts.length - steps.length);
+  const notAsked = unasked ? { count: unasked, reason: budget() ? 'searchConcepts' : 'budget' } : null;
+  if (found.length) return { found, steps, notAsked };
 
   // Route 2 -- the value table, and the concept name it yields re-enters route 1 and
   // the offline forms. This is the only route that can rename the concept.
@@ -247,15 +261,54 @@ async function activeSearch(ctx, field, concepts) {
       }
       if (budget()) {
         const s = await searchConceptEntities(ctx.api, concept, sources.catalog, ctx.spent);
-        steps.push({ route: 'repository search', ...s });
+        steps.push(searchStep(s));
         if (s.ok) harvest(s.names, concept, `a type:ddls search for ${s.queries.join(' / ')}`, 7);
       }
     }
   }
-  return { found, steps };
+  return { found, steps, notAsked };
 }
 
+/**
+ * A search step as the answer shows it: a full page is `pageFull` (the search has no paging, so
+ * a released name past the page is not seen), and a failed call is `failed`, never "nothing".
+ */
+const searchStep = (r) => {
+  const { truncated, ...rest } = r;
+  return { route: 'repository search', ...rest, pageFull: Boolean(truncated) };
+};
+
 const TIER_RANK = { A: 0, B: 1, unverified: 2, C: 3 };
+export const DEFAULT_SERVICES = 3;
+export const MAX_SERVICES = 20;
+export const MAX_FIELDS = 200;
+export const MAX_CANDIDATES = 20;
+
+/** The incomplete entries of one analysed field, from what it records. */
+function fieldIncomplete(f) {
+  const out = [];
+  const at = `fields.${f.field}`;
+  if (f.degraded) out.push({ list: at, code: 'NOT_READ', reason: String(f.degraded).slice(0, 200) });
+  if (f.candidatesTotal > (f.candidates?.length ?? 0)) out.push({ list: `${at}.candidates`, code: 'CAP_REACHED', returned: f.candidates?.length ?? 0, total: f.candidatesTotal, narrowBy: ['maxCandidates'] });
+  const byBudget = (f.candidates ?? []).filter((c) => c.unverifiedBy === 'budget').length;
+  const byRead = (f.candidates ?? []).filter((c) => c.unverifiedBy === 'read').length;
+  const byParse = (f.candidates ?? []).filter((c) => c.unverifiedBy === 'parse').length;
+  if (byBudget) out.push({ list: `${at}.candidates`, code: 'BUDGET_REACHED', count: byBudget, narrowBy: ['maxCalls'] });
+  if (byRead) out.push({ list: `${at}.candidates`, code: 'NOT_READ', count: byRead });
+  if (byParse) out.push({ list: `${at}.candidates`, code: 'PARSE_FAILED', count: byParse });
+  for (const s of f.activeSearch ?? []) {
+    if (s.failed) out.push({ list: `${at}.activeSearch`, code: 'NOT_READ', reason: String(s.reason).slice(0, 200) });
+    if (s.pageFull) out.push({ list: `${at}.activeSearch`, code: 'SERVER_PAGE_FULL', reason: 'a concept search returned a full page: a released name past it is not seen' });
+  }
+  const n = f.conceptsNotSearched;
+  if (n) out.push({ list: `${at}.activeSearch`, code: n.reason === 'budget' ? 'BUDGET_REACHED' : 'CAP_REACHED', count: n.count, narrowBy: [n.reason === 'budget' ? 'maxCalls' : 'searchConcepts'] });
+  if (f.precedent?.asked && !f.precedent.read) {
+    out.push(f.precedent.reason === 'budget'
+      ? { list: `${at}.precedent`, code: 'BUDGET_REACHED', narrowBy: ['maxCalls'] }
+      : { list: `${at}.precedent`, code: 'NOT_READ', reason: f.precedent.reason });
+  }
+  return out;
+}
 
 /**
  * Candidates best first: how good a value help it is, THEN how well the concept fits,
@@ -340,15 +393,22 @@ async function analyseField(ctx, field) {
     return out;
   }
 
-  let candidates = candidateNames(concepts, sources.catalog, { max: opts.maxCandidates ?? 6 });
+  // Every name that matches, counted; the first maxCandidates are verified.
+  const keep = opts.maxCandidates ?? 6;
+  let named = candidateNames(concepts, sources.catalog, { max: 1000 });
+  out.activeSearchAsked = false;
 
   // Name matching came back empty. That is not the answer -- it is the point where the
   // system has to be asked, because the VDM may simply call the concept something else.
-  if (!candidates.length && opts.deepSearch !== false) {
+  if (!named.length && opts.deepSearch !== false) {
     const active = await activeSearch(ctx, field, concepts);
+    out.activeSearchAsked = true;
     out.activeSearch = active.steps;
-    candidates = active.found.slice(0, opts.maxCandidates ?? 6);
+    if (active.notAsked) out.conceptsNotSearched = active.notAsked;
+    named = active.found;
   }
+  out.candidatesTotal = named.length;
+  let candidates = named.slice(0, keep);
 
   if (!candidates.length) {
     out.status = 'no candidate';
@@ -402,6 +462,7 @@ async function analyseField(ctx, field) {
     }
     if (ctx.spent.calls >= (opts.maxCalls ?? 40)) {
       c.tier = 'unverified';
+      c.unverifiedBy = 'budget';
       c.reasons = ['the ADT call budget for this run was reached before this candidate'];
       continue;
     }
@@ -412,10 +473,19 @@ async function analyseField(ctx, field) {
     const read = ctx.cache.get(c.name);
     if (!read.source) {
       c.tier = 'unverified';
+      c.unverifiedBy = 'read';
       c.reasons = [`its source could not be read (${read.reason})`];
       continue;
     }
     const parsed = parseAnnotations(read.source);
+    // A source that declares elements and parses to none is not "no value-help signal" (tier
+    // C): it is a source this parser could not read, so the candidate stays unverified.
+    if (parsed.unread || !parsed.entity) {
+      c.tier = 'unverified';
+      c.unverifiedBy = 'parse';
+      c.reasons = ['its source was read and could not be parsed: no signal was looked at'];
+      continue;
+    }
     const verdict = classifyVhSignals(parsed.entity, {
       profile: /^[ZY]/i.test(c.name) ? 'z' : 'standard',
       released: true,
@@ -453,8 +523,15 @@ async function analyseField(ctx, field) {
     : 'the field itself -- the value help states no representative key, so CHECK THIS';
 
   let binding = null;
-  if (opts.precedent && ctx.spent.calls + 4 <= (opts.maxCalls ?? 40)) {
-    binding = await livePrecedent(ctx, best.name);
+  if (!opts.precedent) out.precedent = { asked: false };
+  else if (ctx.spent.calls + 4 > (opts.maxCalls ?? 40)) out.precedent = { asked: true, read: false, reason: 'budget' };
+  else {
+    const got = await livePrecedent(ctx, best.name);
+    if (got?.failed) out.precedent = { asked: true, read: false, reason: got.reason };
+    else {
+      binding = got;
+      out.precedent = { asked: true, read: true, found: Boolean(binding) };
+    }
     if (binding) out.evidence.push(`binding taken from the system's own consumers: ${binding.cite}`);
   }
   const rec = {
@@ -564,20 +641,35 @@ export async function analyseValueHelp(api, sources, params = {}) {
 
   let fields = [];
   const notes = [];
+  const incomplete = [];
+  let fieldsPage = null;
   let own = null;
   if (params.entity) {
     const inv = await inventory(api, params.entity, {
       only: params.fields ?? (params.field ? [params.field] : undefined),
       max: opts.maxFields,
+      offset: params.fieldsOffset,
     });
     fields = inv.fields;
+    fieldsPage = { total: inv.matched, offset: inv.offset, returned: inv.fields.length, limit: opts.maxFields };
+    if (!inv.allFields) incomplete.push({ list: 'fields', code: 'NOT_READ', reason: 'the element info answered no field node' });
+    if (inv.missing.length) fieldsPage.notFound = inv.missing;
+    const end = inv.offset + inv.fields.length;
+    if (end < inv.matched) {
+      fieldsPage.truncated = true;
+      fieldsPage.next = { fieldsOffset: end };
+      incomplete.push({ list: 'fields', code: 'CAP_REACHED', returned: inv.fields.length, total: inv.matched, next: { fieldsOffset: end } });
+    } else fieldsPage.truncated = false;
     spent.calls += inv.calls;
     notes.push(...inv.notes);
     notes.push(applyModelSemantics(params.entity, fields, inv.annotations));
     // The entity's own source, once: which fields are already bound, and (opt-in) the
     // semantic annotations. Read from the system, so it is the active version, not a copy.
     own = await entitySource(api, params.entity, spent);
-    if (!own.source) notes.push(`the source of ${params.entity} was NOT read (${own.reason}): fields already bound cannot be recognised`);
+    if (!own.source) {
+      notes.push(`the source of ${params.entity} was NOT read (${own.reason}): fields already bound cannot be recognised`);
+      incomplete.push({ list: 'ownSource', code: 'NOT_READ', reason: String(own.reason).slice(0, 200) });
+    }
     if (params.readAnnotations) notes.push(applySemanticAnnotations(params.entity, fields, own));
   } else if (params.dataElement || params.field) {
     const chain = params.dataElement
@@ -602,13 +694,28 @@ export async function analyseValueHelp(api, sources, params = {}) {
       .filter((r) => r.recommended || r.boundTo)
       .map((r) => ({ entity: r.recommended ?? r.boundTo, element: r.field }));
     if (edges.length && params.exposure !== false) {
-      const found = await servicesOf({ api, spent }, own?.hit);
-      exposure = { ...checkExposure(edges, found.services), ...(found.note ? { lookup: found.note } : {}) };
-    }
+      const cap = Number.isInteger(params.maxServices) ? Math.min(Math.max(params.maxServices, 1), MAX_SERVICES) : DEFAULT_SERVICES;
+      const found = await servicesOf({ api, spent }, own?.hit, cap);
+      const allRead = found.read && !found.truncated && !found.failed;
+      exposure = {
+        asked: true,
+        ...checkExposure(edges, found.services, { allRead }),
+        servicesFound: found.total ?? null,
+        servicesRead: found.services.length,
+        ...(found.note ? { lookup: found.note } : {}),
+      };
+      if (!found.read) incomplete.push({ list: 'exposure', code: 'NOT_READ', reason: found.note });
+      if (found.failed) incomplete.push({ list: 'exposure.services', code: 'NOT_READ', count: found.failed });
+      if (found.truncated) incomplete.push({ list: 'exposure.services', code: 'CAP_REACHED', returned: found.asked, total: found.total, narrowBy: ['maxServices'] });
+    } else exposure = { asked: false, reason: params.exposure === false ? 'exposure: false' : 'no field is bound or recommended' };
   }
+  for (const r of results) incomplete.push(...fieldIncomplete(r));
+  if (defs.available === false && params.validate !== false) incomplete.push({ list: 'annotationDefinitions', code: 'NOT_READ', reason: defs.note });
+  if (sources.catalog.note) incomplete.push({ list: 'catalog', code: 'NOT_READ', reason: 'the classification catalogue is partial' });
 
-  return {
+  return finish({
     entity: params.entity ?? null,
+    ...(fieldsPage ? { fieldsPage } : {}),
     fields: results,
     exposure,
     adtCalls: spent.calls,
@@ -639,7 +746,7 @@ export async function analyseValueHelp(api, sources, params = {}) {
       precedent: params.precedent ? 'the system: who else binds the recommended entity' : 'not asked (precedent: true reads who else binds the winner)',
     },
     notes,
-  };
+  }, incomplete);
 }
 
 /** The sixth tool. */
@@ -663,8 +770,10 @@ export function valueHelpTool(cfg, api, sources, journal) {
           },
           field: { type: 'string', description: 'A single field name' },
           dataElement: { type: 'string', description: 'Look up by data element instead, e.g. WERKS_D' },
-          maxCandidates: { type: 'integer', description: 'Candidates verified per field (default 6)' },
-          maxFields: { type: 'integer', description: 'Fields resolved (default 25)' },
+          maxCandidates: { type: 'integer', minimum: 1, maximum: MAX_CANDIDATES, description: `Candidates verified per field (default 6, at most ${MAX_CANDIDATES})` },
+          maxFields: { type: 'integer', minimum: 1, maximum: MAX_FIELDS, description: `Fields resolved per page (default 25, at most ${MAX_FIELDS})` },
+          fieldsOffset: { type: 'integer', minimum: 0, description: 'First field of the page: `fieldsPage.next.fieldsOffset` of the previous answer' },
+          maxServices: { type: 'integer', minimum: 1, maximum: MAX_SERVICES, description: `Service definitions read for the exposure check (default ${DEFAULT_SERVICES}, at most ${MAX_SERVICES})` },
           maxCalls: {
             type: 'integer',
             description: 'Cap on optional calls (default 40); field resolution is extra.',
@@ -730,7 +839,7 @@ export function valueHelpTool(cfg, api, sources, journal) {
             fallback: 'npm run sync:catalog',
           });
         }
-        for (const m of result.exposure?.missing ?? []) {
+        for (const m of result.exposure?.conclusive ? result.exposure.missing : []) {
           // A real defect class, proven live: the ValueList points at an entity the service
           // does not expose, and the F4 comes up empty with no error anywhere. It was already
           // in the answer; now it is in the backlog.

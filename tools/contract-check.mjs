@@ -25,6 +25,7 @@ import { record } from '../lib/audit.mjs';
 import { checkContract } from '../lib/contract.mjs';
 import { sourceUriOf } from '../lib/package-sources.mjs';
 import { namedGet, transportFor, TEMPLATES } from '../lib/adt-get.mjs';
+import { finish } from '../lib/completeness.mjs';
 import {
   parseFolderFeed,
   dataSourcesOf,
@@ -45,6 +46,8 @@ export const MAX_FOLDERS = 40;
 export const MAX_FILES = 60;
 
 const upper = (s) => String(s ?? '').toUpperCase();
+/** One part of an app not read: what (`kind`, `name`), the completeness code, and why. */
+const gap = (kind, code, reason, extra = {}) => ({ kind, code, ...extra, reason: String(reason).slice(0, 200) });
 const said = (e) => String(e?.message ?? e).slice(0, 200);
 
 function appsOf(raw) {
@@ -73,7 +76,7 @@ async function readApp(ctx, app) {
   try {
     manifest = JSON.parse((await get('ui5File', { path: `${app}/manifest.json` }, `UI5 ${app}/manifest.json`)).body);
   } catch (e) {
-    report.notRead.push(`manifest.json: ${said(e)}`);
+    report.notRead.push(gap('manifest', 'NOT_READ', said(e), { name: 'manifest.json' }));
     report.read = false;
     return report;
   }
@@ -85,13 +88,13 @@ async function readApp(ctx, app) {
     const row = { dataSource: ds.name, uri: ds.uri, version: ds.version };
     report.services.push(row);
     if (!ds.route) {
-      row.metadata = `NOT READ: ${ds.unmeasured}`;
-      report.notRead.push(`${ds.name}: ${ds.unmeasured}`);
+      row.metadata = { read: false, reason: ds.unmeasured };
+      report.notRead.push(gap('service', 'OUT_OF_SCOPE', ds.unmeasured, { name: ds.name }));
       continue;
     }
     if (TEMPLATES.get(ds.route).shapeObserved !== true) {
-      row.metadata = `NOT READ: the ${ds.route} route has not been measured on this system yet -- nothing is checked against it`;
-      report.notRead.push(`${ds.name}: ${ds.route} not measured`);
+      row.metadata = { read: false, reason: `the ${ds.route} route has not been measured on this system yet -- nothing is checked against it` };
+      report.notRead.push(gap('service', 'OUT_OF_SCOPE', `${ds.route} not measured`, { name: ds.name }));
       continue;
     }
     const key = `${ds.route}|${ds.key}`;
@@ -100,18 +103,18 @@ async function readApp(ctx, app) {
       try {
         md = parseServiceMetadata((await get(ds.route, { service: ds.key }, `$metadata ${ds.uri}`)).body);
       } catch (e) {
-        row.metadata = `NOT READ: ${said(e)}`;
-        report.notRead.push(`${ds.name} $metadata: ${said(e)}`);
+        row.metadata = { read: false, reason: said(e) };
+        report.notRead.push(gap('service', 'NOT_READ', said(e), { name: ds.name }));
         continue;
       }
       metaCache.set(key, md);
     }
     if (!md.entitySets.size && !md.operations.size) {
-      row.metadata = 'NOT READ: the reply has no entity set and no operation -- not the measured shape';
-      report.notRead.push(`${ds.name} $metadata: unrecognised shape`);
+      row.metadata = { read: false, reason: 'the reply has no entity set and no operation -- not the measured shape' };
+      report.notRead.push(gap('service', 'PARSE_FAILED', 'unrecognised $metadata shape', { name: ds.name }));
       continue;
     }
-    Object.assign(row, { service: ds.service, srvd: md.srvd, odata: md.version, entitySets: md.entitySets.size, operations: md.operations.size });
+    Object.assign(row, { metadata: { read: true }, service: ds.service, srvd: md.srvd, odata: md.version, entitySets: md.entitySets.size, operations: md.operations.size });
     services.push({ service: ds.service, dataSource: ds.name, metadata: md });
   }
 
@@ -122,7 +125,7 @@ async function readApp(ctx, app) {
   while (queue.length) {
     const folder = queue.shift();
     if (folders >= MAX_FOLDERS) {
-      report.notRead.push(`folders past ${MAX_FOLDERS} were not walked`);
+      report.notRead.push(gap('folders', 'CAP_REACHED', `folders past ${MAX_FOLDERS} were not walked`, { count: queue.length + 1 }));
       break;
     }
     folders++;
@@ -131,12 +134,12 @@ async function readApp(ctx, app) {
       entries.push(...items);
       for (const i of items) if (i.kind === 'folder' && folderWorthWalking(i.path)) queue.push(i.path);
     } catch (e) {
-      report.notRead.push(`${folder}/: ${said(e)}`);
+      report.notRead.push(gap('folder', 'NOT_READ', said(e), { name: `${folder}/` }));
     }
   }
   let files = filesWorthReading(entries);
   if (files.length > MAX_FILES) {
-    report.notRead.push(`${files.length - MAX_FILES} file(s) past ${MAX_FILES} were not read`);
+    report.notRead.push(gap('files', 'CAP_REACHED', `files past ${MAX_FILES} were not read`, { count: files.length - MAX_FILES, total: files.length }));
     files = files.slice(0, MAX_FILES);
   }
   const models = odataModelsOf(manifest);
@@ -146,12 +149,12 @@ async function readApp(ctx, app) {
       citations.push(...citationsOf(file, (await get('ui5File', { path: file }, `UI5 ${file}`)).body, models));
       report.filesRead++;
     } catch (e) {
-      report.notRead.push(`${file}: ${said(e)}`);
+      report.notRead.push(gap('file', 'NOT_READ', said(e), { name: file }));
     }
   }
   report.citations = citations.length;
   if (!services.length) {
-    report.notRead.push(`no service of this app could be read: its ${citations.length} reference(s) were NOT checked`);
+    report.notRead.push(gap('references', 'NOT_READ', 'no service of this app could be read: its references were NOT checked', { count: citations.length }));
     return report;
   }
   report.results = checkCitations(citations, services);
@@ -227,7 +230,7 @@ export async function runContractCheck(cfg, api, args = {}, journal = null, tran
       journal?.gap?.({
         code: 'UI5_APP_NOT_READ',
         subject: `UI5 ${r.app}`,
-        detail: r.notRead.slice(0, 6).join('; '),
+        detail: r.notRead.slice(0, 6).map((g) => `${g.name ?? g.kind}: ${g.reason}`).join('; '),
         impact: 'the parts named were not checked: NOT "no broken reference"',
         fallback: 'open the app in the IDE (Fiori tools / BAS) and the service in /IWFND/MAINT_SERVICE',
       });
@@ -240,10 +243,19 @@ export async function runContractCheck(cfg, api, args = {}, journal = null, tran
       'The UI5 repository cannot be searched by service, so an alias no app below cites may still be cited by an app not named'
     : 'NOT READ: name the deployed apps (apps: [<BSP name>, ...]) to check them -- no alias below is claimed unused';
 
-  return {
+  // Every part not read, per app; and the references no service could judge.
+  const incomplete = [];
+  for (const r of reports) {
+    for (const g of r.notRead) incomplete.push({ list: `apps.${r.app}.${g.kind}`, code: g.code, ...(g.count !== undefined ? { count: g.count } : {}), ...(g.total !== undefined ? { total: g.total } : {}), reason: g.reason });
+    const unattributed = r.results.filter((x) => x.status === 'unattributed').length;
+    if (unattributed) incomplete.push({ list: `apps.${r.app}.references`, code: 'NOT_READ', count: unattributed, reason: "local annotations on a namespace none of the app's services has: not checked" });
+  }
+
+  return finish({
     service,
     scope: {
       exposes: out.contract.length,
+      appsAsked: apps.length > 0,
       consumers: {
         fiori,
         cpi: 'out of scope: CPI runs in SAP BTP, another system with another credential',
@@ -287,7 +299,7 @@ export async function runContractCheck(cfg, api, args = {}, journal = null, tran
       '<alias>Parameters). A consumer -- a Fiori annotation Target, a controller read, a mapping XPath -- addresses ' +
       'these names by hand, and renaming an alias re-activates cleanly while the app breaks at runtime. ' +
       'The service definition accepts no comment, so this inventory is the only place the coupling is written down.',
-  };
+  }, incomplete);
 }
 
 export function contractCheckTool(cfg, api, journal, session = null) {

@@ -21,6 +21,7 @@ import {
 import { buildUrl, namedGet, TEMPLATES, routeAuthority, assertRouteTable, RouteViolation } from '../lib/adt-get.mjs';
 import { runContractCheck } from '../tools/contract-check.mjs';
 import { openJournal } from '../lib/journal.mjs';
+import { contractErrors } from '../lib/completeness.mjs';
 
 const FEED = (entries) =>
   '<?xml version="1.0" encoding="utf-8"?><atom:feed xml:base="/sap/bc/adt/filestore/ui5-bsp/objects/" xmlns:atom="http://www.w3.org/2005/Atom">' +
@@ -382,7 +383,7 @@ test('with apps: the app is read, checked against the live service, and the alia
   const [app] = out.apps;
   assert.equal(app.read, true);
   assert.deepEqual(app.services[0], {
-    dataSource: 'mainService', uri: '/sap/opu/odata/sap/ZUI_DEMO_MONITOR_O2/', version: '2.0',
+    dataSource: 'mainService', uri: '/sap/opu/odata/sap/ZUI_DEMO_MONITOR_O2/', version: '2.0', metadata: { read: true },
     service: 'ZUI_DEMO_MONITOR_O2', srvd: 'ZUI_DEMO_MONITOR', odata: '1.0', entitySets: 3, operations: 1,
   });
   assert.equal(app.broken, 3);
@@ -399,6 +400,8 @@ test('with apps: the app is read, checked against the live service, and the alia
   assert.equal(findings[0].severity, 'high');
   // The app path has no localService folder in the feed walk beyond the root listing.
   assert.ok(app.notRead.length === 0, JSON.stringify(app.notRead));
+  assert.deepEqual(contractErrors(out), []);
+  assert.equal(out.complete, true);
 });
 
 test('a service whose $metadata does not read is a gap, and its references are NOT reported as fine', async () => {
@@ -408,8 +411,11 @@ test('a service whose $metadata does not read is a gap, and its references are N
   const out = await runContractCheck(c, api, { service: 'ZUI_DEMO_MONITOR', apps: ['ZUI5_DEMO_APP'] }, openJournal(c), transport);
   assert.equal(out.apps[0].holds, 0);
   assert.equal(out.apps[0].broken, 0);
-  assert.match(out.apps[0].services[0].metadata, /^NOT READ/);
-  assert.ok(out.apps[0].notRead.some((n) => /were NOT checked/.test(n)));
+  assert.equal(out.apps[0].services[0].metadata.read, false);
+  assert.ok(out.apps[0].notRead.some((n) => n.kind === 'references' && /were NOT checked/.test(n.reason)));
+  assert.deepEqual(contractErrors(out), []);
+  assert.equal(out.complete, false);
+  assert.deepEqual(out.incomplete.map((i) => `${i.list}:${i.code}`), ['apps.ZUI5_DEMO_APP.service:NOT_READ', 'apps.ZUI5_DEMO_APP.references:NOT_READ']);
   assert.equal(lines.find((l) => l.stream === 'gaps')?.code, 'UI5_APP_NOT_READ');
 });
 
@@ -419,7 +425,8 @@ test('an app that does not exist is a gap, not an empty app', async () => {
   const c = cfg((stream, rec) => lines.push({ stream, ...rec }));
   const out = await runContractCheck(c, api, { service: 'ZUI_DEMO_MONITOR', apps: ['ZUI5_DEMO_GONE'] }, openJournal(c), transport);
   assert.equal(out.apps[0].read, false);
-  assert.match(out.apps[0].notRead[0], /manifest\.json.*does not exist/);
+  assert.equal(out.apps[0].notRead[0].name, 'manifest.json');
+  assert.match(out.apps[0].notRead[0].reason, /does not exist/);
   assert.equal(lines.find((l) => l.stream === 'gaps')?.code, 'UI5_APP_NOT_READ');
 });
 
@@ -438,10 +445,10 @@ test('a V4 data source is read by its parts, and the app is checked against it',
   const md = asked.filter((a) => a.url.includes('/odata4/'));
   assert.deepEqual(md, [{ url: `${uri}$metadata`, method: 'GET', accept: 'application/xml' }]);
   assert.deepEqual(out.apps[0].services[0], {
-    dataSource: 'mainService', uri, version: '4.0',
+    dataSource: 'mainService', uri, version: '4.0', metadata: { read: true },
     service: 'ZUI_DEMO_TRAVEL_O4', srvd: 'ZUI_DEMO_TRAVEL', odata: '4.0', entitySets: 2, operations: 2,
   });
-  assert.ok(!out.apps[0].notRead.some((n) => /not measured|were NOT checked/.test(n)), JSON.stringify(out.apps[0].notRead));
+  assert.ok(!out.apps[0].notRead.some((n) => /not measured|were NOT checked/.test(n.reason)), JSON.stringify(out.apps[0].notRead));
 });
 
 test('apps are names, at most ten, and need a session that can reach the repository', async () => {

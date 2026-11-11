@@ -128,6 +128,7 @@ export async function atcPackage(cfg, session, journal, pkg, { maxFindings = DEF
     findings: run.findings.slice(0, maxFindings),
     returned: Math.min(run.findings.length, maxFindings),
     truncated: run.count > Math.min(run.findings.length, maxFindings),
+    ...(run.count > Math.min(run.findings.length, maxFindings) ? { narrowBy: ['maxFindings', 'package'] } : {}),
     note: 'the findings of one run over the package, read from the worklist it left (adt_atc_run reads one object)',
   };
 }
@@ -162,6 +163,7 @@ export async function runPackageHealth(cfg, session, args = {}, journal = null, 
       findings: shown,
       findingsTotal: total,
       truncated: total > shown.length,
+      ...(total > shown.length ? { next: { tool: 'adt_clean_core_scan', findingsOffset: 0 }, narrowBy: ['maxFindings'] } : {}),
       ...(scan.scope.notRead ? { notRead: scan.scope.notRead } : {}),
       ...(scan.scope.skipped ? { skipped: scan.scope.skipped } : {}),
     };
@@ -199,7 +201,7 @@ export async function runPackageHealth(cfg, session, args = {}, journal = null, 
     atc = { asked: true, ...(await atcPackage(cfg, session, journal, pkg, { maxFindings })) };
     if (!atc.read) incomplete.push({ list: 'atc', code: 'NOT_READ', reason: atc.reason });
     else if (!atc.complete) incomplete.push({ list: 'atc', code: 'NOT_READ', reason: atc.reason ?? 'the run says its object set is not complete' });
-    if (atc.truncated) incomplete.push({ list: 'atc.findings', code: 'CAP_REACHED', returned: atc.returned, total: atc.count, next: { tool: 'adt_atc_run', worklistId: atc.worklistId }, narrowBy: ['maxFindings'] });
+    if (atc.truncated) incomplete.push({ list: 'atc.findings', code: 'CAP_REACHED', returned: atc.returned, total: atc.count, narrowBy: ['maxFindings', 'package'], reason: 'one more page is one more ATC run: raise maxFindings, or run a sub-package' });
   }
 
   // What no part checks, by type: never left to read as clean.

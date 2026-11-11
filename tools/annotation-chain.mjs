@@ -28,6 +28,7 @@
 import { record } from '../lib/audit.mjs';
 import { namedGet, transportFor } from '../lib/adt-get.mjs';
 import { parseAnnotationChain, renderChain, hiddenWithUiRole } from '../lib/annotation-chain.mjs';
+import { finish } from '../lib/completeness.mjs';
 
 const MAX_PAYLOAD = 20000;
 
@@ -52,6 +53,11 @@ export function annotationChainTool(cfg, session, journal) {
           variant: {
             type: 'string',
             description: 'Annotation variant, when the entity declares more than one.',
+          },
+          payloadOffset: {
+            type: 'integer',
+            minimum: 0,
+            description: 'First character of an uninterpreted payload: `payloadPage.next.payloadOffset` of the previous answer',
           },
         },
         required: ['entity'],
@@ -118,19 +124,15 @@ export function annotationChainTool(cfg, session, journal) {
 
       // Unmeasured: hand back evidence, never a conclusion.
       if (!out.shapeObserved) {
-        const truncated = out.body.length > MAX_PAYLOAD;
-        return json({
+        return json(finish({
           ...head,
           warning:
             'The shape of this reply has never been observed on this system. It is ' +
             'returned verbatim and NOT interpreted. Do not state which layer set an ' +
             'annotation on the basis of this answer until the payload has been ' +
             'recorded in docs/adt-api-reference.md and a parser written against it.',
-          payload: truncated ? out.body.slice(0, MAX_PAYLOAD) : out.body,
-          ...(truncated
-            ? { payloadTruncated: `${out.bytes} bytes, first ${MAX_PAYLOAD} shown` }
-            : {}),
-        });
+          ...payloadOf(out.body, args.payloadOffset),
+        }, [{ list: 'chain', code: 'PARSE_FAILED', reason: 'the reply shape is not measured: returned verbatim, not interpreted' }]));
       }
 
       const chain = parseAnnotationChain(out.body);
@@ -153,15 +155,15 @@ export function annotationChainTool(cfg, session, journal) {
               'compare the payload with tests/fixtures/annotation-chain-measured.xml',
           });
         }
-        return json({
+        return json(finish({
           ...head,
           warning:
             `${out.bytes} bytes came back and none of it matched the measured shape. ` +
             'No conclusion is drawn. The element may genuinely carry no annotations, or ' +
             'the reply shape may have changed -- these two look identical here, so the ' +
             'raw payload is returned for comparison.',
-          payload: out.body.slice(0, MAX_PAYLOAD),
-        });
+          ...payloadOf(out.body, args.payloadOffset),
+        }, [{ list: 'chain', code: 'PARSE_FAILED', reason: 'the reply parsed to zero contributions' }]));
       }
 
       // The cross-key contradiction: hidden AND given a display role, both active. It
@@ -213,7 +215,7 @@ export function annotationChainTool(cfg, session, journal) {
         }
       }
 
-      return json({
+      return json(finish({
         ...head,
         entity: chain.entity ?? args.entity,
         element: chain.element ?? args.element,
@@ -232,8 +234,23 @@ export function annotationChainTool(cfg, session, journal) {
                 `${h.roles.join(', ')}. The field does not render and nothing errors.`
             )
             .join(''),
-      });
+      }, []));
     },
+  };
+}
+
+/**
+ * A page of a verbatim payload, in characters: the next page asks the same GET again
+ * (`costsCalls: 1`) and starts where this one ended.
+ */
+function payloadOf(body, offset = 0) {
+  const from = Number.isInteger(offset) && offset > 0 ? Math.min(offset, body.length) : 0;
+  const payload = body.slice(from, from + MAX_PAYLOAD);
+  const end = from + payload.length;
+  const truncated = end < body.length;
+  return {
+    payload,
+    payloadPage: { chars: body.length, offset: from, returned: payload.length, limit: MAX_PAYLOAD, truncated, ...(truncated ? { next: { payloadOffset: end, costsCalls: 1 } } : {}) },
   };
 }
 

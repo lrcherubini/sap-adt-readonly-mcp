@@ -23,6 +23,8 @@ import {
 import { deniedMethods } from '../lib/guard.mjs';
 import { segmentFor } from '../lib/enhancement-elements.mjs';
 import { annotationChainTool } from '../tools/annotation-chain.mjs';
+import { hiddenWithUiRole } from '../lib/annotation-chain.mjs';
+import { contractErrors } from '../lib/completeness.mjs';
 
 /** The reply the development system actually gave on 2026-09-09; see tests/annotation-chain.test.mjs. */
 const MEASURED = fs.readFileSync(
@@ -1059,4 +1061,40 @@ test('the check-variant route reads one variant created in the ADT, never its 30
   for (const name of ['formtemplate?chkvName=x', 'schema/x', '../customizing', 'ABAP_CLOUD', '']) {
     assert.throws(() => buildUrl('atcCheckVariant', { name }), /Blocked/, name);
   }
+});
+
+test('the chain answers the contract: a parsed chain is complete, a zero-contribution reply is PARSE_FAILED', async () => {
+  const { tool } = toolWith({ body: MEASURED, headers: { 'content-type': 'application/vnd.sap.adt.ddlx.annotation.chain.v2+xml' } });
+  const ok = JSON.parse((await tool.handler({ entity: 'ZC_DemoInvMapTP', element: 'BaseUnit' })).content[0].text);
+  assert.deepEqual(contractErrors(ok), []);
+  assert.equal(ok.complete, true);
+  const { tool: odd } = toolWith({ body: '<something-else/>' });
+  const bad = JSON.parse((await odd.handler({ entity: 'ZC_X' })).content[0].text);
+  assert.deepEqual(contractErrors(bad), []);
+  assert.deepEqual(bad.incomplete.map((i) => i.code), ['PARSE_FAILED']);
+});
+
+test('a long uninterpreted payload is paged: two pages are the whole reply, once', async () => {
+  const body = `<something-else>${'x'.repeat(25000)}</something-else>`;
+  const { tool } = toolWith({ body });
+  const one = JSON.parse((await tool.handler({ entity: 'ZC_X' })).content[0].text);
+  assert.deepEqual(contractErrors(one), []);
+  assert.equal(one.payloadPage.truncated, true);
+  assert.equal(typeof one.payloadPage.chars, 'number');
+  const two = JSON.parse((await tool.handler({ entity: 'ZC_X', payloadOffset: one.payloadPage.next.payloadOffset })).content[0].text);
+  assert.equal(two.payloadPage.truncated, false);
+  assert.equal(one.payload + two.payload, body);
+});
+
+test('every active hide is listed, not only the first: removing one of two leaves the field hidden', () => {
+  const [h] = hiddenWithUiRole({
+    entity: 'ZC_DemoItem',
+    element: 'Plant',
+    annotations: [
+      { path: 'ui.hidden', value: 'true', from: { name: 'ZI_DEMOA', type: 'DDLX/EX' } },
+      { path: 'consumption.hidden', value: 'true', from: { name: 'ZI_DEMOB', type: 'DDLS/DF' } },
+      { path: 'ui.lineitem[1].position', value: '10', from: { name: 'ZC_DEMOITEM', type: 'DDLX/EX' } },
+    ],
+  });
+  assert.deepEqual(h.hiders.map((x) => `${x.key}@${x.by.name}`), ['ui.hidden@ZI_DEMOA', 'consumption.hidden@ZI_DEMOB']);
 });
