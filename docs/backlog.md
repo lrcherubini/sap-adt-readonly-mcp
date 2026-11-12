@@ -9,7 +9,7 @@ leaves. **A measured fact does not live here**: it goes to [`adt-api-reference.m
 A decision taken goes to [`security.md`](security.md). A live defect of the ADT that this client
 cannot repair becomes a rule in the code that avoids it, plus a section of the reference.
 
-Last reviewed: 2026-11-10, after a comparison with other ADT MCP servers (read and run only).
+Last reviewed: 2026-11-12, after the completeness contract and the name alphabets.
 
 ---
 
@@ -28,6 +28,24 @@ Each needs a measurement on the system and a dated decision before it is built.
   `start=l,c;end=l,c` with the end of the token, and a check message carries the start only.
   Capture Ctrl+1 at a caret with no selection on a marked line, to see whether `end` equal to
   `start` is answered.
+
+## 2. Found while validating the completeness contract
+
+Each answer already says what it could not read; these are the measurements that would let it
+read more.
+
+- **The dump feed's category labels follow the logon language.** On a German logon the entries
+  carry `label="ABAP-Laufzeitfehler"` and `label="Beendetes ABAP-Programm"`; the parser knows the
+  measured English labels, so `runtimeError` and `program` come back `null` and the list answers
+  `PARSE_FAILED` (drift). Measure: the same entries with an English and a Portuguese logon, and
+  whether `atom:category` carries a language-independent attribute (`scheme`, `term` shape) that
+  identifies the two categories.
+- **The FDM routes and `__next`.** `adt_launchpad` reports a `__next` link and does not follow it,
+  because no FDM reply measured so far carried one. Measure: the spaces and role catalogs lists
+  with the largest result on the system, to see whether the server pages them.
+- **The ATC run over a namespaced or local package.** The run body percent-encodes the package
+  into `selection=package%3a<PKG>`; only a plain package was measured from the IDE's log. Measure:
+  one run with `atc: true` on a `$` package and on a namespaced one, compared with the IDE's log.
 
 ---
 
