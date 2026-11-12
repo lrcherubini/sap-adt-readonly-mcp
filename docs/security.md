@@ -393,6 +393,16 @@ print it as read: on, stand-by, off, or no stored row, which is never shown as "
 state it as the reason an append is missing or an implementation does not run: an activation
 error is still not read. They still point to `SE11`/`SFW_BROWSER`.
 
+**`T000`, with a field allowlist -- the owner's decision, 2026-11-12.** Every answer is to say
+which system and client it was read from and what kind of client that is (*The environment
+signature* below), and the kind is `T000-CCCATEGORY`: `P` production, `T` test, `C`
+customizing, `D` demo, `E` training, `S` SAP reference (the fixed values of domain
+`CCCATEGORY`, measured 2026-11-12). The table also holds who changed the client last
+(`CHANGEUSER`, a user id, with `CHANGEDATE`) and an address number (`ADRNR`). The allowlist is
+the client, its name, city and currency, the category, the change and copy protections and the
+logical system; the other three are never read. Its delivery class was not read here: the
+allowlist, not the class, is what keeps the person out, as for `SCICHKV_HD`.
+
 #### The list has two layers: standard in the repository, the installation's own in the store
 
 No value of a particular landscape is written in the code. That holds for the fences too, so

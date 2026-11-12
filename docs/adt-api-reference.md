@@ -2515,6 +2515,21 @@ function group `V45A` and is **not** in the listing of the group's main program,
 anchored in an include of the group (see the section above). That is a property of where the
 listing is asked, not a switch filter, and it is recorded as inconclusive.
 
+### The client and its category: `T000` — MEASURED 2026-11-12
+
+Read with `adt_object_info` (`ddicElement`), table and domain; no row was read yet.
+
+**Fields of `T000`** (package `STRM_T000`, not released in any contract): `MANDT` (key, CLNT 3),
+`MTEXT` (CHAR 25), `ORT01` (CHAR 25), `MWAER` (CUKY 5), `ADRNR` (CHAR 10), `CCCATEGORY`
+(CHAR 1), `CCCORACTIV`, `CCNOCLIIND`, `CCCOPYLOCK`, `CCNOCASCAD`, `CCSOFTLOCK`, `CCORIGCONT`,
+`CCIMAILDIS`, `CCTEMPLOCK` (CHAR 1 each), `CHANGEUSER` (`AS4USER`, CHAR 12), `CHANGEDATE`
+(DATS), `LOGSYS` (CHAR 10).
+
+**Domain `CCCATEGORY`** (CHAR 1, six fixed values, texts in the domain's German original):
+`P` Produktiv, `T` Test, `C` Customizing, `D` Demo, `E` Training/Education, `S` SAP Referenz.
+The category says what the client is for. It does not say whether the system is the development,
+quality or production one of a landscape: that is the installation's word (`systemRole`).
+
 ### A function group's `objectstructure` lists its FMs, includes and `ENHO/XH` — MEASURED 2026-09-14
 
 Round 17, step 3. The library's `objectStructure()` on a FUGR answers metadata and links only

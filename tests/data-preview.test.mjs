@@ -189,6 +189,20 @@ test('SFW_SWITCH_STATE: the state of a switch is read, the user a setting belong
   }
 });
 
+test('T000: the category and the protections of a client are read, who changed it last never is', () => {
+  // Admitted 2026-11-12 for the environment signature (docs/security.md): CHANGEUSER is a user id.
+  const spec = CUSTOMIZING_TABLES.get('T000');
+  assert.ok(spec.fields.includes('CCCATEGORY'));
+  for (const never of ['CHANGEUSER', 'CHANGEDATE', 'ADRNR']) assert.equal(spec.fields.includes(never), false, never);
+  assert.equal(
+    buildSelect({ table: 'T000', fields: ['MANDT', 'CCCATEGORY'], where: [{ field: 'MANDT', value: '001' }] }).sql,
+    "SELECT MANDT, CCCATEGORY FROM T000 WHERE MANDT = '001'"
+  );
+  for (const fields of [['CHANGEUSER'], ['MANDT', 'CHANGEDATE'], ['ADRNR']]) {
+    assert.throws(() => buildSelect({ table: 'T000', fields }), /may be read only for/, fields.join());
+  }
+});
+
 test('previewPost re-checks the allowlist on the statement: a hand-built SELECT cannot read a user field', async () => {
   const sent = [];
   const raw = { httpClient: { request: async (url, c) => (sent.push({ url, ...c }), { status: 200, body: '', headers: {} }) } };
@@ -201,7 +215,7 @@ test('previewPost re-checks the allowlist on the statement: a hand-built SELECT 
 test('the allow-list is closed and every entry says why', () => {
   assert.deepEqual(
     [...CUSTOMIZING_TABLES.keys()],
-    ['T683S', 'T683U', 'T683T', 'T685', 'T685A', 'T685T', 'T682I', 'T681', 'TMC1T', 'TVCPA', 'TVCPF', 'TVCPL', 'TFRM', 'TFRMT', '/UI2/SEMOBJC', '/UI2/SEMOBJCT', '/UI2/SEMOBJ', 'BALOBJ', 'BALOBJT', 'SCICHKV_HD', 'SCICHKV_TX', 'TADIR', 'DDHEADANNO', 'T052', 'T052U', 'TVARVC', 'TPAER', 'T133A', 'T133B', 'T133C', 'D020S', 'D020T', 'D021T', 'DDFTX', 'TSDIR', 'DYNPSOURCE', 'T130M', 'T133K', 'T133S', 'T133T', 'TSTC', 'TSTCP', 'MDLV', 'MDLG', 'T460A', 'T460T', 'T438A', 'T438T', 'T439A', 'T141', 'T141T', 'TVMS', 'TVMST', 'TFACD', 'TFACT', 'TFAIN', 'TFACS', 'THOC', 'THOCI', 'THOL', 'THOLT', 'FHC_CONFIG', 'FHC_C_FCAL', 'T001', 'T001K', 'T001L', 'T001W', 'T001B', 'T001Z', 'SFW_PACKAGE', 'SFW_SW_BF', 'SFW_ACTIVE_BFUNC', 'SFW_SWITCHT', 'SFW_BFT', 'SFW_SWITCH_STATE']
+    ['T683S', 'T683U', 'T683T', 'T685', 'T685A', 'T685T', 'T682I', 'T681', 'TMC1T', 'TVCPA', 'TVCPF', 'TVCPL', 'TFRM', 'TFRMT', '/UI2/SEMOBJC', '/UI2/SEMOBJCT', '/UI2/SEMOBJ', 'BALOBJ', 'BALOBJT', 'SCICHKV_HD', 'SCICHKV_TX', 'TADIR', 'DDHEADANNO', 'T052', 'T052U', 'TVARVC', 'TPAER', 'T133A', 'T133B', 'T133C', 'D020S', 'D020T', 'D021T', 'DDFTX', 'TSDIR', 'DYNPSOURCE', 'T130M', 'T133K', 'T133S', 'T133T', 'TSTC', 'TSTCP', 'MDLV', 'MDLG', 'T460A', 'T460T', 'T438A', 'T438T', 'T439A', 'T141', 'T141T', 'TVMS', 'TVMST', 'TFACD', 'TFACT', 'TFAIN', 'TFACS', 'THOC', 'THOCI', 'THOL', 'THOLT', 'FHC_CONFIG', 'FHC_C_FCAL', 'T001', 'T001K', 'T001L', 'T001W', 'T001B', 'T001Z', 'T000', 'SFW_PACKAGE', 'SFW_SW_BF', 'SFW_ACTIVE_BFUNC', 'SFW_SWITCHT', 'SFW_BFT', 'SFW_SWITCH_STATE']
   );
   for (const [t, spec] of CUSTOMIZING_TABLES) assert.ok(spec.why.length > 10, `${t} has no reason`);
   assert.ok(![...CUSTOMIZING_TABLES.keys()].some((t) => /^[ZY]/.test(t)), 'the standard list carries no customer table');
