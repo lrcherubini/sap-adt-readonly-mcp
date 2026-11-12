@@ -25,9 +25,11 @@ import { LOOPBACK_ADDRESSES } from './lib/environment.mjs';
 const cfg = loadConfig();
 const token = loopbackToken();
 
-const endpoint = `http://127.0.0.1:${cfg.mcpPort}/mcp`;
 const tokenFile = path.join(stateDir(), 'token');
 const onLoopback = LOOPBACK_ADDRESSES.includes(cfg.bindHost);
+// What a client registers. On the network that is the public name behind the TLS proxy, not
+// the address the listener binds, which no client outside this machine can reach as written.
+const endpoint = onLoopback ? `http://127.0.0.1:${cfg.mcpPort}/mcp` : `https://${cfg.publicHosts[0]}/mcp`;
 
 console.log(`sap-adt (read-only)   ->  ${cfg.baseUrl} client ${cfg.client}`);
 console.log(`state directory       ->  ${stateDir()}`);
@@ -49,18 +51,24 @@ if (!onLoopback) {
       '                          in the clear unless a TLS-terminating proxy sits in front of it.'
   );
 }
-console.log('\nRegister once in Claude Code, in ANOTHER terminal (leave this one running):');
-console.log('  PowerShell:');
-console.log(
-  `    claude mcp add --scope user --transport http sap-adt ${endpoint} ` +
-    `--header \"Authorization: Bearer $(Get-Content '${tokenFile}')\"`
-);
-console.log('  bash:');
-console.log(
-  `    claude mcp add --scope user --transport http sap-adt ${endpoint} ` +
-    `--header \"Authorization: Bearer $(cat '${tokenFile.split(path.sep).join('/')}')\"`
-);
-console.log('  Then check:  claude mcp list\n');
+if (onLoopback) {
+  console.log('\nRegister once in Claude Code, in ANOTHER terminal (leave this one running):');
+  console.log('  PowerShell:');
+  console.log(
+    `    claude mcp add --scope user --transport http sap-adt ${endpoint} ` +
+      `--header \"Authorization: Bearer $(Get-Content '${tokenFile}')\"`
+  );
+  console.log('  bash:');
+  console.log(
+    `    claude mcp add --scope user --transport http sap-adt ${endpoint} ` +
+      `--header \"Authorization: Bearer $(cat '${tokenFile.split(path.sep).join('/')}')\"`
+  );
+  console.log('  Then check:  claude mcp list\n');
+} else {
+  // A caller of a hosted server holds a token of their own; the local one stays with the operator.
+  console.log(`\nCallers registered: ${cfg.callers.length} (npm run config -- token add <name>). Each registers with:`);
+  console.log(`    claude mcp add --scope user --transport http sap-adt ${endpoint} --header "Authorization: Bearer <their token>"\n`);
+}
 
 /**
  * Is the port already taken -- ASKED BEFORE THE PASSWORD PROMPT.

@@ -1,0 +1,111 @@
+# An example, not a chart: read docs/deployment.md first, then replace every <placeholder>.
+# The names below are invented (vhdemohost.example); nothing here describes a real landscape.
+#
+# What must not be changed without reading why:
+#   replicas: 1 and strategy Recreate -- each replica is one SAP logon of the same user, and
+#     two pods starting together during a rollout are two logons with one password;
+#   the state volume is a PersistentVolumeClaim -- the rule that keeps a wrong password from
+#     being sent at every restart reads the audit trail of earlier starts;
+#   the password is a mounted file, never an environment variable.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sap-adt-config
+data:
+  # The shape `npm run config -- import` reads (config.example.json). No secret belongs here.
+  config.json: |
+    {
+      "host": "vhdemohost.example",
+      "port": 44300,
+      "client": "001",
+      "user": "DEVUSER1",
+      "system": "DEV",
+      "passwordFile": "/run/secrets/sap-adt/password",
+      "bindHost": "0.0.0.0",
+      "publicHosts": ["sap-adt.vhdemohost.example"],
+      "paths": { "logs": "/var/lib/sap-adt/logs" },
+      "limits": { "adtConcurrency": 8, "callsPerMinute": 120 }
+    }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sap-adt-state
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sap-adt
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: { app: sap-adt }
+  template:
+    metadata:
+      labels: { app: sap-adt }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      # The store is written by the configuration CLI only: imported here, before every start.
+      # `import` merges, so the callers added with `token add` and anything set by hand stay.
+      initContainers:
+        - name: config
+          image: <your-registry>/sap-adt-readonly-mcp:<version>
+          command: ["node", "scripts/config.mjs", "import", "/etc/sap-adt/config.json"]
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }
+          volumeMounts:
+            - { name: state, mountPath: /var/lib/sap-adt }
+            - { name: config, mountPath: /etc/sap-adt, readOnly: true }
+      containers:
+        - name: sap-adt
+          image: <your-registry>/sap-adt-readonly-mcp:<version>
+          ports:
+            - { name: mcp, containerPort: 2237 }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }
+          # Neither probe sends anything to the SAP system.
+          livenessProbe:
+            httpGet: { path: /healthz, port: mcp }
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /readyz, port: mcp }
+            periodSeconds: 10
+          # The shutdown logs off from SAP within shutdownMs (5 s) and has a hard deadline twice that.
+          terminationGracePeriodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+          volumeMounts:
+            - { name: state, mountPath: /var/lib/sap-adt }
+            - { name: password, mountPath: /run/secrets/sap-adt, readOnly: true }
+      volumes:
+        - name: state
+          persistentVolumeClaim: { claimName: sap-adt-state }
+        - name: config
+          configMap: { name: sap-adt-config }
+        - name: password
+          secret:
+            # kubectl create secret generic sap-adt-password --from-file=password=<file>
+            secretName: sap-adt-password
+            # Not readable by every user of the container: the server refuses a file that is.
+            defaultMode: 0440
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sap-adt
+spec:
+  selector: { app: sap-adt }
+  ports:
+    - { name: mcp, port: 2237, targetPort: mcp }
+# In front of the Service: an Ingress (or a gateway) that terminates TLS for the name listed in
+# publicHosts and forwards that Host unchanged. The server speaks plain HTTP.

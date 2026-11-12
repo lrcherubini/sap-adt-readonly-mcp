@@ -1,0 +1,16 @@
+# Only what the Dockerfile copies is needed; everything a checkout may hold beside it stays out.
+.git
+.github
+.githooks
+.claude
+node_modules
+logs
+tests
+docs
+deploy
+coverage
+config.json
+*.md
+*.log
+.env
+*.env

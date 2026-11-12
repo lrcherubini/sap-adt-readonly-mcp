@@ -1736,9 +1736,18 @@ There is no client library between this server and the SAP system since 2026-11-
 *Removing `abap-adt-api`*): the logon, the session and every request are this repository's code
 on `node:https`.
 
-There is no CI in this repository, by decision: third-party code is not run unattended in a
-hosted runner. `npm run test:guard` is meant to
-be run locally before use.
+### CI, reopened -- 2026-11-12
+
+There was no CI, by decision: third-party code was not to run unattended in a hosted runner.
+Reopened by the owner once the server is to be hosted for a team, which then depends on the
+suite being green on every change, not on someone remembering to run it.
+
+What runs is what the decision feared least: the one runtime dependency from the committed
+lockfile with `--ignore-scripts`, and no devDependency at all. `.github/workflows/test.yml` runs
+`test:guard` and `coverage` on Linux and Windows, with read-only repository permissions, no
+secret, no SAP system, and the two actions pinned to commits rather than tags. `npm run
+test:guard` is still meant to be run locally before use: CI says the code in the repository is
+green, not that the copy on a machine is.
 
 ### CVE triage, 2026-09-04 — `qs` (CVE-2026-82417, CVE-2026-82562)
 

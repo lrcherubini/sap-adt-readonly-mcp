@@ -1,0 +1,32 @@
+# The offline suite on every push and pull request (docs/security.md, "CI, reopened").
+# No secret, no SAP system, no network beyond the package registry: the suite needs none.
+name: test
+
+on:
+  push:
+  pull_request:
+
+# Read the code, nothing else: the job writes nowhere.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      # Pinned to commits, not tags: a tag can be moved to other code.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.13'
+      # The lockfile is the control, and no dependency runs a lifecycle script.
+      - run: npm ci --ignore-scripts
+      - run: npm run test:guard
+      - run: npm run coverage

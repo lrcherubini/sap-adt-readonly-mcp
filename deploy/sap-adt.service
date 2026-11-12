@@ -1,0 +1,49 @@
+# systemd unit, an example: read docs/deployment.md first.
+#
+#   install -d /opt/sap-adt && cp -r <checkout>/. /opt/sap-adt && cd /opt/sap-adt && npm ci --ignore-scripts --omit=dev
+#   useradd --system --home-dir /var/lib/sap-adt --shell /usr/sbin/nologin sap-adt
+#   install -d -o sap-adt -g sap-adt -m 0700 /var/lib/sap-adt
+#   install -D -m 0600 -o root <file with the password> /etc/sap-adt/password
+#   sudo -u sap-adt SAP_ADT_STATE_DIR=/var/lib/sap-adt node /opt/sap-adt/scripts/config.mjs import <your-env.json>
+#   sudo -u sap-adt SAP_ADT_STATE_DIR=/var/lib/sap-adt node /opt/sap-adt/scripts/config.mjs \
+#        set passwordFile /run/credentials/sap-adt.service/sap-password
+#   sudo -u sap-adt SAP_ADT_STATE_DIR=/var/lib/sap-adt node /opt/sap-adt/scripts/config.mjs \
+#        set paths.logs /var/lib/sap-adt/logs      # /opt is read-only for the service
+#
+# The password is handed over by systemd as a credential: a file only this service can read,
+# in memory, gone when the service stops. It is never an environment variable.
+
+[Unit]
+Description=sap-adt read-only MCP server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=sap-adt
+Group=sap-adt
+WorkingDirectory=/opt/sap-adt
+Environment=NODE_ENV=production
+Environment=SAP_ADT_STATE_DIR=/var/lib/sap-adt
+# /var/lib/sap-adt, created and owned by the service user: persistent, as the lock rule needs.
+StateDirectory=sap-adt
+LoadCredential=sap-password:/etc/sap-adt/password
+ExecStart=/usr/bin/node /opt/sap-adt/server.mjs
+
+# A restart is safe with a wrong password: the server does not send again a password the
+# system refused while the file is unchanged. It still should not spin.
+Restart=on-failure
+RestartSec=30
+# The shutdown logs off from SAP and has its own hard deadline (twice shutdownMs).
+TimeoutStopSec=20
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

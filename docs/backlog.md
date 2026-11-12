@@ -47,6 +47,24 @@ read more.
   into `selection=package%3a<PKG>`; only a plain package was measured from the IDE's log. Measure:
   one run with `atc: true` on a `$` package and on a namespaced one, compared with the IDE's log.
 
+## 3. Hosting the server for a team
+
+The code is in place (`docs/deployment.md`); these are what only the system or the owner can
+settle.
+
+- **The first unattended logon.** The password file, the refusal held against an unchanged
+  file, and `/readyz` are tested offline only. Measure: one start with a wrong password in the
+  file on a development system with a test user, then a second start, and the trail between them.
+- **The minimal role of the service user.** Display activities only is the intent; which
+  authorisation objects the tools need was never traced. Measure: the authorisation trace (STAUTHTRACE)
+  while each tool is called once, then a role that holds exactly that.
+- **The System user type.** Whether ADT accepts a logon of a *System* (type B) user over Basic
+  authentication on `compatibility/graph`, as it does for a dialog user. Measure: one logon.
+- **`readOnlyHint` of `adt_atc_run`.** Every tool says `readOnlyHint: true`; the ATC run leaves a
+  result worklist under the user. Decide whether that is "modifies its environment" in the
+  specification's sense (then `false`, which some clients answer with a confirmation per call) or
+  bookkeeping of the run (then it stays, as the IDE treats it).
+
 ---
 
 An accepted limit is not an item: it is a decision, and it lives where the behaviour is (the
