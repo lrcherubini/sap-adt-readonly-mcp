@@ -58,7 +58,7 @@ export const MAX_MAX = 500;
 const ORIGINS = ['customer', 'customer-no-prefix', 'sap-changed', 'sap'];
 
 const asText = (value) => ({
-  content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],
+  content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }],
 });
 
 export class LaunchpadRequestError extends Error {

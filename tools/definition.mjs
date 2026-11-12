@@ -12,7 +12,7 @@ import { buildNavigationRequest, navigationPost, parseNavigationTarget, Navigati
 import { finish } from '../lib/completeness.mjs';
 
 const TOOL = 'adt_find_definition';
-const asText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] });
+const asText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value) }] });
 
 export function definitionTool(cfg, session, journal) {
   return {

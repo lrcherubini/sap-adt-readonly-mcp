@@ -76,6 +76,9 @@ test('tools/call: the answer comes as structuredContent AND as the same JSON in 
   assert.equal(res.isError, undefined);
   assert.ok(res.structuredContent, 'structured');
   assert.deepEqual(JSON.parse(res.content[0].text), res.structuredContent);
+  // Compact: indentation is a third of the characters of a JSON answer, and the model reads them
+  // all. The same text that a person wants indented is structuredContent, which a client renders.
+  assert.equal(res.content[0].text, JSON.stringify(res.structuredContent));
   await c.close();
 });
 

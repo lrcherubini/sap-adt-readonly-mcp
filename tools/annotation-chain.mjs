@@ -255,5 +255,5 @@ function payloadOf(body, offset = 0) {
 }
 
 const json = (value) => ({
-  content: [{ type: 'text', text: JSON.stringify(value, null, 2) }],
+  content: [{ type: 'text', text: JSON.stringify(value) }],
 });

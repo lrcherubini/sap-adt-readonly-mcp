@@ -885,7 +885,7 @@ export function valueHelpTool(cfg, api, sources, journal) {
       );
       const out = loaded.catalogInfo ? { ...result, catalog: loaded.catalogInfo } : result;
       return {
-        content: [{ type: 'text', text: JSON.stringify(out, null, 2) }],
+        content: [{ type: 'text', text: JSON.stringify(out) }],
       };
     },
   };

@@ -303,7 +303,7 @@ export function annotationScanTool(cfg, api, journal) {
         throw new Error('`entity` narrows a lookup: pass `element` too, or scan a smaller package.');
       }
       const out = await runAnnotationScan(cfg, api, args, journal, extra);
-      return { content: [{ type: 'text', text: JSON.stringify(out, null, 2) }] };
+      return { content: [{ type: 'text', text: JSON.stringify(out) }] };
     },
   };
 }

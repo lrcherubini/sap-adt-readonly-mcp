@@ -260,7 +260,7 @@ export function packageHealthTool(cfg, session, journal) {
     },
     async handler(args = {}, extra = {}) {
       const out = await runPackageHealth(cfg, session, args, journal, extra);
-      return { content: [{ type: 'text', text: JSON.stringify(out, null, 2) }] };
+      return { content: [{ type: 'text', text: JSON.stringify(out) }] };
     },
   };
 }

@@ -328,7 +328,7 @@ export function contractCheckTool(cfg, api, journal, session = null) {
       // Bound only when apps are asked for: without them the tool makes its one ADT call, as before.
       const transport = args.apps?.length && session?.raw ? transportFor(session.raw) : null;
       const out = await runContractCheck(cfg, api, args, journal, transport);
-      return { content: [{ type: 'text', text: JSON.stringify(out, null, 2) }] };
+      return { content: [{ type: 'text', text: JSON.stringify(out) }] };
     },
   };
 }

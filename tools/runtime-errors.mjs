@@ -54,7 +54,7 @@ export const DEFAULT_MAX = 50;
 export const MAX_MAX = 100;
 
 const asText = (value) => ({
-  content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],
+  content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }],
 });
 
 const capOf = (v, fallback) => {

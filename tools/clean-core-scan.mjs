@@ -217,7 +217,7 @@ export function cleanCoreScanTool(cfg, api, journal) {
         throw new Error(`minLevel must be one of A, B, C, D -- got '${args.minLevel}'`);
       }
       const out = await runCleanCoreScan(cfg, api, args, journal, extra);
-      return { content: [{ type: 'text', text: JSON.stringify(out, null, 2) }] };
+      return { content: [{ type: 'text', text: JSON.stringify(out) }] };
     },
   };
 }

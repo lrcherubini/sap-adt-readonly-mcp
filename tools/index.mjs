@@ -51,7 +51,7 @@ const asText = (value) => ({
   content: [
     {
       type: 'text',
-      text: typeof value === 'string' ? value : JSON.stringify(value, null, 2),
+      text: typeof value === 'string' ? value : JSON.stringify(value),
     },
   ],
 });
@@ -920,7 +920,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         return {
           content: [
             { type: 'text', text: one.header + one.source + one.enhFooter },
-            { type: 'text', text: JSON.stringify(structured, null, 2) },
+            { type: 'text', text: JSON.stringify(structured) },
           ],
           structuredContent: structured,
         };

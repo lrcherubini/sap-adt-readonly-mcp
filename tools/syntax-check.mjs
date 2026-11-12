@@ -26,7 +26,7 @@ import {
   SyntaxCheckViolation,
 } from '../lib/syntax-check.mjs';
 
-const asText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] });
+const asText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value) }] });
 
 /** The incomplete entries of one verdict of `checkStored`. */
 export function verdictIncomplete(v, list = 'messages') {

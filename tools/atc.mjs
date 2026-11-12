@@ -75,7 +75,7 @@ export async function loadSystemVariant(cfg, session, journal) {
 }
 
 const asText = (value) => ({
-  content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],
+  content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }],
 });
 
 export const MAX_VARIANTS = 3;

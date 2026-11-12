@@ -26,7 +26,7 @@ export const MAX_PACKAGE_READS = 10;
 
 /** A package name as the packageDocument route takes it, or null when it is not a package name. */
 const packageSegment = packageSegmentOf;
-const asText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] });
+const asText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value) }] });
 
 const capOf = (value) => {
   if (value === undefined || value === null) return MAX_RELEASE_READS;

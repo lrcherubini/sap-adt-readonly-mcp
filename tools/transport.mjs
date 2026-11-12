@@ -844,5 +844,5 @@ const capOf = (given, fallback) => {
 };
 
 const json = (value) => ({
-  content: [{ type: 'text', text: JSON.stringify(value, null, 2) }],
+  content: [{ type: 'text', text: JSON.stringify(value) }],
 });

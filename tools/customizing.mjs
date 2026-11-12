@@ -33,7 +33,7 @@ import {
 import { finish } from '../lib/completeness.mjs';
 
 const asText = (value) => ({
-  content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],
+  content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }],
 });
 
 export function customizingTool(cfg, session, journal) {
