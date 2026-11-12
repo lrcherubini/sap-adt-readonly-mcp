@@ -145,7 +145,7 @@ included, which no source read can give. Three things to hold on to:
   type, so for a structure the source read plus `enhancement/elements` are the only routes, and
   `adt_object_info` does not ask (`lib/type-contract.mjs`).
 - **An empty tree is never an empty object.** It is what this resource returns for a path it does
-  not resolve, so `tools/index.mjs` files `DDIC_FIELDS_NOT_READ` instead of reporting no fields.
+  not resolve, so `tools/object-info.mjs` files `DDIC_FIELDS_NOT_READ` instead of reporting no fields.
 
 ⚠️ And the reason this was found at all: the call passed `adtcore:uri` until 2026-09-22, i.e. the
 URL form this file already recorded as answering empty. Every DDIC object had been reporting

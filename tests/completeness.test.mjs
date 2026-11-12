@@ -77,7 +77,7 @@ test("no answer hedges with 'possible': the literal is gone from every migrated 
  * Answers a tool returns without `finish` on the same expression, each with why it is one: the
  * value was built by `finish` where it was made.
  */
-const FINISHED_ELSEWHERE = new Map([['tools/index.mjs', ['asText(one.json)']]]);
+const FINISHED_ELSEWHERE = new Map([['tools/read-source.mjs', ['asText(one.json)']]]);
 
 test('every answer a tool returns is built by finish: complete and incomplete are never left out', () => {
   const offenders = [];

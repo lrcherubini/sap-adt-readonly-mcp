@@ -17,7 +17,10 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
 test('every object type the tools or the resolver name has a decision in the contract', () => {
   const named = new Set();
-  for (const f of ['tools/index.mjs', 'lib/resolve.mjs']) {
+  // The files of the tools that answer by type (adt_object_info, adt_read_source and their
+  // neighbours of tools/index.mjs before it was split), and the resolver.
+  const files = ['index', 'common', 'search', 'read-source', 'object-info', 'where-used', 'package-tree'].map((n) => `tools/${n}.mjs`);
+  for (const f of [...files, 'lib/resolve.mjs']) {
     for (const m of read(f).matchAll(/'([A-Z]{4}\/[A-Z]{1,4})'/g)) named.add(m[1]);
   }
   assert.ok(named.size >= 10, `the scan found only ${named.size} type literals: the pattern has drifted`);
