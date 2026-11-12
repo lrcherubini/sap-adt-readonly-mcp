@@ -241,7 +241,7 @@ in the file (or in `table add`) is skipped with a warning, since it needs no reg
 
 | Group | Keys (default) | Used by |
 |---|---|---|
-| connection | `host`, `port` (44300), `client` (none — always your choice), `user`, `passwordFile` (none — the password is typed; set it only for a server without a terminal), `language` (EN), `system` (none — required: the host must answer as this system id, asked without credentials before the password prompt), `allowUnauthorizedTls` (false; prefer `NODE_EXTRA_CA_CERTS` for an internal CA) | the session |
+| connection | `host`, `port` (44300), `client` (none — always your choice), `user`, `passwordFile` (none — the password is typed; set it only for a server without a terminal), `systemRole` (none — DEV, QAS, PRD, ... stated in every answer), `language` (EN), `system` (none — required: the host must answer as this system id, asked without credentials before the password prompt), `allowUnauthorizedTls` (false; prefer `NODE_EXTRA_CA_CERTS` for an internal CA) | the session |
 | server | `mcpPort` (2237), `bindHost` (127.0.0.1), `publicHosts` (none; required before `bindHost` leaves loopback), `tools.disabled` (none; tools this installation neither announces nor serves), `limits.adtConcurrency` (8 requests in flight to SAP at once; more wait), `limits.callsPerMinute` (0 = none; tool calls per caller, refused past it), `budget.reads` (200, a notice, not a cap), `shutdownMs` (5000) | `server.mjs`, the audit |
 | catalogue | `catalog.release` (none — `Latest`, `PCELatest`, `PCE2025_2`, `PCE2023_0`, …) | `adt_clean_core_scan`, `adt_value_help`, `sync:catalog` |
 | fences | customizing tables (`table add`), ATC variants (`atc add`, `atc.defaultVariant`) | `adt_customizing`, `adt_atc_run` |
@@ -408,6 +408,13 @@ not read, and every package it could not list, is a `SOURCE_NOT_READ` gap, a rea
 `SCAN_AT_CAP`, and the answer says `complete: false`. And at the bottom of the stack: if the
 journal itself cannot write, it warns once on stderr that an empty report from then on means
 **unrecorded, not clean**.
+
+### Where an answer was read
+
+Every answer starts with `system`: the system id, the client, the category the system holds for
+that client (`T000-CCCATEGORY`: production, test, customizing, ...), and the role you give the
+system with `npm run config -- set systemRole DEV`. The category is read once at start; a read
+that failed says so in every answer instead of leaving the field out.
 
 ### Complete or not, in fields
 

@@ -1648,6 +1648,29 @@ shared instance serves the first client and then answers every reconnect with HT
 an empty body. The ADT session and the tools are shared; only the protocol plumbing is
 per-request. Pinned by `tests/transport.test.mjs`.
 
+### The environment signature -- 2026-11-12
+
+Decided by the owner. An answer read from a quality or a production system looks exactly like one
+read from development, and a team may register one server per system. So every answer that reads
+something carries, in front of its structured content and of its JSON text, where it was read:
+
+```json
+"system": { "sid": "DEV", "client": "001", "category": { "read": true, "code": "C", "meaning": "customizing" }, "role": "DEV" }
+```
+
+- `sid` and `client` are the ones the server confirmed before the logon (*The system is confirmed
+  before the password is asked*).
+- `category` is `T000-CCCATEGORY` of the logon client, read **once at start** with one data
+  preview (the `T000` entry above). It is not read per answer: a client's category changes in
+  SCC4 by a person, not while a server runs, and a read per answer would double the cost of the
+  cheapest calls. A read that fails says `read: false` with the reason in every answer of the run
+  and files `CLIENT_CATEGORY_NOT_READ`; it is never left out, so a missing category cannot read as
+  "not production".
+- `role` is the installation's word (`systemRole`: DEV, QAS, PRD, ...), or null. The category says
+  what the *client* is for; which system of the landscape this is, nothing this server reads says.
+
+A refusal (`isError`) carries none: it read nothing. Pinned by `tests/system-signature.test.mjs`.
+
 ### A token per caller -- 2026-11-12
 
 Decided by the owner, to host the server for a team under one SAP service user. One token for a

@@ -151,6 +151,8 @@ test('a catch that discards its error is only allowed where discarding is the an
     ['lib/catalog.mjs', 1],
     // text that merely starts with a brace is not JSON: the answer stays text-only, unchanged
     ['lib/tool-meta.mjs', 1],
+    // the same in the signature: a text that is not an answer object is left as it is
+    ['lib/system-signature.mjs', 1],
     // an Origin that is not a URL: the catch RETURNS the refusal (403), the regex cannot see that
     ['lib/mcp-server.mjs', 1],
   ]);

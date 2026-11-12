@@ -21,6 +21,7 @@ import { allowedMethods } from './lib/guard.mjs';
 import { createRequestHandler } from './lib/mcp-server.mjs';
 import { catalogStatus } from './lib/catalog.mjs';
 import { LOOPBACK_ADDRESSES } from './lib/environment.mjs';
+import { readClientCategory, signatureOf, signatureLine } from './lib/system-signature.mjs';
 
 const cfg = loadConfig();
 const token = loopbackToken();
@@ -111,6 +112,10 @@ console.log(
       ? `ATC: the system names no check variant; default variant ${atc.defaultVariant}.`
       : `ATC: system check variant NOT read (${atc.detail}); default variant ${atc.defaultVariant}.`
 );
+
+// Where every answer of this run comes from: read once, stated on each (lib/system-signature.mjs).
+cfg.systemSignature = signatureOf(cfg, await readClientCategory(cfg, session, journal));
+console.log(`environment signature ->  ${signatureLine(cfg.systemSignature)}`);
 
 const tools = buildTools(cfg, session, journal);
 

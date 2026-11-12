@@ -8,6 +8,7 @@ import { parseObjectReferences } from '../lib/resolve.mjs';
 import { namedGet, transportFor } from '../lib/adt-get.mjs';
 import { dumpAfter500, explainWithDump } from '../lib/dump-after-500.mjs';
 import { openJournal } from '../lib/journal.mjs';
+import { withSignature } from '../lib/system-signature.mjs';
 import { publish, schemaErrors, closeSchema, withStructuredContent } from '../lib/tool-meta.mjs';
 import { searchTool } from './search.mjs';
 import { readSourceTool } from './read-source.mjs';
@@ -144,15 +145,16 @@ export function argumentErrors(schema, args) {
   return schemaErrors(closeSchema(schema ?? { type: 'object' }), args && typeof args === 'object' ? args : {});
 }
 
-function validated(tool) {
+function validated(tool, signature) {
   const inner = tool.handler;
   return {
     ...tool,
     async handler(args = {}, extra = {}) {
       const errors = argumentErrors(tool.definition.inputSchema, args);
       if (errors.length) throw new Error(`${tool.definition.name}: ${errors.join('; ')}.`);
-      // The answer as JSON too (structuredContent), when it is one JSON object.
-      return withStructuredContent(await inner(args, extra));
+      // The answer as JSON too (structuredContent), when it is one JSON object, and where it
+      // was read from in front of it (lib/system-signature.mjs).
+      return withSignature(withStructuredContent(await inner(args, extra)), signature);
     },
   };
 }
@@ -229,5 +231,5 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
   const off = new Set(cfg.disabledTools ?? []);
   // Validated INSIDE the journal wrapper, so a refused call is still one line in logs/calls.
   // `publish` adds what tools/list owes a client: title, behaviour hints, a closed schema.
-  return tools.filter((t) => !off.has(t.definition.name)).map((t) => journaled(validated({ ...t, definition: publish(t.definition) }), journal, cfg, session));
+  return tools.filter((t) => !off.has(t.definition.name)).map((t) => journaled(validated({ ...t, definition: publish(t.definition) }, cfg.systemSignature), journal, cfg, session));
 }
