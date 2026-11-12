@@ -2530,6 +2530,31 @@ Read with `adt_object_info` (`ddicElement`), table and domain; no row was read y
 The category says what the client is for. It does not say whether the system is the development,
 quality or production one of a landscape: that is the installation's word (`systemRole`).
 
+### The transport routes of the STMS — MEASURED 2026-11-12
+
+Read with `adt_object_info` (`ddicElement`): field lists only, no row read yet. None of the
+tables is released in any contract.
+
+**What `TMS_CFG_READ_CONFIGURATION` returns** (function group `TMSM`, package `STMA`): the
+domain and its systems, `TT_DOM` and `TT_SYS`, held in `TMSCDOM` and `TMSCSYS`. The routes are not
+there: they are the configuration versions of package `STMA_CTWAY`.
+
+| Table | Key | Other fields |
+|---|---|---|
+| `TMSCDOM` (domains) | `DOMNAM` | `CICFG`, `DOMCTL` (controller), `DOMBCK` (backup), `DOMTXT`, `MODDAT`, `MODTIM`, `AUTOACCEPT`, `DISTMODE`, `SINSON`, `SNCALLOW`, `EXTDOM` |
+| `TMSCSYS` (systems) | `DOMNAM`, `SYSNAM`, `LIMBO` | `CICFG`, `DLCFG`, `TMSCFG`, `WBOCFG`, `TPCFG`, `EXPORTED`, `METHOD`, `NFSGRP`, `COMSYS`, `TRADIR`, `DESADM`, `DESSUP`, `SUPALLOW`, `HOLDCON`, `SYSTXT`, `TMSREL`, `SAPREL`, `INSTNR`, `MODDAT`, `MODTIM`, `MODUSR`, `DISTSTATES`, `EXTSYS`, `SYSTYP`, `COMCLI` |
+| `TCEVERS` (versions) | `VERSION` (NUMC 4) | `ACTIVE`, `DELCASCADE`, `AUTHOR`, `CHANGED`, `ACTIVATION`, `DEACTIVAT` (timestamps), `CONTROLER`, `CONVERS` |
+| `TCETRAL` (layers) | `VERSION`, `TRANSLAYER` | — |
+| `TCETRALT` | `VERSION`, `TRANSLAYER`, `SPRAS` | `CTEXT` |
+| `TCESYST` (systems) | `VERSION`, `SYSNAME` | `TRANSLAYER`, `DEVTYPE`, `FUNCRES` |
+| `TCESYSTT` | `VERSION`, `SYSNAME`, `SPRAS` | `DDTEXT` |
+| `TCERELE` (consolidation) | `VERSION`, `TRANSLAYER`, `INTSYS` | `CONSYS` (target), `ORICON` |
+| `TCEDELI` (delivery) | `VERSION`, `FROMSYSTEM`, `FROMCLIENT`, `TOSYSTEM` | `INACTIVE` |
+
+**Open** (`backlog.md`): which value of `TCEVERS-ACTIVE` marks the active version, whether more than
+one version is active, what `ORICON` and `TCEDELI-INACTIVE` hold, and whether `FROMCLIENT` is
+blank for a system-wide route. The tool reads rows only after these are measured.
+
 ### A function group's `objectstructure` lists its FMs, includes and `ENHO/XH` — MEASURED 2026-09-14
 
 Round 17, step 3. The library's `objectStructure()` on a FUGR answers metadata and links only

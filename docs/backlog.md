@@ -47,7 +47,16 @@ read more.
   into `selection=package%3a<PKG>`; only a plain package was measured from the IDE's log. Measure:
   one run with `atc: true` on a `$` package and on a namespaced one, compared with the IDE's log.
 
-## 3. Hosting the server for a team
+## 3. The transport routes of the STMS
+
+The tables are admitted and their fields measured (`adt-api-reference.md`, *The transport routes
+of the STMS*); `adt_transport_routes` is built once the rows are. Measure with `adt_customizing`,
+after a restart that loads the list: `TCEVERS` whole (which value of `ACTIVE` marks the active
+version, and whether only one is), `TCERELE`, `TCEDELI` and `TCESYST` of that version
+(`ORICON`, `INACTIVE`, a blank `FROMCLIENT`), and `TMSCSYS`, then compare with the STMS graphic
+editor of the same version.
+
+## 4. Hosting the server for a team
 
 The code is in place (`docs/deployment.md`); these are what only the system or the owner can
 settle.

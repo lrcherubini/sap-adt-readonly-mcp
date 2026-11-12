@@ -203,6 +203,20 @@ test('T000: the category and the protections of a client are read, who changed i
   }
 });
 
+test('the transport route tables: the route is read, who changed it and how it is reached never are', () => {
+  // Admitted 2026-11-12 for adt_transport_routes (docs/security.md).
+  const never = { TCEVERS: ['AUTHOR'], TMSCDOM: ['MODDAT', 'MODTIM'], TMSCSYS: ['MODUSR', 'MODDAT', 'MODTIM', 'DESADM', 'DESSUP', 'TRADIR', 'INSTNR', 'DISTSTATES'] };
+  for (const [table, fields] of Object.entries(never)) {
+    for (const f of fields) {
+      assert.equal(CUSTOMIZING_TABLES.get(table).fields.includes(f), false, `${table}-${f}`);
+      assert.throws(() => buildSelect({ table, fields: [f] }), /may be read only for/, `${table}-${f}`);
+    }
+  }
+  for (const table of ['TCETRAL', 'TCETRALT', 'TCESYST', 'TCESYSTT', 'TCERELE', 'TCEDELI']) {
+    assert.match(buildSelect({ table, where: [{ field: 'VERSION', value: '0001' }] }).sql, new RegExp(`FROM ${table} WHERE VERSION = '0001'`));
+  }
+});
+
 test('previewPost re-checks the allowlist on the statement: a hand-built SELECT cannot read a user field', async () => {
   const sent = [];
   const raw = { httpClient: { request: async (url, c) => (sent.push({ url, ...c }), { status: 200, body: '', headers: {} }) } };
@@ -215,7 +229,7 @@ test('previewPost re-checks the allowlist on the statement: a hand-built SELECT 
 test('the allow-list is closed and every entry says why', () => {
   assert.deepEqual(
     [...CUSTOMIZING_TABLES.keys()],
-    ['T683S', 'T683U', 'T683T', 'T685', 'T685A', 'T685T', 'T682I', 'T681', 'TMC1T', 'TVCPA', 'TVCPF', 'TVCPL', 'TFRM', 'TFRMT', '/UI2/SEMOBJC', '/UI2/SEMOBJCT', '/UI2/SEMOBJ', 'BALOBJ', 'BALOBJT', 'SCICHKV_HD', 'SCICHKV_TX', 'TADIR', 'DDHEADANNO', 'T052', 'T052U', 'TVARVC', 'TPAER', 'T133A', 'T133B', 'T133C', 'D020S', 'D020T', 'D021T', 'DDFTX', 'TSDIR', 'DYNPSOURCE', 'T130M', 'T133K', 'T133S', 'T133T', 'TSTC', 'TSTCP', 'MDLV', 'MDLG', 'T460A', 'T460T', 'T438A', 'T438T', 'T439A', 'T141', 'T141T', 'TVMS', 'TVMST', 'TFACD', 'TFACT', 'TFAIN', 'TFACS', 'THOC', 'THOCI', 'THOL', 'THOLT', 'FHC_CONFIG', 'FHC_C_FCAL', 'T001', 'T001K', 'T001L', 'T001W', 'T001B', 'T001Z', 'T000', 'SFW_PACKAGE', 'SFW_SW_BF', 'SFW_ACTIVE_BFUNC', 'SFW_SWITCHT', 'SFW_BFT', 'SFW_SWITCH_STATE']
+    ['T683S', 'T683U', 'T683T', 'T685', 'T685A', 'T685T', 'T682I', 'T681', 'TMC1T', 'TVCPA', 'TVCPF', 'TVCPL', 'TFRM', 'TFRMT', '/UI2/SEMOBJC', '/UI2/SEMOBJCT', '/UI2/SEMOBJ', 'BALOBJ', 'BALOBJT', 'SCICHKV_HD', 'SCICHKV_TX', 'TADIR', 'DDHEADANNO', 'T052', 'T052U', 'TVARVC', 'TPAER', 'T133A', 'T133B', 'T133C', 'D020S', 'D020T', 'D021T', 'DDFTX', 'TSDIR', 'DYNPSOURCE', 'T130M', 'T133K', 'T133S', 'T133T', 'TSTC', 'TSTCP', 'MDLV', 'MDLG', 'T460A', 'T460T', 'T438A', 'T438T', 'T439A', 'T141', 'T141T', 'TVMS', 'TVMST', 'TFACD', 'TFACT', 'TFAIN', 'TFACS', 'THOC', 'THOCI', 'THOL', 'THOLT', 'FHC_CONFIG', 'FHC_C_FCAL', 'T001', 'T001K', 'T001L', 'T001W', 'T001B', 'T001Z', 'T000', 'TCEVERS', 'TCETRAL', 'TCETRALT', 'TCESYST', 'TCESYSTT', 'TCERELE', 'TCEDELI', 'TMSCDOM', 'TMSCSYS', 'SFW_PACKAGE', 'SFW_SW_BF', 'SFW_ACTIVE_BFUNC', 'SFW_SWITCHT', 'SFW_BFT', 'SFW_SWITCH_STATE']
   );
   for (const [t, spec] of CUSTOMIZING_TABLES) assert.ok(spec.why.length > 10, `${t} has no reason`);
   assert.ok(![...CUSTOMIZING_TABLES.keys()].some((t) => /^[ZY]/.test(t)), 'the standard list carries no customer table');

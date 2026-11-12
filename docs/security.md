@@ -403,6 +403,19 @@ the client, its name, city and currency, the category, the change and copy prote
 logical system; the other three are never read. Its delivery class was not read here: the
 allowlist, not the class, is what keeps the person out, as for `SCICHKV_HD`.
 
+**The transport routes of the STMS, with field allowlists -- the owner's decision, 2026-11-12.**
+For `adt_transport_routes`: which systems the transport domain holds and how a request travels
+between them. Function module `TMS_CFG_READ_CONFIGURATION` returns the domain and its systems
+(`TT_DOM`, `TT_SYS`: tables `TMSCDOM`, `TMSCSYS`); the routes themselves are in the
+configuration versions of package `STMA_CTWAY`: `TCEVERS` (the versions), `TCETRAL`/`TCETRALT`
+(layers), `TCESYST`/`TCESYSTT` (systems), `TCERELE` (consolidation) and `TCEDELI` (delivery).
+Field lists measured 2026-11-12 (reference, *The transport routes of the STMS*). Never read:
+`TCEVERS-AUTHOR`, the change date and user of `TMSCDOM` and `TMSCSYS`, and in `TMSCSYS` the RFC
+destinations (`DESADM`, `DESSUP`), the transport directory (`TRADIR`) and the installation number
+(`INSTNR`): none of them is part of a route, and the last three describe how the landscape is
+reached. Calling the function module itself was not considered: this server calls no function
+module, and the tables answer the same question through the one read that is already fenced.
+
 #### The list has two layers: standard in the repository, the installation's own in the store
 
 No value of a particular landscape is written in the code. That holds for the fences too, so
