@@ -82,10 +82,10 @@ test('a truncated read is said, nothing is asked for no package, and a failure l
 
 test('packagesOf reads TADIR by name and says which names it could not ask', async () => {
   const data = { TADIR: [{ PGMID: 'R3TR', OBJECT: 'ENHO', OBJ_NAME: 'ZDEMO_ENH_A', DEVCLASS: 'ZDEMO_PKG_ON' }] };
-  const { packages, notes } = await packagesOf('ENHO', ['zdemo_enh_a', 'ZDEMO_ENH_B', 'Z&BAD'], tables(data));
+  const { packages, notes } = await packagesOf('ENHO', ['zdemo_enh_a', 'ZDEMO_ENH_B', 'Z(BAD'], tables(data));
   assert.equal(packages.get('ZDEMO_ENH_A'), 'ZDEMO_PKG_ON');
   assert.equal(packages.has('ZDEMO_ENH_B'), false);
-  assert.match(notes[0], /ENHO Z&BAD: not a name the preview grammar takes/);
+  assert.match(notes[0], /ENHO Z\(BAD: not a name the preview grammar takes/);
 });
 
 test('previewQuery goes through the closed list and the echo check', async () => {

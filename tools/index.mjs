@@ -35,6 +35,7 @@ import { packageHealthTool } from './package-health.mjs';
 import { definitionTool } from './definition.mjs';
 import { usedObjectsTool } from './used-objects.mjs';
 import { publish, schemaErrors, closeSchema, withStructuredContent } from '../lib/tool-meta.mjs';
+import { objectSegmentOf } from '../lib/object-name.mjs';
 
 // Z*, Y* and /NAMESPACE/ objects are ours; anything else is SAP standard.
 const CUSTOM_NAMESPACE = /^([ZY]|\/)/;
@@ -344,7 +345,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
       const route = `textElements${kind}${category[0].toUpperCase()}${category.slice(1)}`;
       let out;
       try {
-        out = await namedGet(transportFor(session.raw), route, { name: m[2].toLowerCase() });
+        out = await namedGet(transportFor(session.raw), route, { name: objectSegmentOf(decodeURIComponent(m[2])) ?? m[2].toLowerCase() });
         lines.push(`* --- ${category} ---`, out.body.trim() ? out.body.trimEnd() : '* (none)');
         categories[category] = { read: true, lines: out.body.trim() ? out.body.trimEnd().split(/\r?\n/).length : 0 };
       } catch (e) {
@@ -697,7 +698,7 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
         }
         // Empty with a facet is a question, not a verdict (measured): ask once more with the
         // facet whole. The reply then carries no description, and the answer says so.
-        const retryable = facet?.includes('/') && /^[A-Z0-9_/]{1,40}\*?$/i.test(String(query));
+        const retryable = facet?.includes('/') && /^[A-Z0-9_/&$%.+#-]{1,40}\*?$/i.test(String(query));
         let facetRetry = { asked: false, reason: hits.length ? 'the first search answered' : !facet?.includes('/') ? 'no facet asked' : !retryable ? 'the query is not a name or a name with a trailing *' : 'no raw client in this session' };
         if (!hits.length && retryable && facetSearch) {
           hits = await facetSearch(query, facet, limit);

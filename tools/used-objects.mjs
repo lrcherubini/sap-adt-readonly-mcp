@@ -17,18 +17,15 @@ import { API_RELEASE_OBJECT, parseApiRelease } from '../lib/api-release.mjs';
 import { buildNetworkRequest, networkPost, parseNetwork, ObjectRelationsViolation } from '../lib/object-relations.mjs';
 import { parsePackageDocument } from '../lib/package-document.mjs';
 import { finish } from '../lib/completeness.mjs';
+import { packageSegmentOf } from '../lib/package-name.mjs';
 
 const TOOL = 'adt_used_objects';
 export const MAX_RELEASE_READS = 25;
 /** Package documents read for `boundary`: the class's own, plus at most this many used ones. */
 export const MAX_PACKAGE_READS = 10;
 
-/** A package name as the packageDocument route takes it, or null when its alphabet is not admitted. */
-const packageSegment = (name) => {
-  const n = String(name ?? '').trim().toLowerCase();
-  const m = /^(?:\/([a-z0-9_]{1,10})\/)?([a-z0-9_]{1,30})$/.exec(n);
-  return m ? (m[1] ? `%2f${m[1]}%2f${m[2]}` : m[2]) : null;
-};
+/** A package name as the packageDocument route takes it, or null when it is not a package name. */
+const packageSegment = packageSegmentOf;
 const asText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] });
 
 const capOf = (value) => {
@@ -44,7 +41,7 @@ export function usedObjectsTool(cfg, session, journal) {
   /** One package document, or {read:false, reason}. A failure is a gap, never "declares nothing". */
   async function readPackage(name) {
     const segment = packageSegment(name);
-    if (!segment) return { read: false, reason: `package '${name}' is outside the measured alphabet (a $ package is not measured)` };
+    if (!segment) return { read: false, reason: `package '${name}' is not a package name (lib/package-name.mjs)` };
     let out;
     try {
       out = await namedGet(transportFor(session.raw), 'packageDocument', { name: segment });

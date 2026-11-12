@@ -227,7 +227,12 @@ test('a package is one object reference, the virtual-folders selection the IDE s
   const b = buildPackageRunBody({ packageName: 'zdemo_pkg' });
   assert.equal(b.uri, '/sap/bc/adt/repository/informationsystem/virtualfolders?selection=package%3aZDEMO_PKG');
   assert.match(b.xml, /adtcore:uri="\/sap\/bc\/adt\/repository\/informationsystem\/virtualfolders\?selection=package%3aZDEMO_PKG"\/>/);
-  for (const bad of ['/DEMO/PKG', '$TMP', 'ZDEMO PKG', 'ZDEMO_PKG%20owner%3aDEVUSER1', '', 'Z'.repeat(31)]) {
+  // Every package alphabet the system uses, percent-encoded into the selection.
+  assert.equal(buildPackageRunBody({ packageName: '/demo/pkg' }).uri, '/sap/bc/adt/repository/informationsystem/virtualfolders?selection=package%3a%2FDEMO%2FPKG');
+  assert.equal(buildPackageRunBody({ packageName: '$TMP' }).uri.split('%3a')[1], '%24TMP');
+  assert.equal(buildPackageRunBody({ packageName: 'Z-DEMO-A&B+C.1' }).uri.split('%3a')[1], 'Z-DEMO-A%26B%2BC.1');
+  assert.match(buildPackageRunBody({ packageName: 'Z-DEMO-A&B' }).xml, /A%26B"/, 'already encoded: no raw & reaches the XML');
+  for (const bad of ['ZDEMO PKG', 'ZDEMO_PKG%20owner%3aDEVUSER1', '', 'Z'.repeat(31), '/AB/X', 'ZDEMO#1', "ZDEMO'X"]) {
     assert.throws(() => buildPackageRunBody({ packageName: bad }), AtcViolation, bad);
   }
   const sent = [];

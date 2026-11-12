@@ -184,7 +184,7 @@ test('a failed ATC run is read: false and a gap, never a clean package', async (
   assert.match(out.atc.reason, /503/);
   assert.equal(out.complete, false);
   assert.ok(gaps.some((g) => g.code === 'ATC_NOT_RUN' && g.subject === 'DEVC/K ZDEMO_PKG'));
-  const ns = await runPackageHealth(cfgFor(), { ...fakeSession(), api: { nodeContents: async () => ({ nodes: [] }) } }, { package: '/DEMO/PKG', atc: true }, journal);
+  const ns = await runPackageHealth(cfgFor(), { ...fakeSession(), api: { nodeContents: async () => ({ nodes: [] }) } }, { package: 'ZDEMO#PKG', atc: true }, journal);
   assert.equal(ns.atc.read, false);
-  assert.match(ns.atc.reason, /namespaces/);
+  assert.match(ns.atc.reason, /not a package name/);
 });

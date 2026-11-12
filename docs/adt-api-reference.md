@@ -3755,6 +3755,33 @@ read from its 8.4.3 build), all `200` except where said:
 - Four members are POSTs the server already sends through the library today: their measured
   forms above are what a replacement sends, and each needs its dated decision.
 
+### Package and object names: the characters the system uses — MEASURED 2026-11-12
+
+The quick search (`adtcore:objectReferences`, the same route as `adt_search`) was asked for
+`*<c>*` per candidate character `c`, with and without a type facet, and the names in each reply
+counted. SAP's documentation fixes the length (30 characters for a repository name, the namespace
+included) and the namespace (5 to 10 characters, slashes included); it does not list the
+characters, so these were read off the system.
+
+| Family | Characters seen besides `A-Z 0-9 _ /` | Examples (SAP standard) |
+|---|---|---|
+| packages (`DEVC/K`) | `- & . + $` | 928 with `-`; `IS-A&D-MPN-SUCHHILFE`, `IS_E&C_AHK`, `WO+G`, `/PM0/ALB_RELEASE4.5`, `$TMP`, `$/1BEA/BBEA` (a local package in a namespace) |
+| function groups (`FUGR/F`) | `-` | `FTBP-CUST` |
+| programs (`PROG/P`) | `%` | `%H_ARCH_` |
+| includes (`PROG/I`) | `& $` | `BILA&I00`, `RPC4$QQ0` |
+| message classes (`MSAG/N`) | `- + # & $` | `C-`, `C+`, `C#`, `C&`, `C$` |
+| classes, tables, CDS (`CLAS/OC`, `TABL/DT`, `DDLS/DF`) | none | -- |
+
+No package carried `# ! % ( ) = @ : ' , ; ~`, a blank or a lower-case letter. Families this
+server does not read carry more (transactions `MC$:`, `F.01`; IMG activities with blanks;
+`LRCC/LRP` hashes with `= +` and lower case; class includes padded with `=`); `?` in a search
+pattern is a single-character wildcard.
+
+**How the ADT writes them.** In every `adtcore:uri` the name is lower case and percent-encoded:
+`/sap/bc/adt/packages/is-a%26d-mpn-suchhilfe`, `%24%2f1bea%2fbbea`, `wo%2bg`,
+`/sap/bc/adt/programs/programs/%25h_arch_`, `/sap/bc/adt/programs/includes/bila%26i00`,
+`/sap/bc/adt/functions/groups/ftbp-cust`. `-` and `.` travel as they are.
+
 ## How to reproduce
 
 The readings above used a **temporary** probe: `lib/ddic-probe.mjs` plus a four-line

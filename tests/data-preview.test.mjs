@@ -129,6 +129,11 @@ test('LIKE takes a search pattern, never SQL: the module writes the literal and 
   assert.equal(likeLiteral('*LOG*'), "'%LOG%' ESCAPE '#'");
   assert.equal(likeLiteral('/DMO/*'), "'/DMO/%' ESCAPE '#'");
   assert.equal(likeLiteral('*'), "'%' ESCAPE '#'");
+  // The measured name characters (lib/object-name.mjs) are text, the LIKE ones escaped.
+  assert.equal(likeLiteral('%H_*'), "'#%H#_%' ESCAPE '#'");
+  assert.equal(likeLiteral('Z#*'), "'Z##%' ESCAPE '#'");
+  assert.equal(likeLiteral('BILA&*'), "'BILA&%' ESCAPE '#'");
+  assert.equal(likeLiteral('FTBP-*'), "'FTBP-%' ESCAPE '#'");
   assert.equal(
     buildSelect({ table: 'BALOBJ', fields: ['OBJECT'], where: [{ field: 'OBJECT', op: 'LIKE', value: 'Z*' }] }).sql,
     "SELECT OBJECT FROM BALOBJ WHERE OBJECT LIKE 'Z%' ESCAPE '#'"
@@ -142,7 +147,6 @@ test('LIKE takes a search pattern, never SQL: the module writes the literal and 
     '*"',
     "Z*' ESCAPE '!",
     'Z% ',
-    'Z#*',
     '* FROM TADIR',
     'Z*;',
     'A'.repeat(31),

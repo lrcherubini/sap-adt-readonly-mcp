@@ -1363,6 +1363,36 @@ input and result changed, so it is a breaking version), not what the server may 
 `tests/completeness.test.mjs` (the helpers, no hedge anywhere, every tool answer built by
 `finish`) and by the contract checks in each tool's own test file.
 
+### Names in the alphabet the system uses -- 2026-11-12
+
+`adt_package_tree` refused a package that exists (a customer package with hyphens): every
+request that carried a package name checked it against `A-Z 0-9 _ $` and an optional namespace,
+four times over, each copy slightly different. The characters a package or an object name may
+have were measured on the system (`docs/adt-api-reference.md`, "Package and object names").
+Decided:
+
+- **One rule per kind of name.** `lib/package-name.mjs` for packages (`A-Z 0-9 _ - & . + $`, an
+  optional `$` before a namespace, 30 characters with it) and `lib/object-name.mjs` for objects
+  (`A-Z 0-9 _ - & $ % . + #`, a namespace, 40 characters). The tree, the virtual folders, the
+  package document, the ATC run over a package and the text elements use them; the copies left.
+- **Admitted means encoded.** Every character admitted leaves encoded for where it goes: a URL
+  segment lower case and percent-encoded as the ADT writes it (`%26`, `%24`, `%25`, `%2b`, `%2f`),
+  a query parameter percent-encoded, XML text escaped. A segment that already carries the
+  escapes its pattern admits is not encoded twice (`keepEncodedSlash` keeps any admitted
+  `%xx`, not only `%2f`); the pattern is checked first, so `%20`, `%27` or `..` never pass.
+- **The data preview reads such names as text.** A value may carry `& $ % #`, a LIKE pattern
+  too: `#` is the escape character and is doubled, and a name's own `_` and `%` are escaped, so
+  `%H_*` matches the program `%H_ARCH_` and nothing else.
+- **What stays narrow, and why.** Tables, structures, service bindings, classes (the Relation
+  Explorer), service definitions and check variants keep `A-Z 0-9 _` and a namespace: no name
+  of those families carried another character on the system. A blank, a quote and `( ) , ;`
+  are refused everywhere: no family this server reads uses them, and they are the characters
+  that change the meaning of a request.
+
+No route and no read were added: the routes are the same, the alphabets of their arguments
+grew to what the system writes. Pinned by `tests/package-name.test.mjs` and
+`tests/object-name.test.mjs`; `npm run test:guard` passes on the changed route table.
+
 ## What is written to disk
 
 Everything lives in `%LOCALAPPDATA%\sap-adt\`, and the server **refuses to start** if that
