@@ -1508,6 +1508,27 @@ reason: it would have been the same overstatement in a new place. A real cap bel
 route and would change what this server promises, which makes it a decision for this document
 rather than a setting in the environment store.
 
+### Limits that refuse, for a hosted server -- 2026-11-12
+
+Decided by the owner. `budget.reads` stays the notice described above; the "real cap, before the
+route" that paragraph left open is now two limits, both in `lib/limits.mjs`, and neither is the
+budget renamed:
+
+- **A gate on the requests in flight to the SAP system** (`limits.adtConcurrency`, 8 by default),
+  whoever asked for them. The system answers each request from a work process, and several
+  people's package scans started together would take as many as there are requests. A request
+  past the gate **waits** its turn; nothing is refused and no answer is shortened. The logon, the
+  logon again and the token fetch are not behind it, so a request holding a slot can never wait
+  for a logon that waits for a slot.
+- **A rate of tool calls per caller and minute** (`limits.callsPerMinute`, 0 = none by default,
+  because a single user needs none). A call past it is answered at once, as a tool result with
+  `isError: true`, the reason and the seconds to wait, before anything is asked of the system.
+  It is refused and not queued on purpose: a queue would hide from the caller that it is being
+  held back. A refused call is not counted, so waiting the time said is enough.
+
+Neither changes what an answer says when it is given: the completeness contract is untouched,
+because a call is either served whole or refused whole. Pinned by `tests/limits.test.mjs`.
+
 A journal that cannot write is itself a security-relevant failure, because from that moment an
 empty report is indistinguishable from a clean one. `lib/journal.mjs` therefore warns once per
 process on stderr and counts what it dropped, and the package scans report the objects they could

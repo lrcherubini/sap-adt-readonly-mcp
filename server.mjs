@@ -117,6 +117,7 @@ const httpServer = http.createServer(
     port: () => cfg.mcpPort,
     publicHosts: cfg.publicHosts,
     callers: cfg.callers,
+    callsPerMinute: cfg.limits.callsPerMinute,
     log: (m) => console.error(m),
     onOpen: () => inFlight++,
     onClose: () => inFlight--,
