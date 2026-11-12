@@ -66,6 +66,13 @@ test('the scan sees the whole repository, docs and fixtures included', () => {
   assert.ok(FILES.some((f) => f.file.startsWith('tests/fixtures/')), 'fixtures not scanned');
 });
 
+test('no text file carries a NUL byte: one would leave it out of every rule of this file', () => {
+  // FILES drops what holds a NUL (it is how a binary without a listed extension is told apart),
+  // and lib/journal.mjs once went unscanned for a raw NUL inside a string literal.
+  const withNul = repoFiles().filter((f) => !BINARY.test(f) && fs.readFileSync(path.join(ROOT, f)).includes(0));
+  assert.deepEqual(withNul, [], 'write the character as an escape (\\u0000), never as the raw byte');
+});
+
 // Letters English does not use, built from code points so that this file does not match itself.
 // A test that needs non-ASCII input uses the loanword "cafe" with its acute e, or another script
 // (a Cyrillic letter) -- never a sentence in another language.
