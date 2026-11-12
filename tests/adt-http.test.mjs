@@ -11,7 +11,10 @@ const SESSION = 'SAP_SESSIONID_DEV_001=s3ss10nv4lue; path=/; secure; HttpOnly';
 const USERCTX = 'sap-usercontext=sap-client=001; path=/';
 const TOKEN = 'T0k3nT0k3nT0k3nT0k3n==';
 
-/** A fake https.request. `answer(call)` returns {status, headers, body} or throws for a network error. */
+/**
+ * A fake https.request. `answer(call)` returns {status, headers, body}, or a promise of it (a
+ * reply held back), or throws for a network error.
+ */
 function fakeRequest(answer) {
   const calls = [];
   const request = (options, onResponse) => {
@@ -24,10 +27,10 @@ function fakeRequest(answer) {
     req.end = () => {
       const call = { method: options.method, path: options.path, headers: { ...options.headers }, body, tls: options.rejectUnauthorized };
       calls.push(call);
-      setImmediate(() => {
+      setImmediate(async () => {
         let reply;
         try {
-          reply = answer(call, calls.length);
+          reply = await answer(call, calls.length);
         } catch (e) {
           req.emit('error', e);
           return;
@@ -125,6 +128,67 @@ test('a refused logon again kills the client: no request and no logon is sent af
   await assert.rejects(() => http.login(), /logon again was refused/);
   assert.equal(calls.length, sent, 'nothing more reached the system');
   assert.equal(http.loggedin, false);
+});
+
+const SESSION2 = 'SAP_SESSIONID_DEV_001=n3ws3ss10n; path=/; secure; HttpOnly';
+const LOGON_AGAIN_OK = { ...LOGON_OK, headers: { ...LOGON_OK.headers, 'set-cookie': [USERCTX, SESSION2] } };
+const inNewSession = (c) => /n3ws3ss10n/.test(c.headers.Cookie ?? '');
+
+test('requests that meet the same expiry share ONE logon again', async () => {
+  let logons = 0;
+  const relogons = [];
+  const { request, calls } = fakeRequest((c) => {
+    if (isLogon(c)) return ++logons === 1 ? LOGON_OK : LOGON_AGAIN_OK;
+    return inNewSession(c) ? { status: 200, body: 'ok' } : { status: 401, headers: { 'content-type': 'text/html' }, body: '<html>logon</html>' };
+  });
+  const http = createAdtHttp(CFG, { user: 'DEVUSER1', password: 'p', request, onRelogon: (x) => relogons.push(x) });
+  await http.login();
+  const answers = await Promise.all([1, 2, 3, 4, 5].map((n) => http.httpClient.request(`/sap/bc/adt/programs/programs/zdemo_${n}`)));
+  assert.deepEqual(answers.map((a) => a.body), ['ok', 'ok', 'ok', 'ok', 'ok']);
+  assert.equal(calls.filter(isLogon).length, 2, 'the first logon and one logon again, whatever the number of requests');
+  assert.deepEqual(relogons, [{ status: 401 }]);
+});
+
+test('a logon again that is refused is ONE attempt, and every request waiting for it fails', async () => {
+  let logons = 0;
+  const refused = [];
+  const { request, calls } = fakeRequest((c) => {
+    if (isLogon(c)) return ++logons === 1 ? LOGON_OK : { status: 401, headers: { 'content-type': 'text/html' }, body: '<html/>' };
+    return { status: 401, headers: {}, body: '' };
+  });
+  const http = createAdtHttp(CFG, { user: 'DEVUSER1', password: 'p', request, onRelogonRefused: (x) => refused.push(x) });
+  await http.login();
+  const results = await Promise.allSettled([1, 2, 3, 4, 5].map((n) => http.httpClient.request(`/sap/bc/adt/programs/programs/zdemo_${n}`)));
+  assert.deepEqual(results.map((r) => r.status), ['rejected', 'rejected', 'rejected', 'rejected', 'rejected']);
+  assert.equal(calls.filter(isLogon).length, 2, 'a password the system refused is never sent a second time');
+  assert.deepEqual(refused, [{ status: 401 }]);
+  const sent = calls.length;
+  await assert.rejects(() => http.httpClient.request('/sap/bc/adt/discovery'), /logon again was refused/);
+  assert.equal(calls.length, sent, 'nothing more reached the system');
+});
+
+test('a 401 that arrives after another request logged on again repeats in the new session, without a logon of its own', async () => {
+  let logons = 0;
+  let releaseLate;
+  const held = new Promise((resolve) => {
+    releaseLate = resolve;
+  });
+  const { request, calls } = fakeRequest((c) => {
+    if (isLogon(c)) return ++logons === 1 ? LOGON_OK : LOGON_AGAIN_OK;
+    if (inNewSession(c)) return { status: 200, body: 'ok' };
+    // The old session's reply also expires its cookie: that must not reach the new session's jar.
+    const expired = { status: 401, headers: { 'set-cookie': ['SAP_SESSIONID_DEV_001=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'] }, body: '' };
+    return c.path.includes('zdemo_late') ? held.then(() => expired) : expired;
+  });
+  const http = createAdtHttp(CFG, { user: 'DEVUSER1', password: 'p', request });
+  await http.login();
+  const late = http.httpClient.request('/sap/bc/adt/programs/programs/zdemo_late');
+  assert.equal((await http.httpClient.request('/sap/bc/adt/programs/programs/zdemo_fast')).body, 'ok');
+  assert.equal(calls.filter(isLogon).length, 2);
+  releaseLate();
+  assert.equal((await late).body, 'ok');
+  assert.equal(calls.filter(isLogon).length, 2, 'the session was already new: no third logon');
+  assert.match(calls.at(-1).headers.Cookie, /n3ws3ss10n/, 'the late reply did not expire the new session cookie');
 });
 
 test('the first logon refused is thrown with its status and nothing is retried', async () => {

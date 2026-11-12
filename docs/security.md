@@ -1194,7 +1194,9 @@ the owner the same day:
 - A session that expires (401 after a logon that succeeded) logs on again **once**, with the
   password the system already accepted, and the trail records it. If that logon is refused, the
   client sends nothing more until a restart: a password changed in the meantime is never tried
-  twice. The first logon keeps its own rule: one attempt per process.
+  twice. The first logon keeps its own rule: one attempt per process. Requests that meet the same
+  expiry together share that one logon (since 2026-11-12): each waits for it, none starts its own,
+  and a refusal ends all of them.
 - The password stays in the client's closure and is dropped at logoff. No error, header map or
   message the client hands out carries a cookie, a token or an Authorization value.
 
