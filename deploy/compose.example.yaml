@@ -1,0 +1,70 @@
+# Docker Compose on one host, an example: follow docs/deployment/docker.md, which explains every
+# line. The names are invented (vhdemohost.example); nothing here describes a real landscape.
+#
+#   docker compose -f deploy/compose.example.yaml run --rm config import /etc/sap-adt/config.json
+#   docker compose -f deploy/compose.example.yaml up -d
+#
+# What must not change without reading why: one sap-adt service (each instance is one SAP logon
+# of the same user), the named volume for the state (the rule that keeps a refused password from
+# being sent at every restart reads the audit trail of earlier starts), and the password as a
+# file, never an environment variable.
+
+name: sap-adt
+
+services:
+  sap-adt:
+    image: sap-adt-readonly-mcp:local
+    build:
+      context: ..
+    read_only: true
+    restart: on-failure
+    # The server says goodbye to SAP within shutdownMs (5 s) and has a hard deadline of twice that.
+    stop_grace_period: 20s
+    secrets:
+      - sap_password
+    volumes:
+      - state:/var/lib/sap-adt
+    # Not published on the host's network: only the proxy below reaches it.
+    expose:
+      - "2237"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:2237/readyz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
+  # The configuration CLI, run on demand against the same state:
+  #   docker compose -f deploy/compose.example.yaml run --rm config <command>
+  config:
+    image: sap-adt-readonly-mcp:local
+    profiles: ["tools"]
+    read_only: true
+    entrypoint: ["node", "scripts/config.mjs"]
+    volumes:
+      - state:/var/lib/sap-adt
+      - ./sap-adt.config.json:/etc/sap-adt/config.json:ro
+
+  # TLS in front: Caddy obtains a certificate for the public name and forwards the Host unchanged.
+  # Pin the image to a digest in your own registry before relying on it. Replace it with your own
+  # proxy if you have one; it must forward the Host header as the client sent it.
+  proxy:
+    image: caddy:2
+    restart: on-failure
+    command: ["caddy", "reverse-proxy", "--from", "sap-adt.vhdemohost.example", "--to", "sap-adt:2237"]
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - caddy:/data
+    depends_on:
+      - sap-adt
+
+secrets:
+  # A file only root (or the account that runs Docker) can read on the host; see the guide.
+  sap_password:
+    file: ./secrets/sap-password
+
+volumes:
+  state:
+  caddy:

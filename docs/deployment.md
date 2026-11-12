@@ -6,10 +6,10 @@ the network. Each decision behind it is dated in [`security.md`](security.md); t
 what to do with them.
 
 **What is and is not verified.** Every behaviour below has a test in the offline suite. The image
-has been built and run with a read-only root file system and a named volume: the configuration
-import, `token add`, and a start that stops before any password when the host does not answer.
-Nothing has been run against an SAP system as a hosted service, and the Kubernetes and systemd
-examples have not been applied to a cluster or a machine. Treat the first installation as the
+and the Compose example have been run: the configuration import, `token add`, the catalogue sync,
+and a start that stops before any password when the host does not answer. Nothing has been run
+against an SAP system as a hosted service, and the Kubernetes, Windows and systemd steps have not
+been applied to a cluster or a machine; each guide says what it verified. Treat the first installation as the
 measurement, on a development system, with someone watching (`backlog.md`, *Hosting the server
 for a team*).
 
@@ -83,22 +83,22 @@ claude mcp add --scope user --transport http sap-adt https://<public host>/mcp \
 
 ## Per platform
 
-**Kubernetes.** [`../Dockerfile`](../Dockerfile) builds the image and
-[`../deploy/kubernetes.example.yaml`](../deploy/kubernetes.example.yaml) is a starting point:
-one replica with the `Recreate` strategy, a claim for the state directory, the password as a
-mounted secret (mode `0440`; the server refuses a file every user can read), an init container
-that imports the configuration, and probes on `/healthz` and `/readyz`. Add callers with
-`kubectl exec deploy/sap-adt -- node scripts/config.mjs token add <name>`, then restart the pod.
+Each guide goes from an empty machine to a client that answers, with what to check at each step
+and what the log says when it does not start:
 
-**Linux.** [`../deploy/sap-adt.service`](../deploy/sap-adt.service) is a systemd unit: a system
-user, `StateDirectory`, and the password handed over with `LoadCredential`, so `passwordFile` is
-`/run/credentials/sap-adt.service/sap-password`.
+| Platform | Guide | Example files |
+|---|---|---|
+| Docker on one host | [`deployment/docker.md`](deployment/docker.md) | [`deploy/compose.example.yaml`](../deploy/compose.example.yaml), [`Dockerfile`](../Dockerfile) |
+| Kubernetes | [`deployment/kubernetes.md`](deployment/kubernetes.md) | [`deploy/kubernetes.example.yaml`](../deploy/kubernetes.example.yaml) |
+| Windows Server | [`deployment/windows.md`](deployment/windows.md) | — |
+| Linux with systemd | no guide: the unit explains itself | [`deploy/sap-adt.service`](../deploy/sap-adt.service) |
 
-**Windows.** Run `node server.mjs` under a dedicated local or managed service account, with a
-service wrapper or a scheduled task set to run whether or not a user is logged on. Set
-`SAP_ADT_STATE_DIR` for that account to a folder only it and the administrators can open, and put
-the password in a file with the same access list. Windows has no mode bits for the server to
-judge, so that access list is the whole protection of the file: check it with `icacls`.
+Which to choose: a cluster you already run is the cluster; otherwise one Linux host with Docker is
+the shortest path, because the image carries Node and the proxy obtains its own certificate.
+Windows fits a landscape that has no Linux host to give.
+
+`config.example.json` and the ConfigMap of the Kubernetes example declare every setting, with the
+values of a developer and of a hosted server; `tests/deploy.test.mjs` keeps them in step.
 
 ## Operating it
 

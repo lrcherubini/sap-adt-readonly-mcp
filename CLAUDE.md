@@ -115,7 +115,7 @@ Each fact has one home. Do not copy it into a second place.
 | A measured shape or behaviour of the ADT API | `docs/adt-api-reference.md` |
 | A decision about what the server may read, with its reason | `docs/security.md` |
 | An open question or measurement still to make | `docs/backlog.md` (leaves when resolved) |
-| What a user needs to install, configure and use it | `README.md`; each tool's guard rails: `docs/tools.md`; hosting it for a team: `docs/deployment.md` |
+| What a user needs to install, configure and use it | `README.md`; each tool's guard rails: `docs/tools.md`; hosting it for a team: `docs/deployment.md`, one guide per platform in `docs/deployment/` |
 | What changed and when | git history (commit messages); `CHANGELOG.md` is generated from it |
 | How to work in this repository | this file |
 

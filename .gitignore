@@ -30,3 +30,8 @@ config.json
 
 # Personal Claude Code notes for this checkout (see CLAUDE.md).
 CLAUDE.local.md
+
+# Docker Compose on one host (docs/deployment/docker.md): the installation's configuration and the
+# SAP password sit next to deploy/compose.example.yaml on the host, and never in the repository.
+/deploy/sap-adt.config.json
+/deploy/secrets/
