@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { dumpAfter500, explainWithDump, statusOf, SKEW_MS } from '../lib/dump-after-500.mjs';
 import { buildTools } from '../tools/index.mjs';
+import { inCall } from '../lib/call-context.mjs';
 
 const DUMPS = fs.readFileSync(path.join(import.meta.dirname, 'fixtures', 'runtime-dumps-measured.xml'), 'utf8');
 // The newest entry of the fixture.
@@ -148,4 +149,29 @@ test('through the tool wrapper: a tool that throws a 500 rethrows it with the du
   };
   await assert.rejects(() => search.handler({ query: 'X' }), /404$/);
   assert.equal(sent.length, 1);
+});
+
+test('with another call in flight the dump is a candidate, said as one; alone it is the cause', async () => {
+  const error = Object.assign(new Error('Request failed with status code 500'), { err: 500 });
+  const explain = () => {
+    const { session } = sessionWith({ body: DUMPS });
+    return dumpAfter500({ cfg: cfgWith([]), session, journal: journalOf(), tool: 'adt_transport', error, since: NEWEST - 1000 });
+  };
+  // Every call logs on as one SAP user, so "a dump of this user since the call started" is not
+  // this call's alone while another one runs.
+  let release;
+  const other = inCall(() => new Promise((resolve) => (release = resolve)));
+  const together = await inCall(explain);
+  release();
+  await other;
+  assert.equal(together.matched, true);
+  assert.equal(together.shared, true);
+  assert.match(explainWithDump(together), /dumped in the same moment: OBJECTS_OBJREF_NOT_ASSIGNED_NO .* may belong to one of them/);
+  assert.match(journalLines.find((l) => l.code === 'SERVER_DUMPED').detail, /other calls were in flight/);
+
+  journalLines.length = 0;
+  const alone = await inCall(explain);
+  assert.equal(alone.shared, false);
+  assert.match(explainWithDump(alone), /the SAP system dumped: OBJECTS_OBJREF_NOT_ASSIGNED_NO/);
+  assert.doesNotMatch(journalLines.find((l) => l.code === 'SERVER_DUMPED').detail, /in flight/);
 });

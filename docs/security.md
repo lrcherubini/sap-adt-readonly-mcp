@@ -783,6 +783,11 @@ stripped, never the title, never a variable; a dump older than the failed call i
 attached, because it is someone else's; and the original error stands whatever the feed
 answers. Module: `lib/dump-after-500.mjs`, test `tests/dump-after-500.test.mjs`.
 
+Since 2026-11-12 the explanation also says when it is not this call's alone. Every call logs on
+as the same SAP user, so with another call in flight "the newest dump of this user since the
+call started" may be the other call's. The dump is then attached as a candidate (`shared: true`,
+and the sentence says other calls were in flight), never as the cause.
+
 ### The Fiori launchpad -- 2026-10-02
 
 The repository owner asked for the Fiori launchpad content of the system (catalogs, tiles, target
