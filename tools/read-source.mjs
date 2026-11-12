@@ -597,12 +597,18 @@ export function readSourceTool(cfg, session, journal, { resolveOpts } = {}) {
         },
         one.gaps ?? []
       );
+      // A client shows the text blocks or the structured content, not always both. The source is
+      // therefore in each ONCE: as text in the first block, as `source` in the structured
+      // content. (It used to be in the text only, and a client that shows structured content got
+      // the metadata of a source and no source.) The second text block is the structure without
+      // the source, so the text does not carry it twice.
+      const notes = one.enhFooter.trim();
       return {
         content: [
           { type: 'text', text: one.header + one.source + one.enhFooter },
           { type: 'text', text: JSON.stringify(structured) },
         ],
-        structuredContent: structured,
+        structuredContent: { ...structured, source: one.source, ...(notes ? { sourceNotes: notes } : {}) },
       };
     },
   };

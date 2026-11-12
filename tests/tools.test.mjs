@@ -532,7 +532,11 @@ test('adt_read_source answers what was asked, read and left out as structured co
   const tools = (over) => toolsWith(fakeApi(over));
   const plain = await byName(tools({}), 'adt_read_source').handler({ objectName: 'ZI_TEST' });
   assert.match(plain.content[0].text, /define view entity ZI_TEST/, 'the source stays the first text');
-  assert.deepEqual(JSON.parse(plain.content[1].text), plain.structuredContent, 'and the structure is also given as JSON text');
+  // The source is in the text once and in the structured content once: a client shows one or the other.
+  const { source, ...structure } = plain.structuredContent;
+  assert.deepEqual(JSON.parse(plain.content[1].text), structure, 'the structure is also given as JSON text, without the source a second time');
+  assert.equal(source, 'define view entity ZI_TEST as select from t001 {}');
+  assert.ok(plain.content[0].text.endsWith(source), 'the same source the text block ends with');
   assert.equal(plain.structuredContent.complete, true);
   assert.deepEqual(plain.structuredContent.enhancements, { asked: false });
   assert.deepEqual(plain.structuredContent.textElements, { asked: false });
