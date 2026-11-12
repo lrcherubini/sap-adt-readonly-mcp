@@ -21,6 +21,7 @@ import { contractCheckTool } from './contract-check.mjs';
 import { annotationChainTool } from './annotation-chain.mjs';
 import { annotationScanTool } from './annotation-scan.mjs';
 import { transportTool } from './transport.mjs';
+import { transportRoutesTool } from './transport-routes.mjs';
 import { customizingTool } from './customizing.mjs';
 import { runtimeErrorsTool } from './runtime-errors.mjs';
 import { atcTool } from './atc.mjs';
@@ -201,6 +202,8 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
     // The only tool that answers about CHANGE rather than about state: the repository has
     // the objects, CTS has which of them moved together and when.
     transportTool(cfg, session, journal),
+    // The routes a request travels: the STMS domain and route tables, through the data preview.
+    transportRoutesTool(cfg, session, journal),
     // The first POST, fenced to a closed list of customizing tables (docs/security.md,
     // 2026-09-12): where a VOFM routine is used is table content, not a repository property.
     customizingTool(cfg, session, journal),

@@ -34,7 +34,7 @@ This server covers the **read** side of that gap, and never the write side:
 
 ## What it does
 
-- **19 MCP tools** for an AI agent (Claude Code or any MCP client that speaks Streamable HTTP),
+- **20 MCP tools** for an AI agent (Claude Code or any MCP client that speaks Streamable HTTP),
   every one of them read-only and reading from the SAP system:
   - *objects* — `adt_search`, `adt_read_source`, `adt_object_info`, `adt_where_used`,
     `adt_package_tree`, `adt_find_definition` (where the symbol at a position is defined),
@@ -43,7 +43,7 @@ This server covers the **read** side of that gap, and never the write side:
     level), `adt_annotation_scan` (which annotation reaches an element, from which layer),
     `adt_package_health` (the Clean Core scan and the syntax check on one listing, and optionally one ATC run over the package);
   - *CDS and services* — `adt_value_help`, `adt_annotation_chain`, `adt_contract_check`;
-  - *change and runtime* — `adt_transport`, `adt_runtime_errors`, `adt_atc_run`,
+  - *change and runtime* — `adt_transport`, `adt_transport_routes`, `adt_runtime_errors`, `adt_atc_run`,
     `adt_syntax_check`;
   - *configuration and UI* — `adt_customizing` (a closed list of tables), `adt_launchpad`
     (SAP-standard launchpad OData services).
@@ -317,7 +317,7 @@ The server follows the MCP specification (2025-06-18) and the official TypeScrip
 
 ## Tools
 
-Nineteen read-only tools. What each one guards against, pages and refuses -- the measured traps
+Twenty read-only tools. What each one guards against, pages and refuses -- the measured traps
 included -- is in [`docs/tools.md`](docs/tools.md); read it before trusting an empty or a
 short answer.
 
@@ -334,6 +334,7 @@ short answer.
 | `adt_annotation_chain` | Which annotation reached this element, and from where? |
 | `adt_contract_check` | Which OData expose aliases of this service are frozen contracts? |
 | `adt_transport` | Which objects moved together, when, and by whom? |
+| `adt_transport_routes` | Where does a request released here go? Which systems has the transport domain, which layer does each develop in, and what is the consolidation and delivery path per layer? |
 | `adt_runtime_errors` | What dumped (ST22), where, on which line -- and what the gateway logged |
 | `adt_atc_run` | Does this object pass the check variants -- Clean Core governance, development practices, SAP's DEFAULT -- and if not, which finding, which check, which line? |
 | `adt_customizing` | Which pricing-procedure step calls routine 953? Which copy control carries requirement 653? |
@@ -562,7 +563,7 @@ tag, `v0.1.0`, on the last commit that belongs to that version.
 | `lib/class-components.mjs` | the outline of a class (components and their positions) and the slice of one method |
 | `lib/api-release.mjs` | the API release state of one object, per contract, and its parser |
 | `lib/system-check.mjs` | the system confirmed before the password prompt: one GET without credentials, the SID and client its 401 names |
-| `tools/` | the 19 MCP tools |
+| `tools/` | the 20 MCP tools |
 | `lib/` | the HTTP client and the logon (`adt-http.mjs`), the reads behind the guard (`adt-reads.mjs`, `repository-posts.mjs`, over the dependency-free `xml.mjs`), the guard (`guard.mjs`), the named GET routes (`adt-get.mjs`), package reads (`package-sources.mjs`), the session, the store and its validation (`store.mjs`, `environment.mjs`), the catalogue and its sync, parsers, the journal, and what belongs to one call while several are in flight (`call-context.mjs`) |
 | `scripts/` | the npm scripts above, each with its usage in its header comment |
 | `data/defaults/` | the SAP-standard half of every fence: customizing tables, ATC variant `DEFAULT`, launchpad OData roots |
