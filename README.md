@@ -78,9 +78,11 @@ cannot do in [Limitations](#limitations).
 5. **Nothing sensitive lands in the repository.** The environment store, the loopback token,
    the catalogue and the audit log live in `%LOCALAPPDATA%\sap-adt\`. The server refuses to
    start if that path resolves inside a git work tree.
-6. **The MCP endpoint is loopback-only**: bound to `127.0.0.1`, `Host` and `Origin` checked on
-   every request (DNS-rebinding protection, required by the MCP transport specification), and
-   a bearer token compared in constant time.
+6. **The MCP endpoint is loopback-only by default**: bound to `127.0.0.1`, `Host` and `Origin`
+   checked on every request (DNS-rebinding protection, required by the MCP transport
+   specification), and a bearer token compared in constant time. A hosted installation names
+   the address to bind and the host names it answers to (`bindHost`, `publicHosts`); the `Host`
+   check then holds against that closed list.
 7. **No value of your landscape is hard-coded.** Closed lists of SAP-standard entries ship as
    reviewable JSON (`data/defaults/`); everything your installation chooses lives in the
    environment store and passes the same validation on the way in and on the way out
@@ -235,7 +237,7 @@ in the file (or in `table add`) is skipped with a warning, since it needs no reg
 | Group | Keys (default) | Used by |
 |---|---|---|
 | connection | `host`, `port` (44300), `client` (none — always your choice), `user`, `passwordFile` (none — the password is typed; set it only for a server without a terminal), `language` (EN), `system` (none — required: the host must answer as this system id, asked without credentials before the password prompt), `allowUnauthorizedTls` (false; prefer `NODE_EXTRA_CA_CERTS` for an internal CA) | the session |
-| server | `mcpPort` (2237), `budget.reads` (200, a notice, not a cap), `shutdownMs` (5000) | `server.mjs`, the audit |
+| server | `mcpPort` (2237), `bindHost` (127.0.0.1), `publicHosts` (none; required before `bindHost` leaves loopback), `budget.reads` (200, a notice, not a cap), `shutdownMs` (5000) | `server.mjs`, the audit |
 | catalogue | `catalog.release` (none — `Latest`, `PCELatest`, `PCE2025_2`, `PCE2023_0`, …) | `adt_clean_core_scan`, `adt_value_help`, `sync:catalog` |
 | fences | customizing tables (`table add`), ATC variants (`atc add`, `atc.defaultVariant`) | `adt_customizing`, `adt_atc_run` |
 | journal | `paths.logs` (`logs/` in this repository, git-ignored) | the journal, `report`, `logs:prune` |
@@ -285,7 +287,7 @@ Readiness check itself reads.
 
 The server follows the MCP specification (2025-06-18) and the official TypeScript SDK:
 
-- **Transport:** Streamable HTTP, stateless, loopback only, `Host`/`Origin` validated, bearer
+- **Transport:** Streamable HTTP, stateless, loopback unless configured, `Host`/`Origin` validated, bearer
   token (no OAuth is advertised: a `401` carries no `WWW-Authenticate`, so clients do not start a
   discovery flow this server does not implement). `POST /mcp` only: `GET` and `DELETE` answer
   `405`, since a stateless server offers no stream to open and no session to end. HTTP rather than stdio because the SAP password

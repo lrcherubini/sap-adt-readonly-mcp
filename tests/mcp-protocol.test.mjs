@@ -14,6 +14,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { buildTools } from '../tools/index.mjs';
 import { createRequestHandler, hostFailure, SERVER_INFO, INSTRUCTIONS } from '../lib/mcp-server.mjs';
 import { progressOf, schemaErrors, closeSchema, withStructuredContent, TOOL_META } from '../lib/tool-meta.mjs';
+import { validateSetting, validateEnvironment } from '../lib/environment.mjs';
 
 const TOKEN = 'b'.repeat(64);
 const hit = (name, type, pkg, uri) => ({ 'adtcore:name': name, 'adtcore:type': type, 'adtcore:packageName': pkg, 'adtcore:description': `${name} description`, 'adtcore:uri': uri });
@@ -136,6 +137,32 @@ test('hostFailure accepts the loopback names on this port only', () => {
   assert.match(hostFailure({ host: '127.0.0.1' }, 2237), /not this loopback endpoint/);
   assert.match(hostFailure({ host: '127.0.0.1:2237', origin: 'null' }, 2237), /opaque/);
   assert.match(hostFailure({ host: '127.0.0.1:2237', origin: 'not a url' }, 2237), /not a URL/);
+});
+
+test('hostFailure answers to the public hosts an installation listed, and to no other name', () => {
+  const publicHosts = ['adt.vhdemohost.example', 'adt.vhdemohost.example:8443'];
+  assert.equal(hostFailure({ host: 'adt.vhdemohost.example' }, 2237, { publicHosts }), null);
+  assert.equal(hostFailure({ host: 'ADT.vhdemohost.example:8443' }, 2237, { publicHosts }), null, 'a host name has no case');
+  assert.equal(hostFailure({ host: '127.0.0.1:2237' }, 2237, { publicHosts }), null, 'loopback still answers: the proxy on the same machine');
+  assert.match(hostFailure({ host: 'adt.vhdemohost.example:9999' }, 2237, { publicHosts }), /neither this loopback endpoint nor a listed public host/);
+  assert.match(hostFailure({ host: 'other.vhdemohost.example' }, 2237, { publicHosts }), /nor a listed public host/);
+  // A browser page: only one served under a listed name, or loopback.
+  assert.equal(hostFailure({ host: 'adt.vhdemohost.example', origin: 'https://adt.vhdemohost.example' }, 2237, { publicHosts }), null);
+  assert.equal(hostFailure({ host: 'adt.vhdemohost.example', origin: 'https://adt.vhdemohost.example:8443' }, 2237, { publicHosts }), null);
+  assert.match(hostFailure({ host: 'adt.vhdemohost.example', origin: 'https://evil.example' }, 2237, { publicHosts }), /is not loopback/);
+  assert.match(hostFailure({ host: 'adt.vhdemohost.example' }, 2237), /not this loopback endpoint/, 'no list: loopback only, as before');
+});
+
+test('the settings: an address to listen on, names to answer to, and never the first without the second', () => {
+  assert.equal(validateSetting('bindHost', '0.0.0.0'), '0.0.0.0');
+  assert.equal(validateSetting('bindHost', '::1'), '::1');
+  assert.throws(() => validateSetting('bindHost', 'localhost'), /not an IP address/);
+  assert.deepEqual(validateSetting('publicHosts', 'ADT.vhdemohost.example;adt.vhdemohost.example:8443'), ['adt.vhdemohost.example', 'adt.vhdemohost.example:8443']);
+  assert.throws(() => validateSetting('publicHosts', 'https://adt.vhdemohost.example'), /not a host name/);
+  assert.throws(() => validateSetting('publicHosts', 'adt.vhdemohost.example:0'), /not a host name/);
+  assert.throws(() => validateEnvironment({ settings: { bindHost: '0.0.0.0' } }), /is not loopback: set publicHosts first/);
+  assert.doesNotThrow(() => validateEnvironment({ settings: { bindHost: '127.0.0.1' } }));
+  assert.doesNotThrow(() => validateEnvironment({ settings: { bindHost: '0.0.0.0', publicHosts: ['adt.vhdemohost.example'] } }));
 });
 
 test('the schema check covers type, enum, ranges, items and unknown keys, and never coerces', () => {

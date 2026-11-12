@@ -1583,7 +1583,8 @@ the kit.
 
 ## The MCP port
 
-`127.0.0.1:2237` only. Every request must name this endpoint in `Host` (`127.0.0.1`,
+`127.0.0.1:2237` only, unless the installation decides otherwise (*On the network, by decision*,
+below). Every request must name this endpoint in `Host` (`127.0.0.1`,
 `localhost` or `[::1]`, on this port) and, when a browser sends `Origin`, a loopback origin --
 the DNS-rebinding protection the MCP transport specification requires; anything else is a
 `403` before the token is looked at (`lib/mcp-server.mjs`, `hostFailure`). Then every request
@@ -1610,6 +1611,33 @@ correctness requirement, not style: a transport accepts exactly one `initialize`
 shared instance serves the first client and then answers every reconnect with HTTP 500 and
 an empty body. The ADT session and the tools are shared; only the protocol plumbing is
 per-request. Pinned by `tests/transport.test.mjs`.
+
+### On the network, by decision -- 2026-11-12
+
+Decided by the owner, to host the server for a team. Loopback stays the default and nothing
+changes for an installation that sets nothing. Two settings put the endpoint on the network, and
+the first is refused without the second:
+
+- `bindHost`: the address the listener binds (an IP address; `0.0.0.0` for every interface).
+- `publicHosts`: the names clients reach the endpoint by, as they arrive in `Host` (the name a
+  proxy forwards, with the port when the client writes one).
+
+**The DNS-rebinding rule is kept, not dropped.** A listener on the network cannot ask for a
+loopback `Host`, and accepting any `Host` is exactly what a rebinding attack needs. So the check
+becomes a closed list: a request is answered when its `Host` is this loopback endpoint or one of
+the listed names, and an `Origin` only when it is loopback or a page served under a listed name.
+An installation that lists no name cannot bind anywhere but loopback (`lib/environment.mjs`
+refuses the store), so there is no state in which every `Host` is accepted.
+
+**This listener speaks plain HTTP.** On loopback that is the transport's normal case. On the
+network the bearer token and every answer, SAP source included, would travel in the clear, so a
+TLS-terminating proxy (or an ingress) in front of it is part of the decision, not an option: the
+server says so at every start that is not on loopback. TLS is not terminated in this process on
+purpose, because certificates, their renewal and the cipher policy belong to the platform that
+already does it for everything else.
+
+Pinned by `tests/mcp-protocol.test.mjs` (`hostFailure` with and without a list, and the two
+settings).
 
 ## TLS
 

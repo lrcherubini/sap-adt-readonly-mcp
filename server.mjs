@@ -20,12 +20,14 @@ import { openJournal } from './lib/journal.mjs';
 import { allowedMethods } from './lib/guard.mjs';
 import { createRequestHandler } from './lib/mcp-server.mjs';
 import { catalogStatus } from './lib/catalog.mjs';
+import { LOOPBACK_ADDRESSES } from './lib/environment.mjs';
 
 const cfg = loadConfig();
 const token = loopbackToken();
 
 const endpoint = `http://127.0.0.1:${cfg.mcpPort}/mcp`;
 const tokenFile = path.join(stateDir(), 'token');
+const onLoopback = LOOPBACK_ADDRESSES.includes(cfg.bindHost);
 
 console.log(`sap-adt (read-only)   ->  ${cfg.baseUrl} client ${cfg.client}`);
 console.log(`state directory       ->  ${stateDir()}`);
@@ -40,6 +42,13 @@ console.log(
 // depend on the SAP logon, and needing it is the likeliest reason to be reading this
 // banner. The token is substituted by the shell, so it never lands in scrollback or
 // in a pasted transcript.
+if (!onLoopback) {
+  console.log(
+    `NETWORK EXPOSURE      ->  listening on ${cfg.bindHost}:${cfg.mcpPort}, answering to: ${cfg.publicHosts.join(', ')}\n` +
+      '                          This listener speaks plain HTTP: the bearer token and every answer travel\n' +
+      '                          in the clear unless a TLS-terminating proxy sits in front of it.'
+  );
+}
 console.log('\nRegister once in Claude Code, in ANOTHER terminal (leave this one running):');
 console.log('  PowerShell:');
 console.log(
@@ -62,17 +71,17 @@ console.log('  Then check:  claude mcp list\n');
  * second instance over a live one is the ordinary case, not the exotic one. Asking first
  * costs one bind and makes the common failure cost nothing at all.
  */
-function portInUse(port) {
+function portInUse(port, host) {
   return new Promise((resolve) => {
     const probe = http.createServer();
     probe.once('error', (e) => resolve(e?.code === 'EADDRINUSE'));
-    probe.listen(port, '127.0.0.1', () => probe.close(() => resolve(false)));
+    probe.listen(port, host, () => probe.close(() => resolve(false)));
   });
 }
 
-if (await portInUse(cfg.mcpPort)) {
+if (await portInUse(cfg.mcpPort, cfg.bindHost)) {
   console.error(
-    `\nPort ${cfg.mcpPort} is already in use on 127.0.0.1 -- another sap-adt is probably ` +
+    `\nPort ${cfg.mcpPort} is already in use on ${cfg.bindHost} -- another sap-adt is probably ` +
       `still running.\nStop that one first (Ctrl+C in its terminal). Nothing was asked and ` +
       `no SAP session was opened.`
   );
@@ -106,14 +115,16 @@ const httpServer = http.createServer(
     tools,
     token,
     port: () => cfg.mcpPort,
+    publicHosts: cfg.publicHosts,
     log: (m) => console.error(m),
     onOpen: () => inFlight++,
     onClose: () => inFlight--,
   })
 );
 
-// Loopback only. This port must never be reachable from the network.
-httpServer.listen(cfg.mcpPort, '127.0.0.1', () => {
+// Loopback unless the installation chose an address (bindHost) and named the hosts it answers
+// to (publicHosts): lib/environment.mjs refuses the first without the second.
+httpServer.listen(cfg.mcpPort, cfg.bindHost, () => {
   console.log(`
 Listening on ${endpoint} -- ${tools.length} read-only adt_* tools are available now.`);
   console.log('Ctrl+C to stop (the ADT session is dropped on exit).');
