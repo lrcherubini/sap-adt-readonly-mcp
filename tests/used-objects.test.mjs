@@ -193,6 +193,7 @@ test('the release states are paged: two pages read every readable object once', 
   assert.deepEqual(contractErrors(one), []);
   const cap = one.incomplete.find((i) => i.code === 'CAP_REACHED' && i.next);
   assert.deepEqual(cap.next, { releaseOffset: 2 });
+  assert.deepEqual(cap.narrowBy, ['maxReleaseReads'], 'a cap of 0 reads nothing: the cap is what to raise');
   const two = json(await h.tool.handler({ objectName: 'ZCL_DEMO_RATE_SERVICE', maxReleaseReads: 2, releaseOffset: 2 }));
   assert.deepEqual(contractErrors(two), []);
   const readIn = (out) => out.used.filter((u) => u.apiRelease.read).map((u) => u.name);

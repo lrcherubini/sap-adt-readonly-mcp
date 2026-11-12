@@ -288,7 +288,9 @@ export function usedObjectsTool(cfg, session, journal) {
       for (const code of ['NOT_READ', 'PARSE_FAILED', 'OUT_OF_SCOPE', 'CANCELLED']) {
         if (byCode(code).length) incomplete.push({ list: 'releaseState', code, count: byCode(code).length, reason: 'see releaseState.notRead' });
       }
-      if (pastCap) incomplete.push({ list: 'releaseState', code: 'CAP_REACHED', count: pastCap, total: readable, next: { releaseOffset: lastAsked } });
+      // The next page starts after the last read; with a cap of 0 nothing was read, so the cap is
+      // what to raise.
+      if (pastCap) incomplete.push({ list: 'releaseState', code: 'CAP_REACHED', count: pastCap, total: readable, next: { releaseOffset: lastAsked }, narrowBy: ['maxReleaseReads'] });
       if (from) incomplete.push({ list: 'releaseState', code: 'CAP_REACHED', count: Math.min(from, readable), reason: 'before releaseOffset: read by an earlier page' });
       if (net.drift.length) incomplete.push({ list: 'used', code: 'PARSE_FAILED', count: net.drift.length, reason: 'nodes the measured shape does not describe: see drift' });
       if (packageBoundary) {
