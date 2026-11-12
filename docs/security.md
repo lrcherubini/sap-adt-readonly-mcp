@@ -14,8 +14,8 @@ one instead of with the whole thing.
   not appear in the process list or in shell history.
 - It is **never** an MCP tool parameter. Anything that reaches a tool call reaches the model
   context; the credential deliberately lives on the other side of that line.
-- After logon, only the ADT session cookies are used. Basic auth is sent on the first request
-  and not again.
+- After logon, only the ADT session cookies are used. Basic auth is sent on the first request,
+  and again only for the one logon after a session expired (*The client of its own*, below).
 - On `SIGINT`/`SIGTERM` the session is dropped (`dropSession` + `logout`) before the process
   exits.
 
@@ -97,7 +97,7 @@ object it modifies; the reply names the ENHO, the enhancement-point path, whethe
 implementation **replaces** that point, and the line of the base object it sits at. The
 source of each implementation is returned only when it is asked for.
 
-All seven are plain GETs, none needs a lock, and none returns an unguarded object. The
+The five that remain are plain GETs, none needs a lock, and none returns an unguarded object. The
 write neighbours (`setDataElementProperties`, `setDomainProperties`) stay blocked, and
 so does every read no tool needs — less surface is better even when a call is harmless.
 `objectEnhancements` has no write neighbour reachable here: creating or changing an

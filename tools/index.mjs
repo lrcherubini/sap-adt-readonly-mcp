@@ -1,4 +1,4 @@
-// The sixteen read-only tools. Everything they reach is a GET or a read-only POST on
+// The read-only tools. Everything they reach is a GET or a read-only POST on
 // the ADT REST API or the SAP-standard launchpad OData services (/UI2); nothing here
 // can change the system, and nothing reads a local checkout: every source comes from the system.
 
