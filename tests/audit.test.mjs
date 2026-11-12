@@ -273,11 +273,11 @@ test('the refusals before the prompt count since the last successful start of th
     at(5, { event: 'logon-refused', status: 401, client: '002' }),
   ]);
   const mine = refusedSinceLastStart({ host: 'vhdemohost.example', client: '001', user: 'DEVUSER1' }, file);
-  assert.deepEqual(mine, { count: 2, since: '2026-09-23T09:01:00.000Z' }, 'the refusal before the start is forgiven; another user or client is not counted');
-  assert.deepEqual(refusedSinceLastStart({ host: 'vhdemohost.example', client: '001', user: 'DEVUSER3' }, file), { count: 0, since: null });
+  assert.deepEqual(mine, { count: 2, since: '2026-09-23T09:01:00.000Z', lastRefused: '2026-09-23T09:03:00.000Z' }, 'the refusal before the start is forgiven; another user or client is not counted');
+  assert.deepEqual(refusedSinceLastStart({ host: 'vhdemohost.example', client: '001', user: 'DEVUSER3' }, file), { count: 0, since: null, lastRefused: null });
   assert.deepEqual(
     refusedSinceLastStart({ host: 'vhdemohost.example', client: '001', user: 'DEVUSER1' }, path.join(os.tmpdir(), 'sap-adt-nope', 'audit.log')),
-    { count: 0, since: null },
+    { count: 0, since: null, lastRefused: null },
     'no trail: no warning, and no failure before the prompt'
   );
 });

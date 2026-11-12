@@ -6,10 +6,11 @@ one instead of with the whole thing.
 
 ## The SAP credential
 
-- **Typed once per server start, kept in memory, never written anywhere.** No `.env`, no
-  keyring, no OS credential manager, no fallback to an environment variable. If the prompt
-  cannot run (no TTY), the server refuses to start rather than looking elsewhere for a
-  password.
+- **Typed once per server start, kept in memory, never written anywhere by this server.** No
+  `.env`, no keyring, no OS credential manager, no fallback to an environment variable. If the
+  prompt cannot run (no TTY), the server refuses to start rather than looking elsewhere for a
+  password. The one exception is asked for, never fallen back to: an installation that sets
+  `passwordFile` (*A password file for a server without a terminal*, below).
 - The prompt does not echo, and the password is not passed as a process argument, so it does
   not appear in the process list or in shell history.
 - It is **never** an MCP tool parameter. Anything that reaches a tool call reaches the model
@@ -46,6 +47,40 @@ headers are kept. TLS is verified as for the session (`allowUnauthorizedTls` alo
 Not measured: whether the realm echoes the requested client or the system's default one. The
 check compares what the realm says; if it echoes, the client comparison is weaker than the SID
 one, never wrong. Pinned by `tests/system-check.test.mjs`.
+
+### A password file for a server without a terminal -- 2026-11-12
+
+Decided by the owner, to host the server for a team under a service user. A service has no
+terminal, so "typed at every start" means "never starts". The decision of *The SAP credential*
+stands for everyone who does not ask otherwise; an installation that sets `passwordFile` (an
+absolute path) gets the password read from that file at start, and nothing is prompted.
+
+**Why a file and not an environment variable.** A variable is inherited by every child process,
+shows in a process listing and lands in crash dumps and in the output of whoever prints the
+environment to debug something. A file has an owner and an access list, and it is what every
+platform already hands a service: a mounted secret, a credential of the service manager, a file
+only the service account reads. This server still writes the password nowhere.
+
+**What `lib/password-file.mjs` refuses**, each with its reason in the message: a relative path;
+something that is not a regular file; an empty file (an empty password is a failed logon); a file
+inside a git work tree; on POSIX, a file every user of the machine can read. Group access is left
+to the platform, which grants it to give a non-root service its secret. Windows has no mode bits
+to judge: there the access list of the file is the operator's to set.
+
+**The lock is protected across restarts, not per process.** *One attempt, no retry* relies on a
+person reading the refusal. A supervisor restarts a failed service for ever, and each restart
+would be one more failed logon. So a password the system refused is not sent again while the file
+is unchanged: before the logon, the last `logon-refused` line of this user since its last
+successful start is compared with the file's modification time, and a file no newer than the
+refusal stops the start with nothing sent. Replacing the file is what earns the next attempt.
+
+This rule needs the audit trail to outlive the process. **A state directory that is recreated at
+every start (an ephemeral volume) removes it**, and a restart loop then locks the user. The state
+directory of a hosted server is persistent storage; that is a requirement, not advice.
+
+The session says where its password came from (`credential: 'prompt' | 'file'` on the `start`
+line of the trail). Pinned by `tests/password-file.test.mjs`. Not measured on a system: the logon
+itself is the same exchange either way, and the first unattended start is the owner's to watch.
 
 ## Read-only: how it is enforced
 

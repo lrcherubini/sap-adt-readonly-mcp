@@ -68,8 +68,10 @@ cannot do in [Limitations](#limitations).
    on `node:https`. Covered by `npm run test:guard`, which runs offline.
 2. **The session is stateless.** A stateful ADT session is what holds locks and enqueues;
    switching it is refused at runtime.
-3. **The SAP password is never stored.** It is typed once per server start and lives only in
-   memory. There is no `.env`, no keyring, no fallback to an environment variable.
+3. **The SAP password is never stored by this server.** It is typed once per server start and
+   lives only in memory. There is no `.env`, no keyring, no fallback to an environment variable.
+   A server without a terminal reads it from one file the operator names (`passwordFile`), and
+   never sends twice a password the system refused (`docs/security.md`).
 4. **One login attempt per start.** On `401` the server refuses to retry: repeated failed
    logons lock the SAP user, and a locked user takes the IDE, abapGit and transports down
    with it.
@@ -95,8 +97,9 @@ cannot do in [Limitations](#limitations).
   (`adt_customizing`, `adt_launchpad` semantic objects), the ATC run and the launchpad OData
   services need the SAP authorizations for those functions too; a missing one comes back as
   the SAP error, never as an empty answer.
-- **A terminal (TTY)** for every command that logs on: the password is typed, never read from a
-  file or an environment variable.
+- **A terminal (TTY)** for every command that logs on: the password is typed, never read from
+  an environment variable. Without a terminal, set `passwordFile` to a file only the service
+  account can read (`npm run config -- set passwordFile <absolute path>`).
 - **Internet access once a month** (or a manual download) for the Clean Core catalogue — see
   [The Clean Core catalogue](#the-clean-core-catalogue). The server itself never goes online.
 - Developed and tested on **Windows**. On Linux/macOS the state directory is
@@ -231,7 +234,7 @@ in the file (or in `table add`) is skipped with a warning, since it needs no reg
 
 | Group | Keys (default) | Used by |
 |---|---|---|
-| connection | `host`, `port` (44300), `client` (none — always your choice), `user`, `language` (EN), `system` (none — required: the host must answer as this system id, asked without credentials before the password prompt), `allowUnauthorizedTls` (false; prefer `NODE_EXTRA_CA_CERTS` for an internal CA) | the session |
+| connection | `host`, `port` (44300), `client` (none — always your choice), `user`, `passwordFile` (none — the password is typed; set it only for a server without a terminal), `language` (EN), `system` (none — required: the host must answer as this system id, asked without credentials before the password prompt), `allowUnauthorizedTls` (false; prefer `NODE_EXTRA_CA_CERTS` for an internal CA) | the session |
 | server | `mcpPort` (2237), `budget.reads` (200, a notice, not a cap), `shutdownMs` (5000) | `server.mjs`, the audit |
 | catalogue | `catalog.release` (none — `Latest`, `PCELatest`, `PCE2025_2`, `PCE2023_0`, …) | `adt_clean_core_scan`, `adt_value_help`, `sync:catalog` |
 | fences | customizing tables (`table add`), ATC variants (`atc add`, `atc.defaultVariant`) | `adt_customizing`, `adt_atc_run` |
@@ -378,7 +381,8 @@ when the catalogue names one, with their released successor.
 ## Scripts
 
 Every entry point is an npm script. **Logon** means the script opens one SAP session: it needs a
-TTY, asks for the password once per run, never stores it and never retries a failed logon.
+TTY (or `passwordFile`), asks for the password once per run, never stores it and never retries a
+failed logon.
 None of them commits anything to git.
 
 | Script | Logon | What it does | Writes |
@@ -505,8 +509,9 @@ Every call is also written to `%LOCALAPPDATA%\sap-adt\audit.log` — tool, targe
   (`roleCatalogs`), but no SAP-standard service lists roles, so it cannot say which roles open a
   catalog.
 - It answers nothing about SM30/SE54 maintenance, the CPI graphical editor, or Fiori deploy.
-- **Commands that log on need an interactive terminal**; the server cannot run as a background
-  service.
+- **Commands that log on need an interactive terminal, or a password file.** With `passwordFile`
+  set the server runs as a service; its state directory must then be persistent storage, because
+  the rule that protects the user from a lock reads the audit trail of earlier starts.
 - **Windows first.** The state directory follows Windows conventions; elsewhere it is
   `~/.local/share/sap-adt`.
 

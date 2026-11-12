@@ -81,7 +81,8 @@ if (await portInUse(cfg.mcpPort)) {
 
 const session = await connectOrExit(cfg);
 console.log(`logged on as ${session.user}; session is stateless, so no lock can be taken.`);
-recordStart(cfg, {});
+// Where the password came from (prompt or file) is evidence of how this run was started.
+recordStart(cfg, { credential: session.credential ?? null });
 
 // The system check variant joins the ATC fence before the tools (and their schemas) are built.
 const journal = openJournal(cfg);
