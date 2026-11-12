@@ -49,12 +49,9 @@ read more.
 
 ## 3. The transport routes of the STMS
 
-The tables are admitted and their fields measured (`adt-api-reference.md`, *The transport routes
-of the STMS*); `adt_transport_routes` is built once the rows are. Measure with `adt_customizing`,
-after a restart that loads the list: `TCEVERS` whole (which value of `ACTIVE` marks the active
-version, and whether only one is), `TCERELE`, `TCEDELI` and `TCESYST` of that version
-(`ORICON`, `INACTIVE`, a blank `FROMCLIENT`), and `TMSCSYS`, then compare with the STMS graphic
-editor of the same version.
+Measured on a two-system landscape (`adt-api-reference.md`, *The transport routes of the STMS*).
+Still open: what `TCERELE-ORICON` means, and the shape of a delivery route (`TCEDELI`, empty
+there). Measure on a landscape of three or more systems, next to the STMS graphic editor.
 
 ## 4. Hosting the server for a team
 

@@ -2532,8 +2532,8 @@ quality or production one of a landscape: that is the installation's word (`syst
 
 ### The transport routes of the STMS — MEASURED 2026-11-12
 
-Read with `adt_object_info` (`ddicElement`): field lists only, no row read yet. None of the
-tables is released in any contract.
+Field lists read with `adt_object_info` (`ddicElement`), rows with `adt_customizing` on a two-system
+landscape (one real system, one virtual). None of the tables is released in any contract.
 
 **What `TMS_CFG_READ_CONFIGURATION` returns** (function group `TMSM`, package `STMA`): the
 domain and its systems, `TT_DOM` and `TT_SYS`, held in `TMSCDOM` and `TMSCSYS`. The routes are not
@@ -2551,9 +2551,26 @@ there: they are the configuration versions of package `STMA_CTWAY`.
 | `TCERELE` (consolidation) | `VERSION`, `TRANSLAYER`, `INTSYS` | `CONSYS` (target), `ORICON` |
 | `TCEDELI` (delivery) | `VERSION`, `FROMSYSTEM`, `FROMCLIENT`, `TOSYSTEM` | `INACTIVE` |
 
-**Open** (`backlog.md`): which value of `TCEVERS-ACTIVE` marks the active version, whether more than
-one version is active, what `ORICON` and `TCEDELI-INACTIVE` hold, and whether `FROMCLIENT` is
-blank for a system-wide route. The tool reads rows only after these are measured.
+**The rows** (system ids replaced by `DEV` real and `QAS` virtual; texts translated):
+
+- `TCEVERS`: two versions. `0001` `ACTIVE = D` with a `DEACTIVAT` timestamp, `0002` `ACTIVE = A`
+  with `DEACTIVAT = 00000000000000` and `CONTROLER` the domain controller. **The active version is
+  the one row with `ACTIVE = A`**; `CHANGED`, `ACTIVATION`, `DEACTIVAT` are 14-digit timestamps (date, then time).
+- `TCETRAL` of `0002`: `SAP` and `ZDEV`. `TCETRALT` has a third row with a **blank layer**, "Transport
+  Layer for Local Developments (No Transport)": a text with no layer behind it, not a route.
+- `TCESYST` of `0002`: `DEV` with `TRANSLAYER = ZDEV` (its development layer) and `DEVTYPE` blank;
+  `QAS` with no layer and `DEVTYPE = A`. `FUNCRES` blank on both.
+- `TCERELE` of `0002`: one row per layer, `SAP` and `ZDEV`, both `INTSYS = DEV`, `CONSYS = QAS`.
+  `ORICON` is `SAP` on the layer `SAP` and `QAS` on `ZDEV`: **not understood**, reported as read.
+- `TCEDELI` of `0002`: **no row**. Two systems need no delivery route; a landscape with one was not
+  measured, so the columns of a delivery row (`FROMCLIENT`, `INACTIVE`) are passed through as read.
+- `TMSCDOM`: one domain, `DOMCTL` the controller, `DOMBCK` blank.
+- `TMSCSYS`: both systems; `SYSTYP` `R` real and `V` virtual, `COMSYS` of the virtual one names
+  the real one, `SAPREL` the release (`758`), `NFSGRP` the transport group.
+
+What a reader of the routes can rely on: the active version, its layers, which system develops in
+which layer, and the consolidation target per layer. What it cannot: the meaning of `ORICON`, and
+the shape of a delivery route.
 
 ### A function group's `objectstructure` lists its FMs, includes and `ENHO/XH` — MEASURED 2026-09-14
 
