@@ -5,6 +5,7 @@
 import { finish, page } from '../lib/completeness.mjs';
 import { mainInclude, classIncludes } from '../lib/object-structure.mjs';
 import { record, budgetLeft } from '../lib/audit.mjs';
+import { inCall, currentCall } from '../lib/call-context.mjs';
 import { enhancedObjectOf, parseEnhoXhb } from '../lib/enhancement-target.mjs';
 import { resolveObject, parseObjectReferences, FACET_ONLY_TYPES } from '../lib/resolve.mjs';
 import { namedGet, derivedGet, transportFor } from '../lib/adt-get.mjs';
@@ -69,11 +70,13 @@ function journaled(tool, journal, cfg, session) {
   const inner = tool.handler;
   return {
     ...tool,
-    async handler(args = {}, extra = {}) {
+    handler: (args = {}, extra = {}) => inCall(async () => {
       const started = Date.now();
-      // The budget counter is the only honest measure of how many ADT calls an answer
-      // cost: it is incremented by lib/audit.mjs at the call site, so it counts what
-      // actually went out rather than what this wrapper believes went out.
+      // The reads of THIS call, counted by lib/audit.mjs at the call site, so the number is
+      // what actually went out rather than what this wrapper believes went out. It is the
+      // call's own count (lib/call-context.mjs): the difference of the session counter before
+      // and after also counted the reads of every other call in flight.
+      const call = currentCall();
       const before = budgetLeft(cfg);
       // Which limits THIS answer ran into. Opened before the handler and closed on both
       // paths, so a call that failed still says what it hit on the way down.
@@ -100,7 +103,7 @@ function journaled(tool, journal, cfg, session) {
           ok,
           ...(outcome ? { outcome } : {}),
           ms: Date.now() - started,
-          adtCalls: before - left,
+          adtCalls: call.adtCalls,
           budgetLeft: left,
           args,
           ...(codes.length ? { codes } : {}),
@@ -150,7 +153,7 @@ function journaled(tool, journal, cfg, session) {
         close(false, e?.message);
         throw e;
       }
-    },
+    }),
   };
 }
 

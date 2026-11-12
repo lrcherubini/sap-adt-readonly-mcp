@@ -1575,6 +1575,25 @@ test('every invocation leaves one journal line, with what it cost', async () => 
   assert.equal(calls[0].args.query, 'ZI_TEST*');
 });
 
+test('calls in flight together each keep their own codes and their own read count', async () => {
+  // Both calls are started before either read returns, so their lines are written interleaved.
+  const api = fakeApi({
+    searchObject: async () => {
+      await new Promise((resolve) => setImmediate(resolve));
+      return CDS_HITS;
+    },
+  });
+  const search = byName(toolsWith(api), 'adt_search');
+  // A full page (two hits for max 2) files SEARCH_AT_CAP; the other call has room and files nothing.
+  await Promise.all([search.handler({ query: 'ZA*', max: 2 }), search.handler({ query: 'ZB*' })]);
+  const calls = journalLines.filter((l) => l.stream === 'calls');
+  const lineOf = (query) => calls.find((c) => c.args.query === query);
+  assert.deepEqual(lineOf('ZA*').codes, ['SEARCH_AT_CAP']);
+  assert.equal(lineOf('ZB*').codes, undefined, 'the code of another call is not this call s');
+  assert.equal(lineOf('ZA*').adtCalls, 1);
+  assert.equal(lineOf('ZB*').adtCalls, 1, 'one read each, not the reads of both');
+});
+
 test('a failing tool is journalled as a failure, with the message and not the stack', async () => {
   const api = fakeApi({
     searchObject: () => {
