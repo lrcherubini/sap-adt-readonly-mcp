@@ -106,6 +106,29 @@ test('transport: a foreign Host or Origin is refused (DNS rebinding), and so is 
   assert.equal(await post({ Origin: `http://localhost:${port}` }), 401, 'a loopback origin passes the gate, then needs the token');
 });
 
+test('transport: only POST on /mcp reaches the protocol; GET and DELETE are 405, another path is 404', async () => {
+  const ask = (method, path, headers = {}) =>
+    new Promise((resolve) => {
+      const req = http.request({ host: '127.0.0.1', port, path, method, headers }, (res) => {
+        let body = '';
+        res.on('data', (c) => (body += c));
+        res.on('end', () => resolve({ status: res.statusCode, allow: res.headers.allow, body }));
+      });
+      req.end();
+    });
+  const auth = { Authorization: `Bearer ${TOKEN}`, accept: 'text/event-stream' };
+  // Answered and closed: a stream opened here would never end, and this test would not either.
+  const get = await ask('GET', '/mcp', auth);
+  assert.equal(get.status, 405);
+  assert.equal(get.allow, 'POST');
+  assert.equal(JSON.parse(get.body).error.message, 'Method not allowed.');
+  assert.equal((await ask('DELETE', '/mcp', auth)).status, 405);
+  assert.equal((await ask('GET', '/mcp')).status, 401, 'the token is asked before the method is judged');
+  assert.equal((await ask('POST', '/mcp-other', auth)).status, 404);
+  assert.equal((await ask('POST', '/mcpx', auth)).status, 404, 'a path that merely starts with /mcp is not the endpoint');
+  assert.equal((await ask('GET', '/mcp?x=1', auth)).status, 405, 'a query does not change the path');
+});
+
 test('hostFailure accepts the loopback names on this port only', () => {
   assert.equal(hostFailure({ host: '127.0.0.1:2237' }, 2237), null);
   assert.equal(hostFailure({ host: 'localhost:2237', origin: 'http://127.0.0.1:5173' }, 2237), null);

@@ -282,7 +282,8 @@ The server follows the MCP specification (2025-06-18) and the official TypeScrip
 
 - **Transport:** Streamable HTTP, stateless, loopback only, `Host`/`Origin` validated, bearer
   token (no OAuth is advertised: a `401` carries no `WWW-Authenticate`, so clients do not start a
-  discovery flow this server does not implement). HTTP rather than stdio because the SAP password
+  discovery flow this server does not implement). `POST /mcp` only: `GET` and `DELETE` answer
+  `405`, since a stateless server offers no stream to open and no session to end. HTTP rather than stdio because the SAP password
   is typed in the server's terminal, and the specification forbids asking for it through the
   client (elicitation must not request sensitive information).
 - **Initialize:** `serverInfo` with name, title and version, and `instructions` that tell the
