@@ -130,6 +130,37 @@ test('transport: only POST on /mcp reaches the protocol; GET and DELETE are 405,
   assert.equal((await ask('GET', '/mcp?x=1', auth)).status, 405, 'a query does not change the path');
 });
 
+test('health: /healthz answers while the process does, /readyz follows the session, and neither needs a token', async () => {
+  let isReady = true;
+  let hport;
+  const probed = http.createServer(createRequestHandler({ tools, token: TOKEN, port: () => hport, ready: () => isReady, log: () => {} }));
+  await new Promise((r) => probed.listen(0, '127.0.0.1', r));
+  hport = probed.address().port;
+  const ask = (method, path, headers = {}) =>
+    new Promise((resolve) => {
+      const req = http.request({ host: '127.0.0.1', port: hport, path, method, headers }, (res) => {
+        let body = '';
+        res.on('data', (c) => (body += c));
+        res.on('end', () => resolve({ status: res.statusCode, body }));
+      });
+      req.end();
+    });
+  try {
+    assert.deepEqual(await ask('GET', '/healthz'), { status: 200, body: 'ok\n' });
+    assert.deepEqual(await ask('GET', '/readyz'), { status: 200, body: 'ok\n' });
+    // A probe comes by address: the Host of a pod or a balancer is not a reason to fail it.
+    assert.equal((await ask('GET', '/readyz', { Host: 'pod.vhdemohost.example:8080' })).status, 200);
+    assert.deepEqual(await ask('HEAD', '/healthz'), { status: 200, body: '' });
+    isReady = false;
+    assert.deepEqual(await ask('GET', '/readyz'), { status: 503, body: 'not ready\n' });
+    assert.equal((await ask('GET', '/healthz')).status, 200, 'alive is not ready: the process still answers');
+    assert.equal((await ask('POST', '/healthz')).status, 405);
+    assert.equal((await ask('GET', '/healthz/x')).status, 404);
+  } finally {
+    await new Promise((r) => probed.close(r));
+  }
+});
+
 test('hostFailure accepts the loopback names on this port only', () => {
   assert.equal(hostFailure({ host: '127.0.0.1:2237' }, 2237), null);
   assert.equal(hostFailure({ host: 'localhost:2237', origin: 'http://127.0.0.1:5173' }, 2237), null);

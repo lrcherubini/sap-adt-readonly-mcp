@@ -118,6 +118,8 @@ const httpServer = http.createServer(
     publicHosts: cfg.publicHosts,
     callers: cfg.callers,
     callsPerMinute: cfg.limits.callsPerMinute,
+    // /readyz: a session the client still holds, and no shutdown under way.
+    ready: () => session.raw.loggedin === true && !stopping,
     log: (m) => console.error(m),
     onOpen: () => inFlight++,
     onClose: () => inFlight--,

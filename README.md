@@ -295,6 +295,9 @@ The server follows the MCP specification (2025-06-18) and the official TypeScrip
   `405`, since a stateless server offers no stream to open and no session to end. HTTP rather than stdio because the SAP password
   is typed in the server's terminal, and the specification forbids asking for it through the
   client (elicitation must not request sensitive information).
+- **Health, beside the protocol:** `GET /healthz` answers while the process does and
+  `GET /readyz` while it holds a SAP session and is not stopping (`503` otherwise). Neither
+  needs the token, says anything of the system, or sends a request to it.
 - **Initialize:** `serverInfo` with name, title and version, and `instructions` that tell the
   model how to use the tools well.
 - **Tools:** every definition has a `title`, behaviour `annotations` (`readOnlyHint: true`,
