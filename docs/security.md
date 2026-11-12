@@ -1442,10 +1442,10 @@ asks `git`, so it also holds on a machine without git:
 
 | File | Contents | Sensitivity |
 |---|---|---|
-| `sap-adt.db` | the environment store (SQLite): host, port, client, user, language, the catalogue release, the installation's customer tables and ATC variants. Written only by `npm run config` | user name only, no password; no SAP data |
+| `sap-adt.db` | the environment store (SQLite): host, port, client, user, language, the catalogue release, the installation's customer tables and ATC variants, and the callers of a hosted server (a name and the SHA-256 of a token each). Written only by `npm run config` | user name only, no password, no token; no SAP data |
 | `catalog/` (and `catalog.prev/`) | SAP's Clean Core catalogue -- one release file, `objectClassifications_SAP.json`, `PROVENANCE.json` -- written only by `npm run sync:catalog` | public SAP data (Apache-2.0); no system data |
 | `token` | 32 random bytes, hex, mode 0600 | guards the local MCP port; **not** a SAP credential |
-| `audit.log` | one JSON line per call: timestamp, run id, tool, target object, result size — plus one `start`/`stop` pair per process (pid, host, client, user, machine, and how it stopped), or one `logon-refused` line (the same fields and the HTTP status) | no payload, ever |
+| `audit.log` | one JSON line per call: timestamp, run id, caller (when the read belongs to a request), tool, target object, result size — plus one `start`/`stop` pair per process (pid, host, client, user, machine, and how it stopped), or one `logon-refused` line (the same fields and the HTTP status) | no payload, ever |
 | `measurements/<name>-<UTC stamp>/` | transcripts of the probes and measuring scripts (`scripts/measure-*.mjs`, `scripts/probes/*.mjs`): raw ADT replies, whole bodies, so a truncated terminal never loses a reading | **SAP data** — DDLA definitions, version feeds, transport documents; may name third parties. Never inside a git work tree, by construction (`stateDir()`) |
 
 **There is no response cache, and that is a property rather than an omission.** An earlier
@@ -1611,6 +1611,36 @@ correctness requirement, not style: a transport accepts exactly one `initialize`
 shared instance serves the first client and then answers every reconnect with HTTP 500 and
 an empty body. The ADT session and the tools are shared; only the protocol plumbing is
 per-request. Pinned by `tests/transport.test.mjs`.
+
+### A token per caller -- 2026-11-12
+
+Decided by the owner, to host the server for a team under one SAP service user. One token for a
+whole team says that *somebody of the team* asked, and it cannot be taken from one person without
+taking it from all. And the SAP system sees one user whoever asks, so this server is the only
+place that can tell the people apart.
+
+**What a caller is.** A name and the SHA-256 of a token, in the environment store, made by
+`npm run config -- token add <name>`. The token is 32 random bytes, printed **once** and never
+stored; what the store holds cannot be turned back into it, so a copy of the store opens nothing.
+A second `add` of a name replaces its token, `remove` ends it, and `list` shows names and dates,
+never a hash. Callers are not part of `export` and `import --replace` does not drop them: an
+exported file is passed around, and a hash in it would be one more copy of something that opens
+the server. The server reads the callers at start, so a change takes a restart.
+
+**The local token stays what it was.** Whoever can read the `token` file of the state directory
+is the operator of the machine, and is the caller `local` (not a name `token add` accepts).
+
+**What the trail gains.** Every call line of `audit.log` carries `caller` when the read belongs to
+a request: who asked for it. That is the one place a name is written. The journal (`logs/`) does
+not carry it: it is analysis of the server's quality and stays without a "who", as its header
+says. The answer a tool gives does not change with the caller, and neither does what it may
+read: every caller reads with the authorisations of the one SAP user, which is why that user's
+role is the real limit (`docs/deployment.md`).
+
+Comparison is in constant time against every stored hash, so timing does not say which caller
+matched. A 401 still carries no `WWW-Authenticate`. OAuth through an identity provider was
+considered and left for later: it replaces the token a person holds, not the need to know who
+asked, and this is the smaller step that answers that need. Pinned by `tests/callers.test.mjs`.
 
 ### On the network, by decision -- 2026-11-12
 

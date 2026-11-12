@@ -203,6 +203,8 @@ npm run config -- <command> [--json] [--db <file>]
   table add <NAME> <why> [--key A,B] [--routine COL=GROUP ...]
   table remove <NAME>
   atc list | atc add <NAME> <why> | atc remove <NAME>
+  token list | token add <name> | token remove <name>
+                                    the callers of a hosted server; add prints the token once
   import <file.json> [--replace]    validate a whole file (config.example.json shape) and store it;
                                     merges by default, --replace drops what the file does not name
   export [--out <file.json>]        the whole environment in that shape
@@ -469,7 +471,8 @@ the system's own `skip`), and `next` gives the value to pass; where nothing can 
 names the filters that make the answer smaller. A part not asked for says `asked: false` and
 is not incompleteness. An empty list is "none" only when `complete` is `true`.
 
-Every call is also written to `%LOCALAPPDATA%\sap-adt\audit.log` — tool, target, result size.
+Every call is also written to `%LOCALAPPDATA%\sap-adt\audit.log` — tool, target, result size,
+and the caller when the server knows several (`npm run config -- token add <name>`).
 **Never the payload.**
 
 ## Limitations
