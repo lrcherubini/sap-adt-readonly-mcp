@@ -60,6 +60,12 @@ settle.
   while each tool is called once, then a role that holds exactly that.
 - **The System user type.** Whether ADT accepts a logon of a *System* (type B) user over Basic
   authentication on `compatibility/graph`, as it does for a dialog user. Measure: one logon.
+- **A ceiling on the size of one answer.** Considered and not built, 2026-11-12. Cutting the
+  text would break the completeness contract (invalid JSON, a cut with no way past it), and
+  refusing a large answer whole would fail calls that work today, while the client already caps
+  what it shows the model. Every list is paged already; the largest answer known is
+  `adt_package_tree` at depth 3 without `compact`. Reopen with a measured answer size that a
+  client mishandled.
 - **`readOnlyHint` of `adt_atc_run`.** Every tool says `readOnlyHint: true`; the ATC run leaves a
   result worklist under the user. Decide whether that is "modifies its environment" in the
   specification's sense (then `false`, which some clients answer with a confirmation per call) or
