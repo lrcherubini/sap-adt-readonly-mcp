@@ -1,18 +1,40 @@
 {
-  "$comment": "An example environment with invented values. Import it into the store with `npm run config -- import config.example.json`, then change what differs in your landscape with `npm run config -- set <key> <value>`. Every key is listed by `npm run config -- keys`. Nothing here is a secret: the SAP password is never stored.",
+  "$comment": "An example environment with invented values, declaring every setting of this server. Import it into the store with `npm run config -- import config.example.json`, then change what differs in your landscape with `npm run config -- set <key> <value>`. `npm run config -- keys` explains each key. Nothing here is a secret: the SAP password is never stored. deploy/kubernetes.example.yaml carries the same keys with the values of a hosted server (tests/deploy.test.mjs keeps the two in step).",
   "host": "dev-system.example.com",
   "port": 44300,
   "client": "001",
   "user": "DEVELOPER",
   "language": "EN",
   "system": "DEV",
+  "systemRole": "DEV",
   "allowUnauthorizedTls": false,
+  "$passwordFile": "Absolute path of a file holding the SAP password, for a server without a terminal (docs/deployment.md). Leave it unset on a developer machine: the password is then typed at every start.",
   "mcpPort": 2237,
+  "bindHost": "127.0.0.1",
+  "publicHosts": [],
+  "tools": {
+    "disabled": []
+  },
+  "limits": {
+    "adtConcurrency": 8,
+    "callsPerMinute": 0
+  },
   "budget": {
     "reads": 200
   },
+  "shutdownMs": 5000,
   "catalog": {
     "release": "PCE2023_0"
+  },
+  "atc": {
+    "$defaultVariant": "Unset on purpose: the system check variant read at start is the default. Set it (to DEFAULT or a listed variant such as ZDEMO_DEV_PRACTICE) only to override the system's choice."
+  },
+  "paths": {
+    "logs": "logs"
+  },
+  "valueHelp": {
+    "namePattern": "ZI_{entity}VH",
+    "labelPrefix": "Value help - "
   },
   "atcVariants": [
     {
@@ -20,12 +42,32 @@
       "why": "development practices: naming, performance, robustness checks run next to the Clean Core one"
     }
   ],
+  "$customizingTables": "The installation's own tables for adt_customizing, beside the SAP-standard list in data/defaults/customizing-tables.json (T000, T001, TADIR, ... are already there: a standard table listed here is skipped with a warning). Every option of an entry: why (required), keyColumns (the row key printed by usage sweeps), routineColumns (a column, or a regex matching a column family, and the VOFM group whose routine number it carries), fields (the only columns a SELECT may name; `*` then means exactly these) and filterOnly (columns allowed in a WHERE and never returned, such as a user id).",
   "customizingTables": [
     {
       "name": "ZDEMO_REGION",
       "why": "state -> sales district map read by a demo order integration",
       "keyColumns": [
         "REGION"
+      ]
+    },
+    {
+      "name": "ZDEMO_PRICING_RULE",
+      "why": "demo pricing rules: which requirement routine each rule calls, read when a routine is retired",
+      "keyColumns": [
+        "RULE_ID"
+      ],
+      "routineColumns": {
+        "ZZKOBED": "PBED"
+      },
+      "fields": [
+        "RULE_ID",
+        "KSCHL",
+        "ZZKOBED",
+        "VALID_FROM"
+      ],
+      "filterOnly": [
+        "CREATED_BY"
       ]
     }
   ]

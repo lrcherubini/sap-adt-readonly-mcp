@@ -12,19 +12,83 @@ kind: ConfigMap
 metadata:
   name: sap-adt-config
 data:
-  # The shape `npm run config -- import` reads (config.example.json). No secret belongs here.
+  # The shape `npm run config -- import` reads, with every key of config.example.json and the
+  # values of a hosted server (tests/deploy.test.mjs keeps the two in step). No secret belongs
+  # here: passwordFile is where the Secret below is mounted.
   config.json: |
     {
       "host": "vhdemohost.example",
       "port": 44300,
       "client": "001",
       "user": "DEVUSER1",
+      "language": "EN",
       "system": "DEV",
+      "systemRole": "DEV",
+      "allowUnauthorizedTls": false,
       "passwordFile": "/run/secrets/sap-adt/password",
+      "mcpPort": 2237,
       "bindHost": "0.0.0.0",
-      "publicHosts": ["sap-adt.vhdemohost.example"],
-      "paths": { "logs": "/var/lib/sap-adt/logs" },
-      "limits": { "adtConcurrency": 8, "callsPerMinute": 120 }
+      "publicHosts": [
+        "sap-adt.vhdemohost.example"
+      ],
+      "tools": {
+        "disabled": []
+      },
+      "limits": {
+        "adtConcurrency": 8,
+        "callsPerMinute": 120
+      },
+      "budget": {
+        "reads": 200
+      },
+      "shutdownMs": 5000,
+      "catalog": {
+        "release": "PCE2023_0"
+      },
+      "atc": {
+        "$defaultVariant": "Unset on purpose: the system check variant read at start is the default. Set it (to DEFAULT or a listed variant such as ZDEMO_DEV_PRACTICE) only to override the system's choice."
+      },
+      "paths": {
+        "logs": "/var/lib/sap-adt/logs"
+      },
+      "valueHelp": {
+        "namePattern": "ZI_{entity}VH",
+        "labelPrefix": "Value help - "
+      },
+      "atcVariants": [
+        {
+          "name": "ZDEMO_DEV_PRACTICE",
+          "why": "development practices: naming, performance, robustness checks run next to the Clean Core one"
+        }
+      ],
+      "customizingTables": [
+        {
+          "name": "ZDEMO_REGION",
+          "why": "state -> sales district map read by a demo order integration",
+          "keyColumns": [
+            "REGION"
+          ]
+        },
+        {
+          "name": "ZDEMO_PRICING_RULE",
+          "why": "demo pricing rules: which requirement routine each rule calls, read when a routine is retired",
+          "keyColumns": [
+            "RULE_ID"
+          ],
+          "routineColumns": {
+            "ZZKOBED": "PBED"
+          },
+          "fields": [
+            "RULE_ID",
+            "KSCHL",
+            "ZZKOBED",
+            "VALID_FROM"
+          ],
+          "filterOnly": [
+            "CREATED_BY"
+          ]
+        }
+      ]
     }
 ---
 apiVersion: v1
