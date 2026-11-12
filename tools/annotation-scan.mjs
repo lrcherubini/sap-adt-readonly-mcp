@@ -43,6 +43,21 @@ const TTL_MS = 10 * 60 * 1000;
  * rebuilds it; a change made in the system meanwhile is otherwise seen at the next rebuild.
  */
 const cache = new Map();
+/** Indexes kept at once. Each holds the parsed sources of a package: the newest ones stay. */
+export const MAX_INDEXES = 8;
+
+/**
+ * Store one index, and drop what the store no longer owes anybody: every entry past its
+ * lifetime, then the oldest ones beyond the cap. The lifetime used to be checked only when an
+ * entry was read, so an index nobody asked for again stayed for as long as the process ran.
+ */
+export function keepIndex(store, key, value, { now = Date.now(), ttl = TTL_MS, max = MAX_INDEXES } = {}) {
+  for (const [k, entry] of store) if (now - entry.at >= ttl) store.delete(k);
+  // Deleted first, so a rebuilt index moves to the end: the Map's order is oldest first.
+  store.delete(key);
+  store.set(key, { at: now, value });
+  while (store.size > max) store.delete(store.keys().next().value);
+}
 
 /** Test seam: the next call rebuilds. Never called by the server. */
 export function resetAnnotationIndexCache() {
@@ -103,7 +118,7 @@ async function indexFor(cfg, api, args, extra) {
   if (upstream.left.length) upstream.stoppedBy = extra.signal?.aborted ? 'cancelled' : budget <= 0 ? 'budget' : 'rounds';
 
   const value = { pkg, read, index, upstream };
-  cache.set(key, { at: Date.now(), value });
+  keepIndex(cache, key, value);
   return value;
 }
 

@@ -9,7 +9,7 @@ import { listPackage, packageSources, packageIncomplete } from '../lib/package-s
 import { contractErrors } from '../lib/completeness.mjs';
 import { indexSources, emptyIndex, reaching } from '../lib/annotation-index.mjs';
 import { runCleanCoreScan } from '../tools/clean-core-scan.mjs';
-import { runAnnotationScan, resetAnnotationIndexCache } from '../tools/annotation-scan.mjs';
+import { runAnnotationScan, resetAnnotationIndexCache, keepIndex, MAX_INDEXES } from '../tools/annotation-scan.mjs';
 import { runPackageHealth } from '../tools/package-health.mjs';
 import { resetBudget } from '../lib/audit.mjs';
 
@@ -124,6 +124,23 @@ test('adt_annotation_scan answers the contract, and rowsOffset pages the lookup 
   assert.equal(detect.scope.cached, true);
   // upstream: 0 leaves the consumed names unfollowed: a budget, said as one.
   assert.ok(detect.incomplete.some((i) => i.list === 'upstream' && i.code === 'BUDGET_REACHED'));
+});
+
+test('the annotation index store drops what expired and keeps only the newest indexes', () => {
+  const store = new Map();
+  const opts = { ttl: 600, max: 3 };
+  keepIndex(store, 'ZDEMO_A', 'a', { ...opts, now: 0 });
+  keepIndex(store, 'ZDEMO_B', 'b', { ...opts, now: 100 });
+  // Past the lifetime of the first: it leaves when the next one is stored, read or not.
+  keepIndex(store, 'ZDEMO_C', 'c', { ...opts, now: 650 });
+  assert.deepEqual([...store.keys()], ['ZDEMO_B', 'ZDEMO_C']);
+  keepIndex(store, 'ZDEMO_D', 'd', { ...opts, now: 660 });
+  // A rebuilt index is the newest again, so the cap drops the one that is now the oldest.
+  keepIndex(store, 'ZDEMO_B', 'b2', { ...opts, now: 670 });
+  keepIndex(store, 'ZDEMO_E', 'e', { ...opts, now: 680 });
+  assert.deepEqual([...store.keys()], ['ZDEMO_D', 'ZDEMO_B', 'ZDEMO_E']);
+  assert.deepEqual(store.get('ZDEMO_B'), { at: 670, value: 'b2' });
+  assert.ok(MAX_INDEXES >= 1);
 });
 
 test('adt_package_health answers the contract, pages the checks, and counts what no part checks', async () => {
