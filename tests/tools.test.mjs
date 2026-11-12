@@ -16,6 +16,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { buildTools, argumentErrors } from '../tools/index.mjs';
 import { resetBudget } from '../lib/audit.mjs';
+import { validateSetting } from '../lib/environment.mjs';
 import { installAtcVariants, ATC_VARIANTS as ATC_VARIANTS_LIVE } from '../lib/atc.mjs';
 import { loadSystemVariant } from '../tools/atc.mjs';
 import { CUSTOMIZING_TABLES as CUSTOMIZING_TABLES_LIVE } from '../lib/data-preview.mjs';
@@ -1557,6 +1558,17 @@ test('adt_atc_run files ATC_NOT_RUN when a POST fails, ATC_RESULT_NOT_READ when 
   assert.equal(out.count, 2, 'the findings stand');
   assert.ok(out.drift.some((d) => d.node === 'finding/@atcfinding:severity'));
   assert.ok(journalLines.some((l) => l.code === 'SHAPE_DRIFT' && l.subject === `ATC worklist ${ATC_ID}`));
+});
+
+test('a tool the installation switched off is neither listed nor built', () => {
+  const cfg = { ...cfgWith([]), disabledTools: ['adt_runtime_errors', 'adt_transport'] };
+  const names = buildTools(cfg, { api: fakeApi(), sources: { catalog: null, mirror: null, precedent: null } }).map((t) => t.definition.name);
+  assert.equal(names.includes('adt_runtime_errors'), false);
+  assert.equal(names.includes('adt_transport'), false);
+  assert.equal(names.includes('adt_search'), true);
+  assert.equal(names.length, toolsWith(fakeApi()).length - 2);
+  assert.deepEqual(validateSetting('tools.disabled', 'adt_transport;adt_runtime_errors'), ['adt_transport', 'adt_runtime_errors']);
+  assert.throws(() => validateSetting('tools.disabled', 'adt_delete_everything'), /is not a tool of this server/);
 });
 
 // --- the journal wrapper -----------------------------------------------------

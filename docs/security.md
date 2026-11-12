@@ -1668,6 +1668,22 @@ matched. A 401 still carries no `WWW-Authenticate`. OAuth through an identity pr
 considered and left for later: it replaces the token a person holds, not the need to know who
 asked, and this is the smaller step that answers that need. Pinned by `tests/callers.test.mjs`.
 
+### Answers that name people, on a server a team shares -- 2026-11-12
+
+Decided by the owner. Two tools answer with the names of people because that is the question
+asked of them: `adt_runtime_errors` names whoever dumped, and `adt_transport` names the owners of
+requests and tasks. For one developer reading their own system that is what the IDE shows too.
+On a hosted server the same answer reaches everyone who holds a token, and whether that is
+acceptable is the installation's call (in Brazil, a question for whoever answers for the LGPD
+there), not this repository's.
+
+So the installation can withhold a tool: `tools.disabled` lists tool names, and a listed tool is
+not built into the server at all. It is neither announced in `tools/list` nor callable, which is
+the only "off" a client cannot talk past. The names are validated against the tools that exist.
+Nothing is withheld by default, and no answer is redacted: a transport list without its owners
+would be a different answer under the same name, and this server does not give those.
+Pinned by `tests/tools.test.mjs`.
+
 ### On the network, by decision -- 2026-11-12
 
 Decided by the owner, to host the server for a team. Loopback stays the default and nothing

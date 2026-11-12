@@ -1627,7 +1627,10 @@ export function buildTools(cfg, session, journal = openJournal(cfg)) {
     usedObjectsTool(cfg, session, journal),
   ];
 
+  // A tool the installation switched off (`tools.disabled`) is not built into the list at all:
+  // it is neither announced nor callable, which is the only "off" a client cannot talk past.
+  const off = new Set(cfg.disabledTools ?? []);
   // Validated INSIDE the journal wrapper, so a refused call is still one line in logs/calls.
   // `publish` adds what tools/list owes a client: title, behaviour hints, a closed schema.
-  return tools.map((t) => journaled(validated({ ...t, definition: publish(t.definition) }), journal, cfg, session));
+  return tools.filter((t) => !off.has(t.definition.name)).map((t) => journaled(validated({ ...t, definition: publish(t.definition) }), journal, cfg, session));
 }
