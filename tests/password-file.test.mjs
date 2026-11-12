@@ -29,6 +29,7 @@ test('the password is the content of the file, without the one line ending that 
   assert.equal(readPasswordFile(fileWith('Init1234!\n')).password, 'Init1234!');
   assert.equal(readPasswordFile(fileWith('Init1234!\r\n')).password, 'Init1234!');
   assert.equal(readPasswordFile(fileWith('  two words \n')).password, '  two words ', 'spaces are part of a password');
+  assert.equal(readPasswordFile(fileWith('﻿Init1234!\r\n')).password, 'Init1234!', 'the byte-order mark Windows PowerShell writes is not part of it');
   const { changedAt } = readPasswordFile(fileWith('x'));
   assert.match(changedAt, /^\d{4}-\d{2}-\d{2}T/);
 });
