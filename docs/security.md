@@ -1398,7 +1398,12 @@ grew to what the system writes. Pinned by `tests/package-name.test.mjs` and
 ## What is written to disk
 
 Everything lives in `%LOCALAPPDATA%\sap-adt\`, and the server **refuses to start** if that
-path resolves inside a git work tree:
+path resolves inside a git work tree. Since 2026-11-12 the place can be named outright with the
+environment variable `SAP_ADT_STATE_DIR` (an absolute path: a mounted volume, the folder of a
+service account). It is the one variable this server reads, and it names a place, never a value
+of the landscape. A relative place is refused, and so is a start with neither a profile folder
+nor the variable. The work-tree check looks for a `.git` entry in the folders above before it
+asks `git`, so it also holds on a machine without git:
 
 | File | Contents | Sensitivity |
 |---|---|---|

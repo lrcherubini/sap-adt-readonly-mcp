@@ -100,7 +100,9 @@ cannot do in [Limitations](#limitations).
 - **Internet access once a month** (or a manual download) for the Clean Core catalogue — see
   [The Clean Core catalogue](#the-clean-core-catalogue). The server itself never goes online.
 - Developed and tested on **Windows**. On Linux/macOS the state directory is
-  `~/.local/share/sap-adt`.
+  `~/.local/share/sap-adt`. `SAP_ADT_STATE_DIR=<absolute path>` names another place (a service
+  account, a mounted volume); wherever this README writes `%LOCALAPPDATA%\sap-adt\`, read that
+  directory.
 
 ## Install and first run
 
