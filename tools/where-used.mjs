@@ -5,6 +5,7 @@
 import { finish, page } from '../lib/completeness.mjs';
 import { record } from '../lib/audit.mjs';
 import { resolveObject } from '../lib/resolve.mjs';
+import { ToolError } from '../lib/tool-error.mjs';
 import { asText } from './common.mjs';
 
 // Z*, Y* and /NAMESPACE/ objects are ours; anything else is SAP standard.
@@ -43,10 +44,14 @@ export function whereUsedTool(cfg, session, journal, { resolveOpts } = {}) {
     },
     async handler({ objectName, objectType, snippets, allowStandard, max, offset }) {
       if (!CUSTOM_NAMESPACE.test(objectName) && !allowStandard) {
-        throw new Error(
+        throw new ToolError(
           `'${objectName}' is an SAP standard object. Where-used on standard objects is the ` +
             'most expensive call this server can make against the SAP system -- pass allowStandard: true ' +
-            'if you really need it.'
+            'if you really need it.',
+          {
+            code: 'STANDARD_OBJECT',
+            next: { tool: 'adt_where_used', arguments: { objectName, ...(objectType ? { objectType } : {}), ...(max ? { max } : {}), allowStandard: true } },
+          }
         );
       }
       const { hit, warning, foundBy } = await resolveObject(api, objectName, objectType, 'metadata', resolveOpts);

@@ -310,8 +310,10 @@ The server follows the MCP specification (2025-06-18) and the official TypeScrip
   arguments). Answers carry `structuredContent` next to the same JSON as text. No `outputSchema`
   is declared on purpose: the answers are rich and shaped by what the system returned, and a
   client must reject an answer that does not match a declared schema.
-- **Errors:** a tool failure is a result with `isError: true` and a readable reason, never a
-  protocol error.
+- **Errors:** a tool failure is a result with `isError: true`, never a protocol error. It is
+  structured like an answer: `{system, error: {code, message, next?}}`, where `code` is one an
+  agent can branch on (`INVALID_ARGUMENTS`, `NOT_FOUND`, `RATE_LIMITED`, `HTTP_403`, ...) and
+  `next`, when there is one, is the call that would answer instead.
 - **Long calls:** the package scans and a multi-variant ATC run send progress notifications when
   the client asks for them, and stop between reads when the call is cancelled.
 

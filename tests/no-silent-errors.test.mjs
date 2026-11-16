@@ -12,6 +12,7 @@
 // list of places where discarding is the right answer. Both fail the build when they rot.
 
 import { COMPLETENESS_CODES } from '../lib/completeness.mjs';
+import { ERROR_CODES } from '../lib/tool-error.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -114,8 +115,9 @@ test('only a sweeping tool can ever retire a finding', () => {
 test('every emitted code is registered', () => {
   // The other direction. journal.coded() throws on an unregistered code at runtime, but
   // only on the path that actually runs; this catches it without running anything.
-  // The completeness codes (lib/completeness.mjs) are a second closed set, for the answer.
-  const known = new Set([...FINDING_CODES.keys(), ...GAP_CODES.keys(), ...COMPLETENESS_CODES.keys()]);
+  // The completeness codes (lib/completeness.mjs) are a second closed set, for the answer, and the
+  // refusal codes (lib/tool-error.mjs) a third, for a failed call.
+  const known = new Set([...FINDING_CODES.keys(), ...GAP_CODES.keys(), ...COMPLETENESS_CODES.keys(), ...ERROR_CODES.keys()]);
   const seen = new Set();
   for (const f of FILES) {
     for (const m of f.text.matchAll(/code:\s*'([A-Z][A-Z0-9_]{3,})'/g)) seen.add(m[1]);

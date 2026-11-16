@@ -9,6 +9,7 @@ import { namedGet, transportFor } from '../lib/adt-get.mjs';
 import { dumpAfter500, explainWithDump } from '../lib/dump-after-500.mjs';
 import { openJournal } from '../lib/journal.mjs';
 import { withSignature } from '../lib/system-signature.mjs';
+import { ToolError } from '../lib/tool-error.mjs';
 import { publish, schemaErrors, closeSchema, withStructuredContent } from '../lib/tool-meta.mjs';
 import { searchTool } from './search.mjs';
 import { readSourceTool } from './read-source.mjs';
@@ -152,7 +153,7 @@ function validated(tool, signature) {
     ...tool,
     async handler(args = {}, extra = {}) {
       const errors = argumentErrors(tool.definition.inputSchema, args);
-      if (errors.length) throw new Error(`${tool.definition.name}: ${errors.join('; ')}.`);
+      if (errors.length) throw new ToolError(`${tool.definition.name}: ${errors.join('; ')}.`, { code: 'INVALID_ARGUMENTS' });
       // The answer as JSON too (structuredContent), when it is one JSON object, and where it
       // was read from in front of it (lib/system-signature.mjs).
       return withSignature(withStructuredContent(await inner(args, extra)), signature);

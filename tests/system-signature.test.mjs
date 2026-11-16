@@ -100,7 +100,7 @@ before(async () => {
   const api = { searchObject: async () => [] };
   const cfg = { host: 'vhdemohost.example', client: '001', system: 'DEV', budget: { reads: 1000 }, auditSink: () => {}, journalSink: () => {}, paths: {} };
   cfg.systemSignature = signatureOf({ ...cfg, systemRole: 'QAS' }, { read: true, code: 'T', meaning: 'test' });
-  server = http.createServer(createRequestHandler({ tools: buildTools(cfg, { api }), token: TOKEN, port: () => port, log: () => {} }));
+  server = http.createServer(createRequestHandler({ tools: buildTools(cfg, { api }), token: TOKEN, port: () => port, signature: cfg.systemSignature, log: () => {} }));
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   port = server.address().port;
 });
@@ -116,7 +116,9 @@ test('over the wire: an answer carries the signature in front, and still keeps t
     assert.equal(res.content[0].text, JSON.stringify(res.structuredContent));
     assert.deepEqual(contractErrors(res.structuredContent), []);
     const refused = await c.callTool({ name: 'adt_search', arguments: {} });
-    assert.equal(refused.isError, true, 'a refusal reads nothing and is not stamped');
+    assert.equal(refused.isError, true);
+    assert.deepEqual(refused.structuredContent.system, res.structuredContent.system, 'a refusal names the system like an answer does');
+    assert.equal(refused.structuredContent.error.code, 'INVALID_ARGUMENTS');
   } finally {
     await c.close();
   }

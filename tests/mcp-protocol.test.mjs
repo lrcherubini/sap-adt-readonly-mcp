@@ -90,6 +90,9 @@ test('tools/call: a malformed call is an isError result that names the problem, 
   const missing = await c.callTool({ name: 'adt_search', arguments: {} });
   assert.equal(missing.isError, true);
   assert.match(missing.content[0].text, /missing required argument 'query'/);
+  // Structured too: a code an agent branches on, and the same JSON in text.
+  assert.equal(missing.structuredContent.error.code, 'INVALID_ARGUMENTS');
+  assert.equal(missing.content[0].text, JSON.stringify(missing.structuredContent));
   await c.close();
 });
 

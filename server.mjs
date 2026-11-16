@@ -131,6 +131,8 @@ const httpServer = http.createServer(
     publicHosts: cfg.publicHosts,
     callers: cfg.callers,
     callsPerMinute: cfg.limits.callsPerMinute,
+    // In front of every failure too: a refusal names the system like an answer does.
+    signature: cfg.systemSignature,
     // /readyz: a session the client still holds, and no shutdown under way.
     ready: () => session.raw.loggedin === true && !stopping,
     log: (m) => console.error(m),
