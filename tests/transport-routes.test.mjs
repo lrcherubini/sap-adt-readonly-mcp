@@ -83,7 +83,7 @@ test('the measured landscape: the active version, its layers, systems, consolida
   assert.deepEqual(contractErrors(out), []);
   assert.equal(out.complete, true);
   assert.equal(out.version, '0002', 'the one row with ACTIVE = A');
-  assert.deepEqual(out.versions.map((v) => [v.version, v.active, v.deactivated]), [['0001', false, '20221207203348'], ['0002', true, null]]);
+  assert.deepEqual(out.versions.map((v) => [v.version, v.active, v.deactivated]), [['0001', false, '2022-12-07T20:33:48'], ['0002', true, null]]);
   assert.deepEqual(out.layers.map((l) => l.layer), ['SAP', 'ZDEV'], 'the text of a blank layer is not a layer');
   assert.deepEqual(out.layers[1].texts, { E: 'Transport Layer ZDEV' });
   const dev = out.systems.find((s) => s.sid === 'DEV');

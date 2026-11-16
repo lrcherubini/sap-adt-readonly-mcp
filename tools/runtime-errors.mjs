@@ -42,12 +42,20 @@ import {
   auditKeyOf,
 } from '../lib/runtime-feeds.mjs';
 import { finish } from '../lib/completeness.mjs';
+import { isoOfStamp } from '../lib/timestamps.mjs';
 
-/** The server's own "since" of a feed: the `from` of its self link (yyyymmddhhmmss), or null. */
+/** The server's own "since" of a feed: the `from` of its self link, UTC (measured), or null. */
 const windowOf = (self) => {
   const from = /[?&]from=(\d{14})/.exec(String(self ?? ''))?.[1] ?? null;
-  return { from, source: from ? 'the feed self link (?from=)' : 'the feed states none' };
+  return { from: isoOfStamp(from, { utc: true }), source: from ? 'the feed self link (?from=)' : 'the feed states none' };
 };
+/**
+ * A dump entry as the answer carries it: `id` is the short ST22 key that `detail` takes, not the
+ * percent-encoded path, and the adt:// links (the same key three more times, padded) stay in the
+ * parser, where the resource read uses them.
+ */
+const dumpForAnswer = ({ id: _path, key, links: _links, ...rest }) => ({ id: key, ...rest });
+
 const driftEntry = (list, drift) => (drift?.length ? [{ list, code: 'PARSE_FAILED', count: drift.length, reason: 'the reply carries what the measured shape does not describe: see drift' }] : []);
 
 export const DEFAULT_MAX = 50;
@@ -205,7 +213,7 @@ export function runtimeErrorsTool(cfg, session, journal) {
       return asText(finish({
         mode: 'detail',
         searched: parsed.entries.length,
-        entry: hit,
+        entry: dumpForAnswer(hit),
         ...more,
         ...(parsed.drift.length ? { drift: parsed.drift } : {}),
       }, incomplete));
@@ -223,17 +231,16 @@ export function runtimeErrorsTool(cfg, session, journal) {
       mode: 'list',
       feed,
       query,
-      page: { top, skip: skipped, returned: parsed.entries.length, truncated: pageFull, ...(next ? { next } : {}) },
+      page: { top, skip: skipped, returned: parsed.entries.length, ...(next ? { next } : {}) },
       count: parsed.entries.length,
       serverWindow: windowOf(parsed.self),
-      ...(parsed.self ? { self: parsed.self } : {}),
       ...(parsed.measured === false ? { entriesMeasured: false } : {}),
       ...(feed === 'dumps'
         ? {
-            groups: groupDumps(parsed.entries),
+            groups: groupDumps(parsed.entries.map(dumpForAnswer)),
           }
         : {}),
-      entries: parsed.entries,
+      entries: feed === 'dumps' ? parsed.entries.map(dumpForAnswer) : parsed.entries,
       ...(parsed.drift.length ? { drift: parsed.drift } : {}),
     }, incomplete));
   }

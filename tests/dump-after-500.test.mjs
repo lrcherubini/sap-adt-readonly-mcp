@@ -74,14 +74,14 @@ test('a 500 with a dump of this user since the call: one clause, $top=1, the dum
   assert.equal(out.dump.runtimeError, 'OBJECTS_OBJREF_NOT_ASSIGNED_NO');
   assert.equal(out.dump.program, 'CL_ENH_ADT_ENHO_OBJ_PERSIST===CP');
   assert.equal(out.dump.key, '20260912153319vhdemohost_DEV_00 23');
-  assert.match(out.dump.id, /^\/sap\/bc\/adt\/vit\/runtime\/dumps\//);
+  assert.doesNotMatch(out.dump.id, /%20|\//, 'the short key adt_runtime_errors detail takes, not the encoded path');
   const g = journalLines.find((l) => l.code === 'SERVER_DUMPED');
   assert.equal(g.subject, 'adt_transport');
   assert.match(g.detail, /OBJECTS_OBJREF_NOT_ASSIGNED_NO in CL_ENH_ADT_ENHO_OBJ_PERSIST===CP \(ST22 20260912153319vhdemohost_DEV_00 23/);
   assert.ok(!JSON.stringify(journalLines).includes('DEMOUSER'), 'the user never reaches the journal');
   assert.ok(!JSON.stringify(log).includes('DEMOUSER'), 'nor the audit');
   assert.equal(log[0].target, 'dump after 500');
-  assert.match(explainWithDump(out), /the SAP system dumped: OBJECTS_OBJREF_NOT_ASSIGNED_NO in CL_ENH_ADT_ENHO_OBJ_PERSIST===CP \(ST22 20260912153319vhdemohost_DEV_00 23; adt_runtime_errors detail \{id: "\/sap\/bc\/adt\/vit\/runtime\/dumps\//);
+  assert.match(explainWithDump(out), /the SAP system dumped: OBJECTS_OBJREF_NOT_ASSIGNED_NO in CL_ENH_ADT_ENHO_OBJ_PERSIST===CP \(ST22 20260912153319vhdemohost_DEV_00 23; adt_runtime_errors detail \{id: "20260912153319vhdemohost_DEV_00 /);
 });
 
 test('a 500 whose newest dump is OLDER than the call is not explained by it: matched false, still filed', async () => {

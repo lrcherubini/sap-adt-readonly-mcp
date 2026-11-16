@@ -14,6 +14,7 @@
 import { record } from '../lib/audit.mjs';
 import { buildSelect, previewPost, parsePreview, assertRanAsSent, cutCodeOf, MAX_ROWS } from '../lib/data-preview.mjs';
 import { finish } from '../lib/completeness.mjs';
+import { isoOfStamp } from '../lib/timestamps.mjs';
 import { asText } from './common.mjs';
 
 const VERSION = /^\d{4}$/;
@@ -96,9 +97,10 @@ export function transportRoutesTool(cfg, session, journal) {
         version: r.VERSION,
         active: r.ACTIVE === 'A',
         state: blank(r.ACTIVE),
-        changed: blank(r.CHANGED),
-        activated: blank(r.ACTIVATION),
-        deactivated: /^0*$/.test(String(r.DEACTIVAT ?? '')) ? null : blank(r.DEACTIVAT),
+        // The zone of these stamps is not measured: ISO without an offset (lib/timestamps.mjs).
+        changed: isoOfStamp(blank(r.CHANGED)),
+        activated: isoOfStamp(blank(r.ACTIVATION)),
+        deactivated: isoOfStamp(blank(r.DEACTIVAT)),
         controller: blank(r.CONTROLER),
       }));
       const active = versions.filter((v) => v.active);

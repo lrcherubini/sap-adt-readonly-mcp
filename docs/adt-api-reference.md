@@ -908,6 +908,10 @@ tm:lock_status tm:img_activity`, plus `tm:wbtype` and `tm:obj_desc` where the ob
 has them, plus `tm:obj_func`. **Nothing in the document carries text content** — every
 value is an attribute, and the only child element below `tm:abap_object` is `atom:link`.
 
+`tm:lastchanged_timestamp` is **system-local**, not UTC (measured 2026-11-12: a request whose
+open-requests entry says created `16:30:46Z` answered `…173046` here, one hour ahead). It is
+answered as ISO 8601 **without** an offset (`lib/timestamps.mjs`).
+
 ⚠️ `tm:obj_func` is **not** a customizing marker, though six documents made it look like
 one. Reading a seventh (the list, below) shows it on `TABU/K`, `CDAT/K`, `VDAT/K`,
 `TDAT/K` **and** on `METH/D`, `DOMA/D`, `FUGR/D`, `TOBJ/D`, `TRAN/D`. Two values, `K` and
@@ -2086,7 +2090,9 @@ Round 14, steps 3–4. `GET /sap/bc/adt/runtime/dumps`, `Accept: application/ato
 two); `maxResults` is **ignored** (35 entries back); `$inlinecount=allpages` does nothing visible
 (no count element; 20 KB for `$top=1`). The catalogue's `paging size=50 max=100` is the reader's
 page, not a server cap: with no `$top` the server sent every dump it had (35). The feed's `self`
-link carries `?from=<yyyymmddhhmmss>`, i.e. the server's own notion of "since".
+link carries `?from=<yyyymmddhhmmss>`, i.e. the server's own notion of "since". It is **UTC**
+(measured 2026-11-12: the newest entry, `published` 12:17:59Z, came with `from=…121759`, while its
+ST22 key began `…131759`, the system's local time).
 
 **Entry** (`xml:lang` on the entry; 13 element names, 17 attributes in the census):
 

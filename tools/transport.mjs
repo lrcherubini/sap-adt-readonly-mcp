@@ -50,6 +50,7 @@ import {
   keyDecision,
 } from '../lib/object-keys.mjs';
 import { finish, page } from '../lib/completeness.mjs';
+import { isoOfStamp } from '../lib/timestamps.mjs';
 
 /** From the measured envelope: 6 requests / 672 objects / 270 138 bytes in one dump. */
 const MAX_REQUESTS = 50;
@@ -191,7 +192,8 @@ export function transportTool(cfg, session, journal) {
         desc: r.desc,
         owner: r.owner,
         target: r.target,
-        lastChanged: r.lastChanged,
+        // System-local, not UTC (lib/timestamps.mjs): written without an offset.
+        lastChanged: isoOfStamp(r.lastChanged),
         objectCount: unionObjects(r).unionCount,
         tasks: r.tasks.map((t) => ({
           number: t.number,
@@ -604,7 +606,7 @@ export function transportTool(cfg, session, journal) {
           target: r.target,
           targetDesc: r.targetDesc,
           ctsProject: r.ctsProject,
-          lastChanged: r.lastChanged,
+          lastChanged: isoOfStamp(r.lastChanged),
           counts: {
             own: u.ownCount,
             inTasks: u.taskCount,

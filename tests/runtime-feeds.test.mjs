@@ -314,7 +314,12 @@ test('adt_runtime_errors list: the page and the generated $query reach the wire;
   assert.equal(sent[0].url, '/sap/bc/adt/runtime/dumps?%24query=and+%28+equals+%28+user+%2C+DEMOUSER+%29+%29&%24skip=4&%24top=2');
   assert.equal(out.mode, 'list');
   assert.equal(out.query, 'and ( equals ( user , DEMOUSER ) )');
-  assert.deepEqual(out.page, { top: 2, skip: 4, returned: 2, truncated: true, next: { skip: 6 } });
+  assert.deepEqual(out.page, { top: 2, skip: 4, returned: 2, next: { skip: 6 } });
+  // The id is the short ST22 key detail takes; the padded adt:// links are not repeated.
+  assert.match(out.entries[0].id, /^\d{14}[^\s%/]+( [^\s%/]+)+$/);
+  assert.equal(out.entries[0].links, undefined);
+  assert.equal(out.entries[0].key, undefined, 'said once, as the id');
+  assert.ok(out.groups.every((g) => g.ids.every((id) => !id.includes('%20'))));
   assert.equal(out.count, 2);
   assert.equal(out.complete, false, 'a full page is not proof of a complete list');
   assert.deepEqual(out.incomplete.find((i) => i.code === 'SERVER_PAGE_FULL').next, { skip: 6 });
@@ -330,7 +335,7 @@ test('adt_runtime_errors list: the page and the generated $query reach the wire;
 
   const full = jsonOf(await tool.handler({ list: { feed: 'dumps', report: true } }));
   assert.equal(sent[1].url, '/sap/bc/adt/runtime/dumps?%24top=50');
-  assert.equal(full.page.truncated, false);
+  assert.equal(full.page.next, undefined);
   assert.deepEqual(contractErrors(full), []);
   assert.equal(full.entries[0].report.stack.length, 13);
   assert.equal(full.groups.find((g) => g.program === full.entries[0].program).line, 30, 'with the report the line joins the key');

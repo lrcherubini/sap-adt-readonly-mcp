@@ -6,6 +6,10 @@ refuses and which traps of the ADT it avoids (each measured in
 contract of the README (*Complete or not, in fields*). How to install and register the server
 is in the [README](../README.md).
 
+Times are ISO 8601. A time with `Z` is UTC; one without an offset is the system's local clock,
+where the ADT writes local time or its zone is not measured. A dump is named by its short ST22
+key (`id`), the value `adt_runtime_errors` takes in `detail`.
+
 
 | Tool | What it answers | Guard rails |
 |---|---|---|
