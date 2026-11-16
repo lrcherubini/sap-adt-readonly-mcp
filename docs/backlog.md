@@ -77,6 +77,20 @@ settle.
   specification's sense (then `false`, which some clients answer with a confirmation per call) or
   bookkeeping of the run (then it stays, as the IDE treats it).
 
+## 5. Found by the consumption matrix of the tools (2026-11-12)
+
+- **The language of the dump feed.** The feed sends its category labels and report headings in
+  the system's language, not the logon language (German on a system logged on in Portuguese),
+  and `lib/runtime-feeds.mjs` recognises them by their English text: `runtimeError` and `program`
+  are null and the report empty. The section ids of the report (`<h4 id>`) and the attributes of
+  the dump resource are language-neutral; whether the order of the two categories is fixed is
+  not measured. Measure with the probe `scripts/probes/dump-language.mjs` (git-ignored), then
+  read by id and by measured order.
+- **The holder of an object's active version.** `adt_transport {object}` names the request of
+  version 00000 as `holder`; on one class it was a task while `openRequests` listed its request.
+  Whether a version feed names the task or the request, and when, is not measured. Measure: one
+  object in an open task, its version feeds and its open requests side by side.
+
 ---
 
 An accepted limit is not an item: it is a decision, and it lives where the behaviour is (the

@@ -555,6 +555,8 @@ tag, `v0.1.0`, on the last commit that belongs to that version.
 | `server.mjs` | starts the server: config, SAP logon, loopback HTTP listener, shutdown |
 | `lib/mcp-server.mjs` | the MCP plumbing: server info and instructions, tool handlers, the `Host`/`Origin` and token gate |
 | `lib/tool-meta.mjs` | titles, behaviour annotations, the input-schema check, `structuredContent`, progress |
+| `lib/tool-error.mjs` | a failed call as a structured answer: its code (a closed set for the server's own refusals) and the call to make instead |
+| `lib/object-shape.mjs`, `lib/timestamps.mjs` | the ADT's documents in plain fields: identity, unprefixed properties, outline positions as numbers, the object a URI names, times in ISO 8601 with their measured zone |
 | `lib/service-binding.mjs` | a service binding and the detail of each version: parsers, and the read `adt_object_info` runs |
 | `lib/virtual-folders.mjs` | the virtual folders of a package: the third POST (fixed path, body built from one package name) and its parser |
 | `lib/syntax-check.mjs` | the syntax check: the fourth POST (fixed path, body built from one object URI and a version, no source) and its parser |
