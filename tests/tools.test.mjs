@@ -902,14 +902,17 @@ test('adt_where_used maps the rows and asks for snippets only when told to', asy
   const out = jsonOf(
     await byName(toolsWith(api), 'adt_where_used').handler({ objectName: 'ZI_TEST' })
   );
-  assert.deepEqual(out.rows, [
+  assert.deepEqual(out.users, [
     {
       name: 'C_CALLER',
       type: 'DDLS/DF',
       package: 'SOME_PKG',
       responsible: 'SAP',
-      usage: 'gradeDirect includeProductive',
       uri: '/uri/1',
+      self: false,
+      uses: [],
+      usage: ['gradeDirect', 'includeProductive'],
+      objectIdentifier: 'ABAPFullName;ZI_TEST',
     },
   ]);
   assert.equal(out.callers, 1);
@@ -943,16 +946,34 @@ test('adt_where_used pages its rows: two pages are the whole list, the snippets 
   const asked = [];
   const api = fakeApi({ usageReferences: () => refs, usageReferenceSnippets: (r) => { asked.push(r.map((x) => x.objectIdentifier)); return []; } });
   const p1 = jsonOf(await byName(toolsWith(api), 'adt_where_used').handler({ objectName: 'ZI_TEST', max: 3, snippets: true }));
-  assert.deepEqual([p1.callers, p1.returned, p1.truncated, p1.complete], [5, 3, true, false]);
-  assert.deepEqual(p1.next, { offset: 3, costsCalls: 1 });
+  assert.deepEqual([p1.callers, p1.page.returned, p1.complete], [5, 3, false]);
+  assert.deepEqual(p1.page.next, { offset: 3, costsCalls: 1 });
   assert.equal(p1.incomplete[0].code, 'CAP_REACHED');
   assert.deepEqual(asked[0], ['ID0', 'ID1', 'ID2'], 'the snippets of the page only');
-  const p2 = jsonOf(await byName(toolsWith(api), 'adt_where_used').handler({ objectName: 'ZI_TEST', max: 3, offset: p1.next.offset }));
-  assert.deepEqual([...p1.rows, ...p2.rows].map((r) => r.name), ['C0', 'C1', 'C2', 'C3', 'C4']);
+  const p2 = jsonOf(await byName(toolsWith(api), 'adt_where_used').handler({ objectName: 'ZI_TEST', max: 3, offset: p1.page.next.offset }));
+  assert.deepEqual([...p1.users, ...p2.users].map((r) => r.name), ['C0', 'C1', 'C2', 'C3', 'C4']);
   assert.equal(p2.complete, true);
   assert.deepEqual(contractErrors(p1), []);
   assert.deepEqual(contractErrors(p2), []);
   await assert.rejects(() => byName(toolsWith(api), 'adt_where_used').handler({ objectName: 'ZI_TEST', max: 501 }), /<= 500/);
+});
+
+test('adt_where_used groups the measured tree: one user per object, its places inside, folders out, itself marked', async () => {
+  // The measured reply (tests/fixtures/repository-posts/usage-references.xml) for ZCL_DEMO: two
+  // using objects under package folders, each with the sections and methods of the use. ZCL_DEMO
+  // is one of them, because its own code names it.
+  const { parseUsageReferences } = await import('../lib/repository-posts.mjs');
+  const { parseXml } = await import('../lib/xml.mjs');
+  const xml = fs.readFileSync(new URL('./fixtures/repository-posts/usage-references.xml', import.meta.url), 'utf8');
+  const refs = parseUsageReferences(parseXml(xml));
+  const api = fakeApi({ searchObject: () => [hit('ZCL_DEMO', 'CLAS/OC', 'ZDEMO_PKG', '/sap/bc/adt/oo/classes/zcl_demo')], usageReferences: () => refs });
+  const out = jsonOf(await byName(toolsWith(api), 'adt_where_used').handler({ objectName: 'ZCL_DEMO' }));
+  assert.deepEqual(out.users.map((u) => [u.name, u.self, u.uses.length]), [['ZBP_DEMO_I_RATE', false, 1], ['ZCL_DEMO', true, 6]]);
+  assert.equal(out.callers, 1, 'the object itself is not a caller');
+  assert.ok(!out.users.some((u) => u.type === 'DEVC/K'), 'a package folder is no user');
+  assert.deepEqual(out.users[0].uses[0].usage, ['gradeDirect', 'includeProductive']);
+  assert.equal(out.users[1].uses.find((x) => x.at === 'CONSTRUCTOR').uri, '/sap/bc/adt/oo/classes/zcl_demo/source/main#type=CLAS%2FOM;name=CONSTRUCTOR;start=1');
+  assert.deepEqual(contractErrors(out), []);
 });
 
 // --- adt_package_tree --------------------------------------------------------
