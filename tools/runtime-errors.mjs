@@ -43,6 +43,7 @@ import {
 } from '../lib/runtime-feeds.mjs';
 import { finish } from '../lib/completeness.mjs';
 import { isoOfStamp } from '../lib/timestamps.mjs';
+import { positionOf } from '../lib/object-shape.mjs';
 
 /** The server's own "since" of a feed: the `from` of its self link, UTC (measured), or null. */
 const windowOf = (self) => {
@@ -55,6 +56,20 @@ const windowOf = (self) => {
  * parser, where the resource read uses them.
  */
 const dumpForAnswer = ({ id: _path, key, links: _links, ...rest }) => ({ id: key, ...rest });
+
+/**
+ * The dump resource as answered: the exception, where it stopped and the chapter index of the
+ * formatted report. Its error and program are the entry's already, the links are this server's
+ * own reads, the user and time are on the entry; the termination keeps its ADT path and line.
+ */
+const resourceForAnswer = ({ exception, links, chapters }) => {
+  const stop = links.find((l) => String(l.relation ?? '').endsWith('/runtime/dump/termination'))?.uri ?? null;
+  return {
+    exception,
+    ...(stop ? { termination: { uri: stop.replace(/^adt:\/\/[^/]+/, ''), line: positionOf(stop)?.line ?? null } } : {}),
+    chapters: chapters.map(({ order: _order, ...c }) => c),
+  };
+};
 
 const driftEntry = (list, drift) => (drift?.length ? [{ list, code: 'PARSE_FAILED', count: drift.length, reason: 'the reply carries what the measured shape does not describe: see drift' }] : []);
 
@@ -137,9 +152,14 @@ export function runtimeErrorsTool(cfg, session, journal) {
     try {
       const r = await derivedGet(transport, path, path, { kind: 'runtimeDump' });
       record(cfg, 'adt_runtime_errors', `dump ${key} resource`, r.bytes);
-      out.resource = parseDumpResource(r.body);
+      const parsed = parseDumpResource(r.body);
+      out.resource = resourceForAnswer(parsed);
       out.resourcePart = { read: true };
-      driftGap(`dump resource`, out.resource.drift);
+      // The resource's attributes are language-neutral: they fill what the feed left unread.
+      hit.runtimeError ??= parsed.error;
+      hit.program ??= parsed.terminatedProgram;
+      out.drift = parsed.drift;
+      driftGap(`dump resource`, parsed.drift);
     } catch (e) {
       gap({
         code: 'DUMP_NOT_READ',
@@ -207,15 +227,16 @@ export function runtimeErrorsTool(cfg, session, journal) {
         throw new Error(`dump '${wanted}' is not among the ${parsed.entries.length} entries read (max=${top}). Raise max, or list first and pass the id it answers.`);
       }
       const more = await resourceOf(hit, auditKeyOf(hit.key ?? wanted), full);
-      const incomplete = [...driftEntry('entry', [...parsed.drift, ...(hit.report?.drift ?? []), ...(more.resource?.drift ?? [])])];
+      const { drift: resourceDrift = [], ...shown } = more;
+      const incomplete = [...driftEntry('entry', [...parsed.drift, ...(hit.report?.drift ?? []), ...resourceDrift])];
       if (!more.resourcePart.read) incomplete.push({ list: 'resource', code: 'NOT_READ', reason: more.resourceNote ?? 'not read' });
       if (more.formattedPart.asked && !more.formattedPart.read) incomplete.push({ list: 'formatted', code: 'NOT_READ', reason: more.formattedNote ?? 'not read' });
       return asText(finish({
         mode: 'detail',
         searched: parsed.entries.length,
         entry: dumpForAnswer(hit),
-        ...more,
-        ...(parsed.drift.length ? { drift: parsed.drift } : {}),
+        ...shown,
+        ...(parsed.drift.length || resourceDrift.length ? { drift: [...parsed.drift, ...resourceDrift] } : {}),
       }, incomplete));
     }
 

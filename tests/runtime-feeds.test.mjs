@@ -149,10 +149,11 @@ test('parseDumpFeed: the report is parsed out of the summary -- header, texts, s
   const { entries, drift } = parseDumpFeed(DUMPS);
   assert.deepEqual(drift, []);
   const r = entries[0].report;
-  assert.equal(r.header['Runtime Error'], 'OBJECTS_OBJREF_NOT_ASSIGNED_NO');
-  assert.equal(r.header.Exception, 'CX_SY_REF_IS_INITIAL');
-  assert.equal(r.header['Application Component'], 'BC-DWB-AIE-SRC');
-  assert.equal(r.header.Client, '001');
+  const field = (label) => r.header.find((f) => f.label === label)?.value;
+  assert.equal(field('Runtime Error'), 'OBJECTS_OBJREF_NOT_ASSIGNED_NO');
+  assert.equal(field('Exception'), 'CX_SY_REF_IS_INITIAL');
+  assert.equal(field('Application Component'), 'BC-DWB-AIE-SRC');
+  assert.equal(field('Client'), '001');
   assert.match(r.whatHappened, /had to be terminated/);
   assert.match(r.errorAnalysis, /GET_DATA_FROM_TOOL/);
   assert.match(r.whereTerminated, /line 30 of include "CL_ENH_ADT_ENHO_OBJ_PERSIST===CM00F"/);
@@ -204,12 +205,37 @@ test('groupDumps: same error in the same program is one row; the line joins the 
   assert.deepEqual(groupDumps(undefined), []);
 });
 
+test('the dump feed in another system language: read by category order and section id', () => {
+  // Measured: labels and headings come in the system's language (German there), the order of
+  // the two categories and the <h4> ids do not change. Placeholders stand for the foreign text.
+  let n = 0;
+  const foreign = DUMPS.replace(/label="ABAP runtime error"/g, 'label="(label one)"')
+    .replace(/label="Terminated ABAP program"/g, 'label="(label two)"')
+    .replace(/(&lt;h4 id="[A-Z]+"&gt;)[^&]*(&lt;\/h4&gt;)/g, (_, a, b) => `${a}(heading ${++n})${b}`);
+  assert.ok(n >= 7, 'the headings were replaced');
+  const en = parseDumpFeed(DUMPS);
+  const xx = parseDumpFeed(foreign);
+  assert.deepEqual(xx.drift, []);
+  for (const [i, e] of xx.entries.entries()) {
+    assert.equal(e.runtimeError, en.entries[i].runtimeError);
+    assert.equal(e.program, en.entries[i].program);
+    assert.equal(e.categories, undefined, 'read: the raw categories are not repeated');
+    assert.deepEqual(e.report, en.entries[i].report, 'every section by its id');
+  }
+
+  // One category with a foreign label: nothing is guessed, the categories come as sent.
+  const one = parseDumpFeed('<atom:feed><atom:entry><atom:category term="X" label="(label one)"/><atom:summary type="html"></atom:summary></atom:entry></atom:feed>');
+  assert.equal(one.entries[0].runtimeError, null);
+  assert.deepEqual(one.entries[0].categories, [{ term: 'X', label: '(label one)' }]);
+  assert.deepEqual(one.drift, [{ node: 'atom:category', count: 1, where: 'entry 1: not the measured error and program' }]);
+});
+
 test('parseDumpSummary: a section the measured summary does not have is drift, an empty summary is empty', () => {
-  const r = parseDumpSummary('&lt;h4&gt;Chosen variables&lt;/h4&gt;&lt;p&gt;x&lt;/p&gt;');
-  assert.deepEqual(r.drift, [{ node: 'h4', count: 1, where: 'Chosen variables' }]);
+  const r = parseDumpSummary('&lt;h4&gt;Chosen variables&lt;/h4&gt;&lt;p&gt;x&lt;/p&gt;&lt;h4 id="VARS"&gt;x&lt;/h4&gt;');
+  assert.deepEqual(r.drift, [{ node: 'h4', count: 1, where: 'Chosen variables' }, { node: 'h4', count: 1, where: 'VARS' }]);
   assert.deepEqual(r.stack, []);
   const empty = parseDumpSummary('');
-  assert.deepEqual(empty.header, {});
+  assert.deepEqual(empty.header, []);
   assert.equal(empty.whatHappened, null);
 });
 
@@ -220,9 +246,11 @@ test('parseDumpFeed: an undeclared element, entry attribute, category label or s
   const { drift, entries } = parseDumpFeed(aged, { withReport: false });
   assert.ok(drift.some((d) => d.node === 'atom:rights'));
   assert.ok(drift.some((d) => d.node === 'atom:entry' && d.attribute === 'adtcore:new'));
-  assert.ok(drift.some((d) => d.node === 'atom:category' && /Kernel error/.test(d.where)));
+  assert.ok(drift.some((d) => d.node === 'atom:category' && d.where === 'entry 1: not the measured error and program'));
   assert.ok(drift.some((d) => d.node === 'atom:summary' && d.attribute === 'type'));
-  assert.equal(entries[0].runtimeError, null, 'a relabelled category is not guessed');
+  assert.equal(entries[0].runtimeError, null, 'one English label and one other: not guessed by position');
+  assert.equal(entries[0].program, 'CL_ENH_ADT_ENHO_OBJ_PERSIST===CP');
+  assert.ok(entries[0].categories.some((c) => c.label === 'Kernel error'), 'the categories come as sent');
 });
 
 // --- the gateway log -----------------------------------------------------------------------
@@ -370,10 +398,22 @@ test('adt_runtime_errors detail: one dump by id, found in the page, then its res
   assert.equal(out.mode, 'detail');
   assert.equal(out.searched, 2);
   assert.equal(out.entry.user, 'OTHERDEV');
-  assert.equal(out.entry.report.header['Runtime Error'], 'OBJECTS_OBJREF_NOT_ASSIGNED_NO');
-  assert.equal(out.resource.error, 'OBJECTS_OBJREF_NOT_ASSIGNED_NO');
+  assert.equal(out.entry.report.header.find((f) => f.label === 'Runtime Error').value, 'OBJECTS_OBJREF_NOT_ASSIGNED_NO');
+  assert.deepEqual(Object.keys(out.resource), ['exception', 'termination', 'chapters'], 'no links, no repeat of the entry');
+  assert.equal(out.resource.exception, 'CX_SY_REF_IS_INITIAL');
+  assert.deepEqual(out.resource.termination, { uri: '/sap/bc/adt/oo/classes/cl_enh_adt_enho_obj_persist/source/main#start=434', line: 434 });
   assert.equal(out.resource.chapters.length, 20);
-  assert.equal(out.resource.chapters.find((c) => c.name === 'kap10').line, 321);
+  assert.deepEqual(out.resource.chapters.find((c) => c.name === 'kap10'), { name: 'kap10', title: 'Chosen Variables', category: 'ABAP Developer View', line: 321 });
+
+  // A feed whose categories were not read: the resource's attributes fill them.
+  const bare = sessionWith((url) => {
+    if (url.startsWith('/sap/bc/adt/runtime/dumps')) return { body: DUMPS.replace(/<atom:category[^>]*\/>/g, '') };
+    return url === DUMP_KEY ? { body: DUMP_RESOURCE } : { status: 404 };
+  });
+  const filled = jsonOf(await runtimeErrorsTool(cfgWith([]), bare.session, journalOf()).handler({ detail: { id } }));
+  assert.equal(filled.entry.runtimeError, 'OBJECTS_OBJREF_NOT_ASSIGNED_NO');
+  assert.equal(filled.entry.program, 'CL_ENH_ADT_ENHO_OBJ_PERSIST===CP');
+  assert.deepEqual(contractErrors(filled), []);
   assert.equal(out.formatted, undefined);
   assert.deepEqual(log.map((l) => l.target), ['dump 20260912153234vhdemohost_DEV_00 21', 'dump 20260912153234vhdemohost_DEV_00 21 resource']);
   assert.ok(!JSON.stringify(log).includes('OTHERDEV'));

@@ -2133,6 +2133,24 @@ method** — `GET_DATA_FROM_TOOL` of `CL_ENH_ADT_ENHO_OBJ_PERSIST`, line 30 of `
 no second request). Variable values are **not** in the summary (ST22's "Chosen variables" is
 not among the seven sections). So the list is the detail: one GET, parse the summary.
 
+**The language of the feed** (measured 2026-11-16, five entries of a system whose language is
+German, logged on in Portuguese). The category labels, the `h4` headings, the header labels and
+the chapter titles of the resource come in the **system's** language
+(`label="ABAP-Laufzeitfehler"`, `label="Beendetes ABAP-Programm"`, `Kopfinformationen`, …), while
+`xml:lang` on the entry and `language` on `dump:dump` both say `EN`: neither names the language
+of the text. What does not change with the language:
+
+- the **order** of the two categories: the first `term` is the `error` of `dump:dump`, the second
+  its `terminatedProgram`, on every entry; a category has only `term` and `label`, no `scheme`;
+- the **`id` of each `h4`**: `OVERVIEW`, `HEADERX`, `WHATHAPPENED`, `ERROR`, `TERMINATION`,
+  `SOURCE`, `STACK` (the contents table links them as `#ERROR`, …);
+- the attributes of `dump:dump` (`error`, `exception`, `terminatedProgram`) and the chapter
+  `name` (`kapN`).
+
+The header table has seven or nine rows (`Exception` and `Application Component` only when the
+dump has them). `sap-language=EN` on the feed URL answers the same entries with the English
+labels and headings. The parser reads by order and id, so it needs no language parameter.
+
 ### `/sap/bc/adt/gw/errorlog` — the Gateway error log feed — MEASURED 2026-09-12
 
 Round 14, step 5. Same accept (`application/atom+xml;type=feed`, the 406 lists only it) → 200,

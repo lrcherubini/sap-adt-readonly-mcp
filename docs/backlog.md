@@ -34,12 +34,6 @@ Each needs a measurement on the system and a dated decision before it is built.
 Each answer already says what it could not read; these are the measurements that would let it
 read more.
 
-- **The dump feed's category labels follow the logon language.** On a German logon the entries
-  carry `label="ABAP-Laufzeitfehler"` and `label="Beendetes ABAP-Programm"`; the parser knows the
-  measured English labels, so `runtimeError` and `program` come back `null` and the list answers
-  `PARSE_FAILED` (drift). Measure: the same entries with an English and a Portuguese logon, and
-  whether `atom:category` carries a language-independent attribute (`scheme`, `term` shape) that
-  identifies the two categories.
 - **The FDM routes and `__next`.** `adt_launchpad` reports a `__next` link and does not follow it,
   because no FDM reply measured so far carried one. Measure: the spaces and role catalogs lists
   with the largest result on the system, to see whether the server pages them.
@@ -79,13 +73,6 @@ settle.
 
 ## 5. Found by the consumption matrix of the tools (2026-11-12)
 
-- **The language of the dump feed.** The feed sends its category labels and report headings in
-  the system's language, not the logon language (German on a system logged on in Portuguese),
-  and `lib/runtime-feeds.mjs` recognises them by their English text: `runtimeError` and `program`
-  are null and the report empty. The section ids of the report (`<h4 id>`) and the attributes of
-  the dump resource are language-neutral; whether the order of the two categories is fixed is
-  not measured. Measure with the probe `scripts/probes/dump-language.mjs` (git-ignored), then
-  read by id and by measured order.
 - **The holder of an object's active version.** `adt_transport {object}` names the request of
   version 00000 as `holder`; on one class it was a task while `openRequests` listed its request.
   Whether a version feed names the task or the request, and when, is not measured. Measure: one
