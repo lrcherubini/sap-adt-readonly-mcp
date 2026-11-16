@@ -113,19 +113,9 @@ export function annotationChainTool(cfg, session, journal) {
         });
       }
 
-      const head = {
-        route: out.route,
-        url: out.url,
-        status: out.status,
-        contentType: out.contentType,
-        bytes: out.bytes,
-        measured: out.shapeObserved,
-      };
-
       // Unmeasured: hand back evidence, never a conclusion.
       if (!out.shapeObserved) {
         return json(finish({
-          ...head,
           warning:
             'The shape of this reply has never been observed on this system. It is ' +
             'returned verbatim and NOT interpreted. Do not state which layer set an ' +
@@ -156,7 +146,6 @@ export function annotationChainTool(cfg, session, journal) {
           });
         }
         return json(finish({
-          ...head,
           warning:
             `${out.bytes} bytes came back and none of it matched the measured shape. ` +
             'No conclusion is drawn. The element may genuinely carry no annotations, or ' +
@@ -216,7 +205,6 @@ export function annotationChainTool(cfg, session, journal) {
       }
 
       return json(finish({
-        ...head,
         entity: chain.entity ?? args.entity,
         element: chain.element ?? args.element,
         counts: chain.counts,

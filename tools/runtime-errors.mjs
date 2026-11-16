@@ -109,11 +109,6 @@ export function runtimeErrorsTool(cfg, session, journal) {
     driftGap('feed catalogue', parsed.drift);
     return asText(finish({
       mode: 'feeds',
-      route: out.route,
-      url: out.url,
-      status: out.status,
-      bytes: out.bytes,
-      measured: '2026-09-12',
       rule: 'a feed is read only through the hrefs this catalogue publishes; a $query is generated from its attributes, never typed',
       readable: [...FEEDS].map(([name, f]) => ({ name, href: f.href, entriesMeasured: f.entriesMeasured })),
       title: parsed.title,
@@ -210,11 +205,6 @@ export function runtimeErrorsTool(cfg, session, journal) {
       if (more.formattedPart.asked && !more.formattedPart.read) incomplete.push({ list: 'formatted', code: 'NOT_READ', reason: more.formattedNote ?? 'not read' });
       return asText(finish({
         mode: 'detail',
-        route: out.route,
-        url: out.url,
-        status: out.status,
-        bytes: out.bytes,
-        measured: '2026-09-12',
         rule:
           'the report is parsed out of the entry itself; the dump resource is read at the HTTP twin of ' +
           'the entry\'s self link (never assembled), and the formatted report only on full: true',
@@ -236,11 +226,6 @@ export function runtimeErrorsTool(cfg, session, journal) {
     return asText(finish({
       mode: 'list',
       feed,
-      route: out.route,
-      url: out.url,
-      status: out.status,
-      bytes: out.bytes,
-      measured: spec.entriesMeasured ? '2026-09-12' : 'envelope only (2026-09-12: the feed answered no entry); entries are returned raw and flagged',
       rule: 'released by the server as-is; $top pages, $query filters, nothing is read beyond this page',
       query,
       page: { top, skip: skipped, returned: parsed.entries.length, truncated: pageFull, ...(next ? { next } : {}) },

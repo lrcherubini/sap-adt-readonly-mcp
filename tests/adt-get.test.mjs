@@ -338,7 +338,8 @@ test('the tool parses the measured reply and names the source of each annotation
   });
   const res = await tool.handler({ entity: 'ZC_DemoInvMapTP', element: 'BaseUnit' });
   const out = JSON.parse(res.content[0].text);
-  assert.equal(out.measured, true);
+  // How the reply travelled is the journal's, not the answer's.
+  for (const k of ['route', 'url', 'status', 'contentType', 'bytes', 'measured']) assert.equal(out[k], undefined, k);
   assert.equal(out.counts.annotations, 7);
   assert.equal(out.counts.sources, 2);
   assert.equal(out.conflicts.length, 0);
@@ -358,7 +359,6 @@ test('a reply that does not match the measured shape is a gap, not "no annotatio
   // same, so the tool refuses to conclude and hands the payload back for comparison.
   const { tool, journalLines } = toolWith({ body: '<something-else/>' });
   const out = JSON.parse((await tool.handler({ entity: 'ZC_X' })).content[0].text);
-  assert.equal(out.measured, true, 'the route is measured; THIS REPLY is not the measured shape');
   assert.match(out.warning, /none of it matched the measured shape/);
   assert.match(out.warning, /may genuinely carry no annotations/);
   assert.equal(out.annotations, undefined, 'nothing is asserted about the element');

@@ -344,8 +344,7 @@ test('adt_runtime_errors list gateway: the envelope, flagged as unmeasured', asy
   const out = jsonOf(await runtimeErrorsTool(cfgWith(log), session, journalOf()).handler({ list: { feed: 'gateway' } }));
   assert.equal(sent[0].url, '/sap/bc/adt/gw/errorlog?%24top=50');
   assert.equal(out.count, 0);
-  assert.equal(out.entriesMeasured, false);
-  assert.match(out.measured, /envelope only/);
+  assert.equal(out.entriesMeasured, false, 'the entries of this feed are not measured, and the answer says so');
 });
 
 test('adt_runtime_errors detail: one dump by id, found in the page, then its resource and (on full) its report; not found is DUMP_NOT_READ, never "gone"', async () => {

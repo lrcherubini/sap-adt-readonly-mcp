@@ -174,7 +174,6 @@ export function transportTool(cfg, session, journal) {
     return json(finish({
       mode: 'saved',
       read: true,
-      bytes: out.bytes,
       configuration: {
         id: chosen.id,
         ...(configurations.length > 1 ? { others: configurations.length - 1 } : {}),
@@ -284,7 +283,6 @@ export function transportTool(cfg, session, journal) {
     const wanted = links.slice(0, MAX_VERSION_FEEDS);
     const feeds = [];
     const drift = [];
-    let bytes = 0;
     for (const { where, href } of wanted) {
       let out;
       try {
@@ -306,10 +304,9 @@ export function transportTool(cfg, session, journal) {
         // One line per ADT call: the object and the link, never a transport description.
         record(cfg, 'adt_transport', `${subjectOf} versions ${href}`, out?.bytes ?? 0);
       }
-      bytes += out.bytes;
       const parsed = parseVersionFeed(out.body);
       for (const d of parsed.drift) drift.push({ ...d, where: `${where}: ${d.where}` });
-      feeds.push({ where, href, url: out.url, bytes: out.bytes, entries: parsed.entries, feedTitle: parsed.feedTitle });
+      feeds.push({ where, href, entries: parsed.entries, feedTitle: parsed.feedTitle });
     }
 
     if (drift.length && journal?.enabled) {
@@ -334,8 +331,6 @@ export function transportTool(cfg, session, journal) {
     return json(finish({
       mode: 'object',
       object: { name: hit['adtcore:name'], type: hit['adtcore:type'], uri: objectUri, foundBy },
-      bytes,
-      measured: true,
       feedsRead: feeds.map((f) => ({ where: f.where, href: f.href, entries: f.entries.length, title: f.feedTitle })),
       rule:
         'transports = every request a version of this object was written by, over EVERY ' +
@@ -394,7 +389,6 @@ export function transportTool(cfg, session, journal) {
       for (const d of parsed.drift) drift.push({ ...d, where: `${route} ${number}` });
       out[part] = {
         read: true,
-        bytes: reply.bytes,
         count: parsed.count,
         dropped: parsed.dropped,
         entries: parsed.entries,
@@ -670,7 +664,6 @@ export function transportTool(cfg, session, journal) {
         let unasked = 0;
         let nextOffset = null;
         const skipped = new Map();
-        let bytes = 0; // reported, so the cost of the sweep is visible in the answer too
 
         // The detail resource answers with one request, so this loop runs once today. It
         // is a loop because `requests` is what the projection produces, and a budget that
@@ -689,7 +682,6 @@ export function transportTool(cfg, session, journal) {
                   objName: obj.name,
                   objType: obj.type,
                 });
-                bytes += reply.bytes ?? 0;
                 return reply;
               } finally {
                 // ONE LINE PER ADT CALL, answered or refused. An aggregate line would
@@ -732,7 +724,6 @@ export function transportTool(cfg, session, journal) {
         if (cutKeys) incomplete.push({ list: 'keys.keys', code: 'CAP_REACHED', count: cutKeys, narrowBy: ['maxKeysPerObject'] });
         keySweep = {
           lookups: spent,
-          bytes,
           budget,
           objectsNotAsked: unasked,
           ...(args.keysOffset ? { offset: args.keysOffset } : {}),
@@ -788,16 +779,9 @@ export function transportTool(cfg, session, journal) {
       }
 
       return json(finish({
-        route: out.route,
-        url: out.url,
-        status: out.status,
-        contentType: out.contentType,
-        bytes: out.bytes,
-        measured: out.shapeObserved,
         mode: wantsDetail ? 'detail' : 'recent',
         ...(keySweep ? { keys: keySweep } : { keys: { asked: false } }),
         ...(logs ? { logs } : { logs: { asked: false } }),
-        resource: doc.resource,
         // Structured, not a footnote: what this answer does and does not cover is part of
         // the data, because a list that silently omits open requests reads exactly like a
         // developer with no open requests.
