@@ -27,7 +27,7 @@
 
 import { record } from '../lib/audit.mjs';
 import { namedGet, transportFor } from '../lib/adt-get.mjs';
-import { parseAnnotationChain, renderChain, hiddenWithUiRole } from '../lib/annotation-chain.mjs';
+import { parseAnnotationChain, hiddenWithUiRole } from '../lib/annotation-chain.mjs';
 import { finish } from '../lib/completeness.mjs';
 
 const MAX_PAYLOAD = 20000;
@@ -211,17 +211,8 @@ export function annotationChainTool(cfg, session, journal) {
         sources: chain.sources,
         annotations: chain.annotations,
         conflicts: chain.conflicts,
+        // Once, as structure: the same list again as text was read twice by the model.
         ...(hiddenRole.length ? { hiddenWithUiRole: hiddenRole } : {}),
-        summary:
-          renderChain(chain) +
-          hiddenRole
-            .map(
-              (h) =>
-                `\n  !! HIDDEN BUT GIVEN A UI ROLE: ${h.hiddenBy?.name ?? '?'} sets ` +
-                `@UI.hidden: true; ${h.roleSources.map((s) => s.name).join(', ')} sets ` +
-                `${h.roles.join(', ')}. The field does not render and nothing errors.`
-            )
-            .join(''),
       }, []));
     },
   };

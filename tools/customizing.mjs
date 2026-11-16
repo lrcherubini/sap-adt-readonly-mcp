@@ -21,7 +21,6 @@ import {
   buildSelect,
   previewPost,
   parsePreview,
-  truncationOf,
   cutCodeOf,
   assertRanAsSent,
   CUSTOMIZING_TABLES,
@@ -127,11 +126,11 @@ export function customizingTool(cfg, session, journal) {
         sql: built.sql,
         totalRows: parsed.totalRows,
         count: parsed.rows.length,
-        truncated: truncationOf(parsed, built.rows),
-        ...(code ? { narrowBy } : {}),
         ...(parsed.rowsLost ? { rowsLost: parsed.rowsLost } : {}),
         ...(parsed.countNote ? { countNote: parsed.countNote } : {}),
-        columns: parsed.columns,
+        // Name and ABAP type (C, N, ...: a NUMC compares at full width); the rest of the
+        // column header only where it says more than the name.
+        columns: parsed.columns.map((c) => ({ name: c.name, type: c.type, ...(c.description && c.description !== c.name ? { description: c.description } : {}), ...(c.keyAttribute ? { key: true } : {}) })),
         rows: parsed.rows,
         ...(parsed.drift.length ? { drift: parsed.drift } : {}),
       }, incomplete));

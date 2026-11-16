@@ -343,7 +343,7 @@ test('the tool parses the measured reply and names the source of each annotation
   assert.equal(out.counts.annotations, 7);
   assert.equal(out.counts.sources, 2);
   assert.equal(out.conflicts.length, 0);
-  assert.match(out.summary, /ZC_DemoInvMapTP\.BaseUnit/);
+  assert.equal(out.summary, undefined, 'the annotations once, as structure');
   // The raw payload is no longer echoed: it was evidence for an unmeasured shape, and
   // 9 KB of XML in every answer is a cost with nothing behind it now that it parses.
   assert.equal(out.payload, undefined);
@@ -422,7 +422,6 @@ test('hidden-with-a-UI-role is filed as a finding even though nothing conflicts'
   assert.equal(out.counts.conflicts, 0, 'nothing contests anything -- that is the trap');
   assert.equal(out.hiddenWithUiRole.length, 1);
   assert.equal(out.hiddenWithUiRole[0].hiddenBy.name, 'ZI_DEMOSTORAGELOCATION');
-  assert.match(out.summary, /HIDDEN BUT GIVEN A UI ROLE/);
 
   const finding = journalLines.find((l) => l.stream === 'findings');
   assert.equal(finding.code, 'ANNOTATION_HIDDEN_WITH_ROLE');

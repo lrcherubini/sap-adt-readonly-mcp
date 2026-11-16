@@ -207,7 +207,8 @@ test('adt_search maps the ADT fields and records the hit count', async () => {
   });
   assert.equal(out.count, 2);
   assert.equal(out.limit, 50);
-  assert.equal(out.truncated, false, 'two hits under a cap of fifty: nothing was cut');
+  assert.equal(out.complete, true, 'two hits under a cap of fifty: nothing was cut');
+  for (const k of ['truncated', 'ceiling', 'narrowBy', 'facetRetry']) assert.equal(out[k], undefined, `${k}: the cut is in incomplete, the ceiling in the schema`);
   assert.deepEqual(log.at(-1).tool, 'adt_search');
   assert.equal(log.at(-1).target, 'ZI_TEST');
   assert.equal(log.at(-1).resultSize, 2);
@@ -221,17 +222,14 @@ test('a result that hits the cap is incomplete, with the arguments that narrow i
   const before = journalLines.filter((l) => l.code === 'SEARCH_AT_CAP').length;
   const out = jsonOf(await byName(toolsWith(api), 'adt_search').handler({ query: 'Z*', max: 7 }));
   assert.equal(out.count, 7);
-  assert.equal(out.truncated, true);
   assert.equal(out.complete, false);
   assert.deepEqual(out.incomplete, [{ list: 'hits', code: 'SERVER_PAGE_FULL', returned: 7, total: null, narrowBy: ['query', 'objectType', 'max'] }]);
-  assert.deepEqual(out.narrowBy, ['query', 'objectType', 'max']);
   assert.deepEqual(contractErrors(out), []);
   const gaps = journalLines.filter((l) => l.stream === 'gaps' && l.code === 'SEARCH_AT_CAP');
   assert.equal(gaps.length - before, 1, 'one gap for the one answer at the cap');
   assert.match(gaps.at(-1).detail, /7 hits for a limit of 7/);
   // Under the cap, no gap: six of seven is a complete answer.
   const under = jsonOf(await byName(toolsWith(api), 'adt_search').handler({ query: 'Z*', max: 8 }));
-  assert.equal(under.truncated, false);
   assert.equal(under.complete, true);
   assert.deepEqual(contractErrors(under), []);
   assert.equal(journalLines.filter((l) => l.code === 'SEARCH_AT_CAP').length - before, 1);
@@ -350,7 +348,7 @@ test('hits of another subtype of the facet are left out and counted', async () =
   const out = jsonOf(await byName(toolsWith(api), 'adt_search').handler({ query: 'ZCL_A', objectType: 'CLAS/OC' }));
   assert.deepEqual(out.hits.map((h) => h.type), ['CLAS/OC']);
   assert.equal(out.outsideFacet, 1);
-  assert.deepEqual(out.facetRetry, { asked: false, reason: 'the first search answered' });
+  assert.equal(out.facetRetry, undefined, 'the first search answered: no second ask to explain');
   assert.deepEqual(contractErrors(out), []);
 });
 
@@ -1244,9 +1242,9 @@ test('adt_customizing reads an allow-listed table by POST and audits the table, 
   assert.equal(out.table, 'T683S');
   assert.equal(out.count, 2);
   assert.equal(out.totalRows, 9400);
-  assert.equal(out.truncated, true);
-  assert.deepEqual(out.narrowBy, ['where', 'fields', 'rows'], 'no offset exists: the cut names the filters that narrow it');
   assert.deepEqual(out.incomplete.map((i) => `${i.code}:${i.total}`), ['CAP_REACHED:9400']);
+  assert.deepEqual(out.incomplete[0].narrowBy, ['where', 'fields', 'rows'], 'no offset exists: the cut names the filters that narrow it');
+  assert.equal(out.truncated, undefined, 'the cut is said once, in incomplete');
   assert.deepEqual(contractErrors(out), []);
   assert.deepEqual(out.rows[1], { KALSM: 'ZDEMO2', KOFRM: '0000953' });
   assert.equal(out.drift, undefined);
@@ -1358,10 +1356,10 @@ test('adt_atc_run sends the two POSTs and the GET, answers the findings, and aud
   assert.equal(out.object.name, 'ZCL_T');
   assert.equal(out.count, 2);
   assert.deepEqual(out.byPriority, { 1: 1, 2: 1, 3: 0 });
-  assert.deepEqual(out.runStats, { 1: 1, 2: 1, 3: 0 });
+  assert.equal(out.runStats, undefined, 'the run counted what the worklist holds: one count, not two');
   assert.equal(out.findings[0].checkId, 'NOAPI');
   assert.equal(out.findings[0].location.line, 12);
-  assert.equal(out.truncated, false);
+  assert.equal(out.truncatedBy, undefined);
   assert.equal(out.drift, undefined);
   const mine = log.filter((l) => l.tool === 'adt_atc_run');
   assert.equal(mine.length, 4);
@@ -1458,13 +1456,13 @@ test('adt_atc_run caps the findings it lists itself, most severe first, because 
   assert.equal(one.findings.length, 1);
   assert.equal(one.findings[0].priority, 1, 'the most severe finding survives the cap');
   assert.deepEqual(one.byPriority, { 1: 1, 2: 1, 3: 0 }, 'the counts cover every finding, listed or not');
-  assert.equal(one.truncated, true);
   assert.deepEqual(one.truncatedBy, ['maxFindings']);
   assert.deepEqual(contractErrors(one), []);
   assert.deepEqual(one.incomplete.map((i) => i.code), ['CAP_REACHED']);
   const all = jsonOf(await tool.handler({ objectName: 'ZCL_T', variant: 'DEFAULT', maxFindings: 2 }));
   assert.equal(all.shown, 2);
-  assert.equal(all.truncated, false, 'exactly at the cap is complete, not "possible"');
+  assert.equal(all.complete, true, 'exactly at the cap is complete, not "possible"');
+  assert.equal(all.truncatedBy, undefined);
   assert.deepEqual(contractErrors(all), []);
 });
 

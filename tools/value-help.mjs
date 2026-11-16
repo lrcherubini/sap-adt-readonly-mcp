@@ -31,7 +31,8 @@
 
 import { record } from '../lib/audit.mjs';
 import { resolveObject } from '../lib/resolve.mjs';
-import { loadCatalog, catalogStatus, catalogMissingGap, CatalogMissing } from '../lib/catalog.mjs';
+import { loadCatalog, catalogStatus, catalogForAnswer, catalogMissingGap, CatalogMissing } from '../lib/catalog.mjs';
+import path from 'node:path';
 import { inventory, resolveDataElement } from '../lib/ddic.mjs';
 import {
   conceptsFor,
@@ -493,7 +494,10 @@ async function analyseField(ctx, field) {
       released: true,
       name: c.name,
     });
-    Object.assign(c, verdict, { label: tierLabel(verdict.tier) });
+    // The provenance of the signal rule is the same sentence for every candidate: it is in
+    // docs/tools.md once, not on each candidate of each answer.
+    const { provenance: _sameForAll, ...own } = verdict;
+    Object.assign(c, own, { label: tierLabel(verdict.tier) });
   }
 
   out.candidates = candidates;
@@ -514,8 +518,7 @@ async function analyseField(ctx, field) {
   // rather than on the data element itself.
   out.matchedConcept = { concept: best.concept, from: best.from, strength: best.strength };
   out.tier = best.tier;
-  out.why = best.signals;
-  out.provenance = best.provenance;
+  // Its signals are on its row of `candidates`: named, not copied.
 
   // The element to bind: what the entity itself says (representativeKey). Never the field
   // name by assumption -- when the value help states none, the answer says CHECK THIS.
@@ -742,7 +745,7 @@ export async function analyseValueHelp(api, sources, params = {}) {
     sources: {
       catalogue:
         `${sources.catalog.count} objects (${sources.catalog.releaseInfoCount} release info + ` +
-        `${sources.catalog.classificationCount} classifications), ${sources.catalog.file}` +
+        `${sources.catalog.classificationCount} classifications), ${path.basename(String(sources.catalog.file ?? '?'))}` +
         (sources.catalog.note ? ` -- DEGRADED: ${sources.catalog.note}` : ''),
       annotationDefinitions: defs.available ? defs.source : `unavailable (${defs.note}) -- emitted keys are NOT validated`,
       precedent: params.precedent ? 'the system: who else binds the recommended entity' : 'not asked (precedent: true reads who else binds the winner)',
@@ -883,7 +886,7 @@ export function valueHelpTool(cfg, api, sources, journal) {
         params.entity ?? params.field ?? params.dataElement ?? '?',
         result.fields.length
       );
-      const out = loaded.catalogInfo ? { ...result, catalog: loaded.catalogInfo } : result;
+      const out = loaded.catalogInfo ? { ...result, catalog: catalogForAnswer(loaded.catalogInfo) } : result;
       return {
         content: [{ type: 'text', text: JSON.stringify(out) }],
       };

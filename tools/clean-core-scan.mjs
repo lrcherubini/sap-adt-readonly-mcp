@@ -19,7 +19,7 @@
 //   * Level B is REPORTED, never recommended. A classic API is an acceptable bridge in
 //     Standard ABAP and is still not a Level A answer.
 
-import { loadCatalog, catalogStatus, catalogMissingGap, CatalogMissing, VIEWER } from '../lib/catalog.mjs';
+import { loadCatalog, catalogStatus, catalogForAnswer, catalogMissingGap, CatalogMissing, VIEWER } from '../lib/catalog.mjs';
 import { dataSourcesFrom, definitionOf } from '../lib/datasources.mjs';
 import { classify, findingFor, levelRank } from '../lib/clean-core.mjs';
 import { packageSources, packageGaps, packageIncomplete, scopeOf, DEFAULT_MAX_OBJECTS, MAX_OBJECTS } from '../lib/package-sources.mjs';
@@ -42,7 +42,7 @@ function catalogFor(cfg, journal) {
   if (!cached || cached.file !== cfg.paths.catalog) {
     cached = { file: cfg.paths.catalog, catalog: loadCatalog(cfg.paths.catalog) };
   }
-  return { catalog: cached.catalog, status };
+  return { catalog: cached.catalog, status: catalogForAnswer(status) };
 }
 
 /** The data sources each read DDLS consumes, cited as `<package>/<DDLS>:<line>`. */

@@ -16,7 +16,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseAnnotationChain, renderChain, hiddenWithUiRole } from '../lib/annotation-chain.mjs';
+import { parseAnnotationChain, hiddenWithUiRole } from '../lib/annotation-chain.mjs';
 
 const MEASURED = fs.readFileSync(
   path.join(import.meta.dirname, 'fixtures', 'annotation-chain-measured.xml'),
@@ -148,14 +148,6 @@ test('an empty or unrecognised document parses to nothing rather than throwing',
     assert.equal(p.entity, undefined);
     assert.deepEqual(p.annotations, []);
   }
-});
-
-test('the rendering names the source of every annotation', () => {
-  const text = renderChain(parseAnnotationChain(MEASURED));
-  assert.match(text, /ZC_DemoInvMapTP\.BaseUnit — 7 annotations from 2 source\(s\)/);
-  assert.match(text, /ui\.lineitem\[1\]\.position = 60 {2}← {2}ZC_DEMOINVMAPTP \(DDLX\/EX, CUSTOMER\)/);
-  assert.match(text, /consumption\.valuehelpdefinition\[1\]\.entity\.name = 'I_UnitOfMeasureStdVH'/);
-  assert.doesNotMatch(text, /SILENCED/);
 });
 
 // --- hidden AND given a display role: MEASURED, twice ---------------------------

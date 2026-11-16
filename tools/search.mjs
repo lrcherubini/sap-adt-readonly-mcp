@@ -110,11 +110,10 @@ export function searchTool(cfg, session, journal, { facetSearch } = {}) {
           {
             count: hits.length,
             limit,
-            ceiling: SEARCH_CEILING,
-            truncated: pageFull,
-            ...(pageFull ? { narrowBy: limit < SEARCH_CEILING ? ['query', 'objectType', 'max'] : ['query', 'objectType'] } : {}),
             ...(outsideFacet ? { outsideFacet } : {}),
-            facetRetry,
+            // Why an empty list was not asked again is part of reading it; on a list that
+            // answered, the second ask had nothing to add.
+            ...(facetRetry.asked || !hits.length ? { facetRetry } : {}),
             ...(byFacet
               ? {
                   foundBy: 'facet',
