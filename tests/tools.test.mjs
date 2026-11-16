@@ -1682,12 +1682,12 @@ test('the description belongs to the package it is printed next to', async () =>
   });
   const tool = byName(toolsWith(api), 'adt_package_tree');
 
-  // Without `describe`: the tree's text is carried as what it is, and never as `description`.
+  // Without `describe`: the tree's text belongs to the next row, so no row carries it at all.
   const plain = jsonOf(await tool.handler({ packageName: 'ZROOT' }));
   assert.equal(plain.total, 3);
   assert.ok(plain.objects.every((o) => !('description' in o)), 'no row claims a description it does not have');
-  assert.deepEqual(plain.objects.map((o) => o.treeDescription), ['Module B', 'Module C', '']);
-  assert.match(plain.descriptions, /belongs to the NEXT row/);
+  assert.ok(plain.objects.every((o) => !('treeDescription' in o)), 'nor the text of another row');
+  assert.equal(plain.descriptions, undefined);
   assert.equal(api.count('searchObject'), 0);
 
   // With `describe`: one search per sub-package, and the description is the package's own.
@@ -1697,7 +1697,6 @@ test('the description belongs to the package it is printed next to', async () =>
     [['ZA', 'Module A'], ['ZB', 'Module B'], ['ZC', 'Module C']]
   );
   assert.equal(api.count('searchObject'), 3);
-  assert.match(described.descriptions, /from the search/);
 
   // With a raw client: ONE virtual-folders POST answers every description and the counts below.
   const sent = [];

@@ -17,9 +17,9 @@ export function packageTreeTool(cfg, session, journal, _shared = {}) {
     definition: {
       name: 'adt_package_tree',
       description:
-        'Contents of a package: sub-packages and objects by type, with counts. The tree\'s ' +
-        'descriptions are shifted one row, so they come as `treeDescription`; `describe: true` ' +
-        'reads the correct ones and `objectsBelow`.',
+        'Contents of a package: sub-packages and objects by type, with counts. `describe: true` ' +
+        'adds each sub-package\'s description and `objectsBelow` (one more call); an object\'s ' +
+        'description is adt_search\'s.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -79,7 +79,8 @@ export function packageTreeTool(cfg, session, journal, _shared = {}) {
         const all = (node.nodes ?? []).map((n) => ({
           name: n.OBJECT_NAME,
           type: n.OBJECT_TYPE,
-          treeDescription: n.DESCRIPTION,
+          // The row's DESCRIPTION is the next row's text (measured): it is not handed on at all,
+          // because a text known to belong to another object is worse than none.
         }));
         const objects = all.filter((o) => (o.name ?? '').trim());
         const subs = objects.filter((x) => x.type === 'DEVC/K');
@@ -171,12 +172,6 @@ export function packageTreeTool(cfg, session, journal, _shared = {}) {
         depth: maxDepth,
         depthCeiling,
         ...(isCompact ? { compact: true } : {}),
-        descriptions:
-          'treeDescription is the text the tree resource sent on that row, and on this system ' +
-          'it belongs to the NEXT row (measured, docs/adt-api-reference.md). ' +
-          (wantsDescriptions
-            ? 'description on each sub-package is from the virtual folders (with objectsBelow), or from the search where those were not read; both answer correctly.'
-            : 'Pass describe: true, or adt_search(name, DEVC/K), for the correct text.'),
       }, incomplete));
     },
   };
