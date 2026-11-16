@@ -333,7 +333,7 @@ test('lookup mode lists the layers and picks no winner', async () => {
     out.rows.map((r) => `${r.annotation}@${r.writtenBy}`).sort(),
     ['UI.hidden@ZI_Base', 'UI.lineItem@ZC_Armed', 'UI.selectionField@ZC_Armed']
   );
-  assert.match(out.reminder, /adt_annotation_chain decides/);
+  assert.equal(out.reminder, undefined, "the fixed reading of the answer is the tool's description and docs/tools.md, not a field of every answer");
   assert.equal(out.scope.package, 'ZTEST');
   assert.equal(out.scope.complete, true);
 });

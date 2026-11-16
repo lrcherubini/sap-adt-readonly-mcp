@@ -70,15 +70,12 @@ export function transportTool(cfg, session, journal) {
   // The OPEN requests that hold one object now: one GET, read beside the version history
   // because the feed's version 00000 names only one holder and some objects publish no feed.
   async function openRequestsOf(objectUri, subjectOf) {
-    const rule =
-      'open requests only (status D): the requests that hold this object now. Empty means ' +
-      'in no open request, never "never transported" -- transports answers that.';
     let reply;
     try {
       reply = await namedGet(transportFor(session.raw), 'objectTransports', { uri: objectUri });
     } catch (e) {
       if (e?.name === 'RouteViolation') {
-        return { read: false, reason: `the object URI is outside the route's alphabet: ${e.message}`.slice(0, 200), rule };
+        return { read: false, reason: `the object URI is outside the route's alphabet: ${e.message}`.slice(0, 200) };
       }
       // Not swallowed: the gap is filed and the part says it was not read.
       if (journal?.enabled) {
@@ -90,7 +87,7 @@ export function transportTool(cfg, session, journal) {
           fallback: 'the object in SE03 ("Search for objects in requests/tasks") or in the IDE',
         });
       }
-      return { read: false, reason: String(e?.message ?? e).slice(0, 200), rule };
+      return { read: false, reason: String(e?.message ?? e).slice(0, 200) };
     } finally {
       record(cfg, 'adt_transport', `${subjectOf} open requests`, reply?.bytes ?? 0);
     }
@@ -104,7 +101,7 @@ export function transportTool(cfg, session, journal) {
         fallback: 're-read the raw reply and update lib/open-requests.mjs and docs/adt-api-reference.md',
       });
     }
-    return { read: true, requests: parsed.requests, rule, ...(parsed.drift.length ? { drift: parsed.drift } : {}) };
+    return { read: true, requests: parsed.requests, ...(parsed.drift.length ? { drift: parsed.drift } : {}) };
   }
 
   /** The incomplete entries of an open-requests part. */
@@ -186,9 +183,6 @@ export function transportTool(cfg, session, journal) {
           'what the saved configuration selects (its properties above), modifiable and released. ' +
           'It is the configuration the IDE saved; this tool never creates or changes one.',
       },
-      rule:
-        'requests and tasks only. Each object of the list arrives inline and is counted ' +
-        '(objectCount), never listed: ask a request by `number` for its objects.',
       requests: kept.map((r) => ({
         number: r.number,
         kind: r.kind,
@@ -332,15 +326,6 @@ export function transportTool(cfg, session, journal) {
       mode: 'object',
       object: { name: hit['adtcore:name'], type: hit['adtcore:type'], uri: objectUri, foundBy },
       feedsRead: feeds.map((f) => ({ where: f.where, href: f.href, entries: f.entries.length, title: f.feedTitle })),
-      rule:
-        'transports = every request a version of this object was written by, over EVERY ' +
-        'feed the server publishes (a class keeps five, and three of them undercount). ' +
-        'copies = the same, where the server flags the entry adtcore:isTestTransport -- ' +
-        'a transport of copies, never a request that moved the object on. activeVersion ' +
-        'is version 00000 of each feed; its holder is the OPEN request the object sits ' +
-        'in now, null when it is not in one. Every entry carries the URI of that ' +
-        'version\'s content (contentSrc in the raw feed); adt_read_source reads it ' +
-        '(`version`, `compareTo`).',
       transports: history.transports,
       copies: history.copies,
       activeVersion: history.activeVersion,
@@ -355,11 +340,6 @@ export function transportTool(cfg, session, journal) {
   // `read: false`; it never reads as an empty log.
   async function requestLogs(transport, number, drift) {
     const out = {
-      rule:
-        'actions: what was done to the request (flat). transport: how it moved, per system ' +
-        'and step, with the return code read from each step text (rc). Separator lines, ' +
-        'empty spacer entries and every link are dropped; the links to the log files and ' +
-        'to the request-independent steps are not followed.',
     };
     for (const [part, route] of [
       ['actions', 'transportActionLogs'],
@@ -408,7 +388,8 @@ export function transportTool(cfg, session, journal) {
         'server\'s list: released, last two weeks), or `object: {name, type}` (every request ' +
         'that carried it, from its version history; one GET per version feed; plus the open ' +
         'requests holding it now, one GET), or `saved: true` (what your saved IDE search ' +
-        'selects, open and released: requests and tasks, objects counted).',
+        'selects, open and released: requests and tasks, objects counted). Empty openRequests ' +
+        'is in no open request, never "never transported".',
       inputSchema: {
         type: 'object',
         properties: {
@@ -729,19 +710,6 @@ export function transportTool(cfg, session, journal) {
           ...(args.keysOffset ? { offset: args.keysOffset } : {}),
           ...(nextOffset !== null ? { next: { keysOffset: nextOffset } } : {}),
           skippedTypes: [...skipped.values()],
-          rule:
-            'A key with `transported: true` is a row that moved (E071K). One without it is ' +
-            'the key TEMPLATE of the object and moved nothing -- an ACGR role answers with ' +
-            '28 of those while E071K holds none. Only that flag separates the two.',
-          note:
-            'An object is asked where its own tm:obj_func is K ("has rows in the key ' +
-            'list", domain OBJFUNC, measured; askedBy: objFunc). One with ' +
-            "another value is skipped on the system's word (by: objFunc); one with no " +
-            'attribute is skipped when its type was measured to answer 400 ' +
-            'for every carrier (by: census) and asked otherwise (askedBy: unmeasured). ' +
-            'A 400 on an individual object means the keys were not resolvable for the ' +
-            'carriers tried -- the same status a wrong carrier earns -- and never that ' +
-            'the object carries no keys.',
         };
       }
 
@@ -786,10 +754,6 @@ export function transportTool(cfg, session, journal) {
         // the data, because a list that silently omits open requests reads exactly like a
         // developer with no open requests.
         ...(wantsList ? { scope: listScope(doc, kept) } : {}),
-        rule:
-          'objects = (the request\'s own list minus CORR comments) union (every task\'s ' +
-          'objects). A task\'s objects move up into the request only when the task is ' +
-          'released, so `objects` is the answer and `counts.own` is not.',
         requestsPage: pageOf(p, 1),
         requests,
         ...(drift.length ? { drift } : {}),

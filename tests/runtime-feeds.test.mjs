@@ -323,7 +323,7 @@ test('adt_runtime_errors list: the page and the generated $query reach the wire;
   assert.equal(out.entries[0].report, undefined, 'light by default');
   assert.equal(out.groups.reduce((n, g) => n + g.count, 0), out.count, 'every dump of the page is in one group');
   assert.ok(out.groups.every((g) => !('line' in g)));
-  assert.match(out.groupedBy, /this page only/);
+  assert.equal(out.groupedBy, undefined, "the fixed reading of the answer is the tool's description and docs/tools.md, not a field of every answer");
   assert.equal(out.entries[0].user, 'DEMOUSER', 'the answer names the user: that is the question');
   assert.equal(log.at(-1).target, 'dumps top=2 skip=4 filtered');
   assert.ok(!JSON.stringify(log).includes('DEMOUSER'), 'the audit line carries no user');

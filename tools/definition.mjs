@@ -101,9 +101,6 @@ export function definitionTool(cfg, session, journal) {
           ? { target: { ...target, sameObject: target.objectUri === object.uri } }
           : { reason: 'the server named no definition for this position: it answered, and named none' }),
         ...(targets.length > 1 ? { targets: targets.map((t) => ({ ...t, sameObject: t.objectUri === object.uri })) } : {}),
-        rule:
-          'the definition the server resolves in the stored active source; an unsaved editor ' +
-          'buffer is not seen. Read the target with adt_read_source.',
         ...(drift.length ? { drift } : {}),
       }, incomplete));
     },

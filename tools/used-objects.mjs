@@ -133,7 +133,8 @@ export function usedObjectsTool(cfg, session, journal) {
         'each object with type, package, package path and its API release state (classes, ' +
         'interfaces, CDS, tables, data elements, function modules; at most 25 read). Every ' +
         'used object is listed; one whose state was not read says why, and complete is false. ' +
-        'For a CDS view, adt_clean_core_scan reads what it consumes.',
+        'An object not read has no verdict; crossesPackage compares packages, not package ' +
+        'interfaces. For a CDS view, adt_clean_core_scan reads what it consumes.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -302,7 +303,6 @@ export function usedObjectsTool(cfg, session, journal) {
       }
       return asText(finish({
         object,
-        context: 'ENV (Used Objects), one level deep',
         count: used.length,
         used,
         releaseState: {
@@ -312,11 +312,6 @@ export function usedObjectsTool(cfg, session, journal) {
           notRead,
         },
         ...(packageBoundary ? { packageBoundary } : { packageBoundary: { asked: false } }),
-        rule:
-          'every object the server lists as used is here; the release counts cover only the ' +
-          'objects whose state was read. An object in notRead has NO verdict -- never released, ' +
-          'never unreleased. crossesPackage compares packages only: whether a use is allowed by a ' +
-          'package interface is not read here.',
         ...(net.drift.length ? { drift: net.drift } : {}),
       }, incomplete));
     },

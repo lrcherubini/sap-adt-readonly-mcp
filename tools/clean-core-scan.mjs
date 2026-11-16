@@ -172,11 +172,6 @@ export async function runCleanCoreScan(cfg, api, args = {}, journal = null, extr
     findingsPage: { total: p.total, returned: p.returned, offset: p.offset, limit: p.limit, truncated: p.truncated, ...(p.next ? { next: { findingsOffset: p.next.offset } } : {}) },
     citationsShown: CITATIONS_SHOWN,
     findings: rows,
-    reminder:
-      'Level B is reported, not recommended. Two different C answers exist: a catalogued ' +
-      'notToBeReleased (a successor is named) and absent from both catalogues (internal ' +
-      `unclassified, no successor). Cross-check any single object in SAP's viewer (${VIEWER}). ` +
-      'complete false means something was not read or not listed: see incomplete.',
   }, incomplete);
 }
 
@@ -187,7 +182,7 @@ export function cleanCoreScanTool(cfg, api, journal) {
       description:
         'Clean Core level A/B/C/D of what a package\'s CDS sources consume, against SAP\'s ' +
         'release catalogues, with the released successor. One call per DDLS: keep the package ' +
-        'small. Needs the catalogue (npm run sync:catalog).',
+        'small. Needs the catalogue (npm run sync:catalog). Level B is reported, not recommended.',
       inputSchema: {
         type: 'object',
         properties: {

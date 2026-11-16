@@ -224,11 +224,6 @@ export async function runAnnotationScan(cfg, api, args = {}, journal = null, ext
       reported: p.returned,
       rowsPage: pageOf(p),
       rows: p.items,
-      reminder:
-        'This is what the SOURCE says, layer by layer, with no winner picked -- it knows ' +
-        'nothing about switches, kernel layers or IS_ACTIVE. adt_annotation_chain decides, ' +
-        'at one ADT call. `depth` is how many propagating hops upstream the annotation was ' +
-        'written; a deep row is matched on element NAME and is the weaker claim.',
     }, incomplete);
   }
 
@@ -249,17 +244,6 @@ export async function runAnnotationScan(cfg, api, args = {}, journal = null, ext
     reported: rows.length,
     findingsPage: pageOf(p),
     findings: rows,
-    reminder:
-      'ARMED = hidden upstream, given a display role downstream, nothing holding it: the ' +
-      'field does not render and no error is raised. HELD = the same, with ' +
-      '@Metadata.ignorePropagatedAnnotations: true holding the hide back -- not clean, ' +
-      'armed-and-held: removing that line re-arms it. Every row is a suspicion read off ' +
-      'the source; confirm with adt_annotation_chain, one ADT call each. `hiddenKey` says ' +
-      'WHICH annotation hides it -- @UI.hidden and @Consumption.hidden both do, and they ' +
-      'do not have the same remedy. Declared limits: a hide bound to a field ' +
-      "(@UI.hidden: 'SomeFlag') is skipped as deliberate design, a hide reached over " +
-      'more than one propagating hop is matched on element NAME (`depth` says which), and an ' +
-      'upstream view is read for its inline annotations only -- its own DDLX is not looked up.',
   }, incomplete);
 }
 
@@ -270,7 +254,9 @@ export function annotationScanTool(cfg, api, journal) {
       description:
         'Annotations of a package\'s CDS (DDLS + DDLX + upstream views), per layer. With ' +
         '`element`: every annotation reaching it. Without: elements whose layers contradict. ' +
-        'One call per source: keep the package small. Index kept 10 minutes.',
+        'One call per source: keep the package small. Index kept 10 minutes. A row is what the ' +
+        'SOURCE says, never a verdict: adt_annotation_chain confirms it (ARMED: hidden upstream, ' +
+        'given a display role downstream; HELD: the same, held by ignorePropagatedAnnotations).',
       inputSchema: {
         type: 'object',
         properties: {

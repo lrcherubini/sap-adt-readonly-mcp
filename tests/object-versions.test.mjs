@@ -329,7 +329,7 @@ test('adt_transport reports the version content URI and never follows it: adt_re
   const out = await outOf(h, { object: { name: 'ZDO_DEMO' } });
   assert.equal(h.seen.length, 1);
   assert.ok(h.seen.every((s) => !/\/content$/.test(s.url)));
-  assert.match(out.rule, /adt_read_source reads it/);
+  assert.equal(out.rule, undefined, "the fixed reading of the answer is the tool's description and docs/tools.md, not a field of every answer");
 });
 
 test('an object whose structure publishes no versions link is a gap, not an empty history', async () => {
@@ -399,7 +399,7 @@ test('the object mode also names the open requests holding the object, with one 
   assert.equal(h.openSeen[0].config.headers.Accept, 'application/vnd.sap.adt.repository.trproperties.result.v1+xml');
   assert.equal(out.openRequests.read, true);
   assert.deepEqual(out.openRequests.requests.map((r) => [r.number, r.status]), [['DEVK900124', 'D']]);
-  assert.match(out.openRequests.rule, /never "never transported"/);
+  assert.equal(out.openRequests.rule, undefined);
   assert.doesNotMatch(JSON.stringify(h.log), /demo change|DEVUSER1/, 'no description or owner in the trail');
   // Read beside the history even where no feed is published.
   const bare = { objectUrl: '/sap/bc/adt/ddic/tables/zdemo_t', metaData: { 'adtcore:name': 'ZDEMO_T', 'adtcore:type': 'TABL/DT' }, links: [] };

@@ -213,7 +213,7 @@ test('the scan reads the package from the system and reports the non-A names wit
   assert.equal(byName.VBBE.level, 'C');
   assert.equal(byName.VBBE.inCatalog, false, 'absent from both is a stated answer');
   assert.deepEqual(byName.VBBE.useInstead, []);
-  assert.match(out.reminder, /sap\.github\.io\/abap-atc-cr-cv-s4hc/, 'the viewer is the human cross-check');
+  assert.equal(out.reminder, undefined, "the fixed reading of the answer is the tool's description and docs/tools.md, not a field of every answer");
 });
 
 test('the scan writes findings to the journal on the scanned package, and the unread source as a gap', async () => {

@@ -389,7 +389,7 @@ test('the detail mode answers with the union and the per-task attribution', asyn
   assert.equal(out.requests[0].objects.length, 4);
   assert.equal(out.requests[0].tasks[0].objectCount, 4);
   assert.equal(out.requests[0].tasks[0].taskTypeText, 'Customizing Task');
-  assert.match(out.rule, /only when the task is released/);
+  assert.equal(out.rule, undefined, "the fixed reading of the answer is the tool's description and docs/tools.md, not a field of every answer");
   assert.equal(out.scope, undefined, 'a request you named has no scope to declare');
 });
 

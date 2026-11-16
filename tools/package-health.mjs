@@ -222,9 +222,6 @@ export async function runPackageHealth(cfg, session, args = {}, journal = null, 
     cleanCore,
     syntax,
     atc,
-    reminder:
-      'complete false means a part did not read everything: what was not read is not clean. ' +
-      'Level B is reported, not recommended. The syntax part checks the stored active version.',
   }, incomplete);
 }
 
@@ -238,7 +235,8 @@ export function packageHealthTool(cfg, session, journal) {
         'active version of its classes and programs (as adt_syntax_check). One call per view ' +
         'and per check: keep the package small. `atc: true` adds one ATC run over the package ' +
         '(default variant; leaves a result worklist). Needs the catalogue for the ' +
-        'Clean Core part; without it that part says so and the rest still runs.',
+        'Clean Core part; without it that part says so and the rest still runs. What was not ' +
+        'read is not clean; Level B is reported, not recommended.',
       inputSchema: {
         type: 'object',
         properties: {

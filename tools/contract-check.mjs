@@ -293,12 +293,6 @@ export async function runContractCheck(cfg, api, args = {}, journal = null, tran
             'Filter objects, paths past their first navigation, JSON models',
         }
       : {}),
-    reminder:
-      'The alias is the contract: EntitySet = the alias verbatim, EntityType = the alias ' +
-      'plus "Type" (in OData V2 a parameterised entity adds <alias>Set and ' +
-      '<alias>Parameters). A consumer -- a Fiori annotation Target, a controller read, a mapping XPath -- addresses ' +
-      'these names by hand, and renaming an alias re-activates cleanly while the app breaks at runtime. ' +
-      'The service definition accepts no comment, so this inventory is the only place the coupling is written down.',
   }, incomplete);
 }
 

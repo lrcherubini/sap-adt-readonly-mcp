@@ -330,9 +330,6 @@ export async function runVariant(cfg, session, journal, v, { subject, body, incl
     objectsChecked: parsed.objects.length,
     findings: shown,
     ...definition,
-    rule:
-      'a run leaves a result worklist on the server and nothing else; the findings above are the ' +
-      `verdict of variant ${v} on this one object, read from that worklist (measured)`,
     ...(parsed.drift.length ? { drift: parsed.drift } : {}),
     incomplete,
   };

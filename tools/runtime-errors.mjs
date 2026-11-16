@@ -109,7 +109,6 @@ export function runtimeErrorsTool(cfg, session, journal) {
     driftGap('feed catalogue', parsed.drift);
     return asText(finish({
       mode: 'feeds',
-      rule: 'a feed is read only through the hrefs this catalogue publishes; a $query is generated from its attributes, never typed',
       readable: [...FEEDS].map(([name, f]) => ({ name, href: f.href, entriesMeasured: f.entriesMeasured })),
       title: parsed.title,
       updated: parsed.updated,
@@ -205,9 +204,6 @@ export function runtimeErrorsTool(cfg, session, journal) {
       if (more.formattedPart.asked && !more.formattedPart.read) incomplete.push({ list: 'formatted', code: 'NOT_READ', reason: more.formattedNote ?? 'not read' });
       return asText(finish({
         mode: 'detail',
-        rule:
-          'the report is parsed out of the entry itself; the dump resource is read at the HTTP twin of ' +
-          'the entry\'s self link (never assembled), and the formatted report only on full: true',
         searched: parsed.entries.length,
         entry: hit,
         ...more,
@@ -226,7 +222,6 @@ export function runtimeErrorsTool(cfg, session, journal) {
     return asText(finish({
       mode: 'list',
       feed,
-      rule: 'released by the server as-is; $top pages, $query filters, nothing is read beyond this page',
       query,
       page: { top, skip: skipped, returned: parsed.entries.length, truncated: pageFull, ...(next ? { next } : {}) },
       count: parsed.entries.length,
@@ -236,7 +231,6 @@ export function runtimeErrorsTool(cfg, session, journal) {
       ...(feed === 'dumps'
         ? {
             groups: groupDumps(parsed.entries),
-            groupedBy: report === true ? 'runtime error, program and the marked line, on this page only' : 'runtime error and program, on this page only (report: true adds the line)',
           }
         : {}),
       entries: parsed.entries,
