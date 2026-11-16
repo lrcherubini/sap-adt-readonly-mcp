@@ -13,6 +13,7 @@ import { resolveDataElement, readDomain } from '../lib/ddic.mjs';
 import { contractOf } from '../lib/type-contract.mjs';
 import { readServiceBinding } from '../lib/service-binding.mjs';
 import { parseApiRelease, API_RELEASE_OBJECT } from '../lib/api-release.mjs';
+import { objectOf, propertiesOf, outlineOf } from '../lib/object-shape.mjs';
 import { asText, typeNotInContractGap } from './common.mjs';
 
 export function objectInfoTool(cfg, session, journal, { resolveOpts } = {}) {
@@ -72,7 +73,7 @@ export function objectInfoTool(cfg, session, journal, { resolveOpts } = {}) {
           });
         }
         return asText(finish({
-          found: hit,
+          object: objectOf(hit),
           foundBy,
           facets,
           ...(warning ? { warning } : {}),
@@ -93,7 +94,6 @@ export function objectInfoTool(cfg, session, journal, { resolveOpts } = {}) {
             applicationComponent: props.applicationComponent,
             description: props.object.text,
           },
-          metadata: {},
           elements: [],
           elementsNote: 'no structure elements: the resource that lists them dumps the server for this type',
         }, [{ list: 'elements', code: 'NOT_READ', reason: 'the structure of this type dumps the server, so it is not asked' }]));
@@ -134,12 +134,13 @@ export function objectInfoTool(cfg, session, journal, { resolveOpts } = {}) {
           throw e;
         }
       }
-      // Keep the whole metadata block: which release/API-state attribute the 7.58
-      // kernel returns is measured in phase 0, never assumed.
-      const skip = new Set(['objectUrl', 'includes', 'nodes']);
-      const metadata = Object.fromEntries(
-        Object.entries(structure).filter(([k]) => !skip.has(k))
-      );
+      // Every attribute of the object document, without its namespace and with ISO dates
+      // (lib/object-shape.mjs): which release/API-state attribute a kernel returns is measured,
+      // never assumed, so none is dropped. The ADT's own link list is navigation for the IDE.
+      // abapLanguageVersion is answered on its own below, so it is not said twice.
+      const { abapLanguageVersion: _saidBelow, ...properties } = propertiesOf(structure?.metaData);
+      const skip = new Set(['objectUrl', 'includes', 'nodes', 'metaData', 'links']);
+      const otherParts = Object.fromEntries(Object.entries(structure ?? {}).filter(([k]) => !skip.has(k)));
 
       const gaps = [];
       let elements = [];
@@ -225,8 +226,8 @@ export function objectInfoTool(cfg, session, journal, { resolveOpts } = {}) {
       if (fields !== false && !contract) gaps.push({ list: 'fields', code: 'OUT_OF_SCOPE', reason: `${hit['adtcore:type']} is not a measured type: its field list is not asked` });
       if (fields !== false && !contract?.fields) {
         fieldsNote = contract
-          ? contract.fieldsNote ?? `field list not asked: ${hit['adtcore:type']} has none (lib/type-contract.mjs)`
-          : `field list not asked: ${hit['adtcore:type']} is not in lib/type-contract.mjs, so what ddicElement answers for it was never measured -- this is NOT "no fields"`;
+          ? contract.fieldsNote ?? `field list not asked: ${hit['adtcore:type']} has none`
+          : `field list not asked: ${hit['adtcore:type']} is not a measured type, so what its field list would answer was never measured -- this is NOT "no fields"`;
       }
       let ddic;
       if (fields !== false && contract?.fields) {
@@ -393,7 +394,7 @@ export function objectInfoTool(cfg, session, journal, { resolveOpts } = {}) {
 
       record(cfg, 'adt_object_info', hit['adtcore:name'], elements.length);
       return asText(finish({
-        found: hit,
+        object: objectOf(hit),
         foundBy,
         facets,
         ...(warning ? { warning } : {}),
@@ -408,9 +409,10 @@ export function objectInfoTool(cfg, session, journal, { resolveOpts } = {}) {
         ...(apiRelease ? { apiRelease } : {}),
         ...(elementsNote ? { elementsNote } : {}),
         ...(resolved.alternatives?.length ? { alternatives: resolved.alternatives.map((h) => ({ name: h['adtcore:name'], type: h['adtcore:type'], package: h['adtcore:packageName'] ?? null })) } : {}),
-        metadata,
+        properties,
+        ...(Object.keys(otherParts).length ? { structure: otherParts } : {}),
         elementsAsked: outlined,
-        elements,
+        elements: outlineOf(elements),
         ...(ddic ? { ddic } : {}),
         ...(fieldsNote ? { fieldsNote } : {}),
         ...(contract ? {} : { contract: 'unmeasured' }),

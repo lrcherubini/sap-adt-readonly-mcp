@@ -650,14 +650,16 @@ test('adt_object_info returns metadata, elements and the DDIC field tree', async
     await byName(toolsWith(api), 'adt_object_info').handler({ objectName: 'ZI_TEST' })
   );
 
-  assert.equal(out.found['adtcore:name'], 'ZI_TEST');
+  assert.equal(out.object.name, 'ZI_TEST');
+  assert.equal(out.object.type, 'DDLS/DF');
   // No raw client here: the release state is the one part not read, and it is said in a field.
   assert.deepEqual(out.incomplete, [{ list: 'apiRelease', code: 'NOT_READ', reason: 'no raw client in this session' }]);
   assert.equal(out.elementsAsked, false, 'a CDS view has no outline: the list is not asked');
   assert.deepEqual(contractErrors(out), []);
   assert.deepEqual(out.facets, ['DDLS/DF', 'STOB/DO']);
-  assert.equal(out.metadata.objectUrl, undefined, 'objectUrl is dropped from the metadata block');
-  assert.equal(out.metadata.metaData['adtcore:name'], 'ZI_TEST');
+  assert.equal(out.metadata, undefined, 'the raw document is not handed on');
+  assert.ok(!Object.keys(out.properties).some((k) => k.includes(':')), 'no namespace prefix in the properties');
+  assert.equal(out.properties.name, undefined, 'the identity is in object, not again in properties');
   assert.deepEqual(out.elements, [{ name: 'X' }]);
   assert.equal(out.ddic.ok, true);
 
@@ -1829,7 +1831,7 @@ test('adt_object_info on an ENHO/XHB reads its body once at its own URI and answ
   const f = jsonOf(await byName(buildTools(cfgWith([]), failing), 'adt_object_info').handler({ objectName: 'ZDEMO_BADI_IMPL', objectType: 'ENHO/XHB', fields: false }));
   assert.equal(f.badi, undefined);
   assert.match(f.badiNote, /badi not read/);
-  assert.equal(f.found['adtcore:name'], 'ZDEMO_BADI_IMPL');
+  assert.equal(f.object.name, 'ZDEMO_BADI_IMPL');
   const g = journalLines.find((l) => l.code === 'ENHANCEMENTS_NOT_READ');
   assert.ok(g);
   assert.match(g.impact, /NOT evidence of an orphan/);
