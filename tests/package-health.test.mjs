@@ -23,12 +23,12 @@ const WORKLIST =
 const checkrun = (name) => fs.readFileSync(path.join(import.meta.dirname, 'fixtures', 'checkrun', name), 'utf8');
 
 /** ZDEMO_PKG: one view, two classes, one program, and a class the listing gives no URI. */
-function fakeSession({ calls = [], replies = {}, failing = new Set() } = {}) {
+function fakeSession({ calls = [], replies = {}, failing = new Set(), nodes = null } = {}) {
   const api = {
     nodeContents: async (_t, pkg) => {
       calls.push(`list ${pkg}`);
       return {
-        nodes: pkg === 'ZDEMO_PKG'
+        nodes: nodes ?? (pkg === 'ZDEMO_PKG'
           ? [
               { OBJECT_NAME: 'ZDEMO_I_VIEW', OBJECT_TYPE: 'DDLS/DF', OBJECT_URI: '/sap/bc/adt/ddic/ddl/sources/zdemo_i_view' },
               { OBJECT_NAME: 'ZCL_DEMO_CLEAN', OBJECT_TYPE: 'CLAS/OC', OBJECT_URI: '/sap/bc/adt/oo/classes/zcl_demo_clean' },
@@ -36,7 +36,7 @@ function fakeSession({ calls = [], replies = {}, failing = new Set() } = {}) {
               { OBJECT_NAME: 'ZDEMO_REPORT', OBJECT_TYPE: 'PROG/P', OBJECT_URI: '/sap/bc/adt/programs/programs/zdemo_report' },
               { OBJECT_NAME: 'ZCL_DEMO_NOURI', OBJECT_TYPE: 'CLAS/OC' },
             ]
-          : [],
+          : []),
       };
     },
     getObjectSource: async (uri) => {
@@ -104,6 +104,19 @@ test('one listing feeds both parts; each class and program is checked on its sto
   assert.equal(out.atc.read, false, 'ATC is not run unless asked, and the answer says so');
   assert.match(out.atc.reason, /atc: true/);
   assert.equal(calls.some((c) => c.startsWith('atc')), false);
+});
+
+test('a behaviour definition and a metadata extension are checked too; an interface is counted as not covered', async () => {
+  const calls = [];
+  const nodes = [
+    { OBJECT_NAME: 'ZR_DEMO_TRAVEL', OBJECT_TYPE: 'BDEF/BDO', OBJECT_URI: '/sap/bc/adt/bo/behaviordefinitions/zr_demo_travel' },
+    { OBJECT_NAME: 'ZC_DEMO_TRAVEL', OBJECT_TYPE: 'DDLX/EX', OBJECT_URI: '/sap/bc/adt/ddic/ddlx/sources/zc_demo_travel' },
+    { OBJECT_NAME: 'ZIF_DEMO', OBJECT_TYPE: 'INTF/OI', OBJECT_URI: '/sap/bc/adt/oo/interfaces/zif_demo' },
+  ];
+  const out = await runPackageHealth(cfgFor(), fakeSession({ calls, nodes }), { package: 'zdemo_pkg' }, journal);
+  assert.deepEqual(calls.filter((c) => c.startsWith('check')), ['check /sap/bc/adt/bo/behaviordefinitions/zr_demo_travel', 'check /sap/bc/adt/ddic/ddlx/sources/zc_demo_travel']);
+  assert.equal(out.syntax.checked, 2);
+  assert.deepEqual(out.notCovered, { 'INTF/OI': 1 }, 'only what no part checks is out of scope');
 });
 
 test('the cap on checks is a gap and an incomplete answer, never a smaller clean package', async () => {

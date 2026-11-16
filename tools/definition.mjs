@@ -10,6 +10,10 @@ import { record } from '../lib/audit.mjs';
 import { resolveObject } from '../lib/resolve.mjs';
 import { buildNavigationRequest, navigationPost, parseNavigationTarget, NavigationViolation } from '../lib/navigation.mjs';
 import { finish } from '../lib/completeness.mjs';
+import { objectOfUri } from '../lib/object-shape.mjs';
+
+/** A target with the object it lands in named, so a caller need not parse the URI. */
+const named = (t, own) => ({ ...(objectOfUri(t.objectUri ?? t.uri) ?? {}), ...t, sameObject: t.objectUri === own });
 
 const TOOL = 'adt_find_definition';
 const asText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value) }] });
@@ -98,9 +102,9 @@ export function definitionTool(cfg, session, journal) {
         found: Boolean(target),
         targetCount: targets.length,
         ...(target
-          ? { target: { ...target, sameObject: target.objectUri === object.uri } }
+          ? { target: named(target, object.uri) }
           : { reason: 'the server named no definition for this position: it answered, and named none' }),
-        ...(targets.length > 1 ? { targets: targets.map((t) => ({ ...t, sameObject: t.objectUri === object.uri })) } : {}),
+        ...(targets.length > 1 ? { targets: targets.map((t) => named(t, object.uri)) } : {}),
         ...(drift.length ? { drift } : {}),
       }, incomplete));
     },

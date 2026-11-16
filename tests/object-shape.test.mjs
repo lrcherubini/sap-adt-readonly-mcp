@@ -3,7 +3,17 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { objectOf, propertiesOf, outlineOf, positionOf, isoOf } from '../lib/object-shape.mjs';
+import { objectOf, propertiesOf, outlineOf, positionOf, isoOf, objectOfUri } from '../lib/object-shape.mjs';
+
+test('the object a URI names, for the collections read; anything else is null', () => {
+  assert.deepEqual(objectOfUri('/sap/bc/adt/oo/classes/zcx_demo_error/source/main#start=1,6'), { name: 'ZCX_DEMO_ERROR', type: 'CLAS/OC' });
+  assert.deepEqual(objectOfUri('adt://DEV/sap/bc/adt/oo/interfaces/zif_demo'), { name: 'ZIF_DEMO', type: 'INTF/OI' });
+  assert.deepEqual(objectOfUri('/sap/bc/adt/functions/groups/zdemo_fg/fmodules/z_demo_fm/source/main'), { name: 'Z_DEMO_FM', type: 'FUGR/FF' });
+  assert.deepEqual(objectOfUri('/sap/bc/adt/ddic/dataelements/%2fdmo%2fcarrier_id'), { name: '/DMO/CARRIER_ID', type: 'DTEL/DE' });
+  assert.deepEqual(objectOfUri('/sap/bc/adt/programs/includes/zdemo_inc%zz'), { name: 'ZDEMO_INC%ZZ', type: 'PROG/I' }, 'a malformed escape stays');
+  assert.equal(objectOfUri('/sap/bc/adt/vit/wb/object_type/trant/object_name/ZDEMO'), null);
+  assert.equal(objectOfUri(undefined), null);
+});
 
 test('the identity of a hit, without namespaces', () => {
   const hit = { 'adtcore:name': 'ZCL_DEMO', 'adtcore:type': 'CLAS/OC', 'adtcore:packageName': 'ZDEMO_PKG', 'adtcore:description': 'Demo', 'adtcore:uri': '/sap/bc/adt/oo/classes/zcl_demo' };

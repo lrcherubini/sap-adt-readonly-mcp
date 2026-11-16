@@ -91,6 +91,7 @@ test('the tool reads the stored source, sends exactly it, and answers the target
   assert.equal(h.seen[1].body, SOURCE, 'the body is the text the server stores, nothing else');
   assert.equal(out.found, true);
   assert.deepEqual([out.target.line, out.target.column, out.target.sameObject], [10, 18, true]);
+  assert.deepEqual([out.target.name, out.target.type], ['ZCL_DEMO_PROBE', 'CLAS/OC'], 'the object it lands in, named: no URI to parse');
   assert.equal(h.audit.length, 2);
   assert.doesNotMatch(JSON.stringify(h.audit), /line 2/, 'no source in the trail');
 });

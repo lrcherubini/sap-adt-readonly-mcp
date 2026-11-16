@@ -369,6 +369,19 @@ test('a reply that does not match the measured shape is a gap, not "no annotatio
   assert.equal(JSON.stringify(journalLines).includes('something-else'), false);
 });
 
+test('the measured root with nothing under it is an answer: no annotation, and the call that tells it from a missing element', async () => {
+  // Measured 2026-11-12, 164 bytes, for an element-level call.
+  const bare = '<?xml version="1.0" encoding="utf-8"?><abapsource:elementInfo xmlns:abapsource="http://www.sap.com/adt/abapsource"><abapsource:properties/></abapsource:elementInfo>';
+  const { tool, journalLines } = toolWith({ body: bare });
+  const out = JSON.parse((await tool.handler({ entity: 'ZC_DemoTravel', element: 'TravelID' })).content[0].text);
+  assert.equal(out.complete, true);
+  assert.deepEqual(out.annotations, []);
+  assert.match(out.empty, /answers the same for an element the entity does not have/);
+  assert.deepEqual(out.next, { tool: 'adt_object_info', arguments: { objectName: 'ZC_DemoTravel' } });
+  assert.equal(out.payload, undefined, 'a known shape is not handed back raw');
+  assert.equal(journalLines.some((l) => l.code === 'SHAPE_UNOBSERVED'), false);
+});
+
 test('an overridden annotation is a finding about the workspace, not a gap', async () => {
   // Synthetic override, built on the measured shape -- see tests/annotation-chain.test.mjs.
   const overridden = MEASURED.replace(

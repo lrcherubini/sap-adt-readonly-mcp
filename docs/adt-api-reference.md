@@ -458,6 +458,12 @@ The second is complete and small enough to keep whole. It is stored as
 `tests/fixtures/annotation-chain-measured.xml`, reproduced to the byte (9,137), and every
 assertion in `tests/annotation-chain.test.mjs` runs against it.
 
+**The root with no child** (measured 2026-11-12, 164 bytes, `200`, an element-level call): the
+same root and its empty `<abapsource:properties/>`, and nothing under it. It is the reply for an
+element that carries no annotation **and** for an element name the entity does not have: the two
+are indistinguishable here, so `adt_annotation_chain` answers it as an empty chain and names
+`adt_object_info` (the entity's elements) as the call that tells them apart.
+
 Shape — a flat list, not a tree. The root `elementInfo` carries an **empty**
 `<abapsource:properties/>`; each child is one **contribution** to one annotation key:
 

@@ -32,6 +32,9 @@ import { finish } from '../lib/completeness.mjs';
 
 const MAX_PAYLOAD = 20000;
 
+/** The measured root of a chain and nothing under it: `<elementInfo><properties/></elementInfo>`. */
+const BARE_ROOT = /^\s*(<\?xml[^>]*\?>)?\s*<abapsource:elementInfo\b[^>]*>\s*<abapsource:properties\s*\/>\s*<\/abapsource:elementInfo>\s*$/;
+
 export function annotationChainTool(cfg, session, journal) {
   return {
     definition: {
@@ -126,6 +129,26 @@ export function annotationChainTool(cfg, session, journal) {
       }
 
       const chain = parseAnnotationChain(out.body);
+
+      // The measured root with nothing under it: the shape is known (its first line is the root
+      // of every chain, lib/annotation-chain.mjs), and it holds no annotation. That is an
+      // answer, not a parse failure -- but the system answers the same for an element the
+      // entity does not have (measured 2026-11-12), so the answer says both and names the call
+      // that tells them apart.
+      if (chain.counts.contributions === 0 && BARE_ROOT.test(String(out.body ?? ''))) {
+        return json(finish({
+          entity: args.entity,
+          element: args.element ?? null,
+          counts: chain.counts,
+          sources: [],
+          annotations: [],
+          conflicts: [],
+          empty:
+            'the system lists no annotation here. It answers the same for an element the entity ' +
+            'does not have: adt_object_info on the entity lists its elements.',
+          next: { tool: 'adt_object_info', arguments: { objectName: args.entity } },
+        }, []));
+      }
 
       // A 200 that parses to nothing is not "this element has no annotations": it is a
       // shape this parser did not recognise, and the two must never read the same. The

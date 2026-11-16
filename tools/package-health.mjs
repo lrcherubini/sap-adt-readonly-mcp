@@ -28,7 +28,8 @@ import { runCleanCoreScan } from './clean-core-scan.mjs';
 import { checkStored } from './syntax-check.mjs';
 import { runVariant } from './atc.mjs';
 
-export const CHECK_TYPES = Object.freeze(['CLAS/OC', 'PROG/P']);
+// Every source adt_syntax_check checks except the CDS views, which the Clean Core part reads.
+export const CHECK_TYPES = Object.freeze(['CLAS/OC', 'PROG/P', 'BDEF/BDO', 'DDLX/EX']);
 export const DEFAULT_MAX_CHECKS = 20;
 export const MAX_CHECKS = 50;
 const TOOL = 'adt_package_health';
@@ -38,7 +39,7 @@ export const MAX_FINDINGS = 200;
  * Types that carry ABAP source and that no part of this tool checks: counted as out of scope,
  * so a package of interfaces and function groups never reads as healthy for being unchecked.
  */
-export const SOURCE_NOT_CHECKED = Object.freeze(['INTF/OI', 'FUGR/F', 'PROG/I', 'BDEF/BDO']);
+export const SOURCE_NOT_CHECKED = Object.freeze(['INTF/OI', 'FUGR/F', 'PROG/I']);
 
 const capOf = (value) => {
   if (value === undefined || value === null) return DEFAULT_MAX_CHECKS;
@@ -85,7 +86,7 @@ export async function checkPackage(cfg, session, journal, listing, { max, offset
     journal?.gap?.({
       code: 'SCAN_AT_CAP',
       subject: `${TOOL} ${listing.packages[0] ?? ''} syntax`,
-      detail: `${out.skipped} of ${out.candidates} class(es) and program(s) not checked${out.cancelled ? ' (cancelled)' : ' (maxChecks reached)'}`,
+      detail: `${out.skipped} of ${out.candidates} source object(s) not checked${out.cancelled ? ' (cancelled)' : ' (maxChecks reached)'}`,
       impact: 'the syntax part covers part of the package: unchecked is not clean',
       fallback: `raise maxChecks (at most ${MAX_CHECKS}), or check a sub-package`,
     });
@@ -232,7 +233,8 @@ export function packageHealthTool(cfg, session, journal) {
       description:
         'Clean Core health of a package in one answer, on one listing: the Clean Core level of ' +
         'what its CDS views consume (as adt_clean_core_scan) and the syntax check of the stored ' +
-        'active version of its classes and programs (as adt_syntax_check). One call per view ' +
+        'active version of its classes, programs, behaviour definitions and metadata extensions ' +
+        '(as adt_syntax_check). One call per view ' +
         'and per check: keep the package small. `atc: true` adds one ATC run over the package ' +
         '(default variant; leaves a result worklist). Needs the catalogue for the ' +
         'Clean Core part; without it that part says so and the rest still runs. What was not ' +
@@ -250,7 +252,7 @@ export function packageHealthTool(cfg, session, journal) {
             type: 'integer',
             minimum: 1,
             maximum: MAX_CHECKS,
-            description: `Max classes and programs checked (default ${DEFAULT_MAX_CHECKS})`,
+            description: `Max source objects checked (default ${DEFAULT_MAX_CHECKS})`,
           },
         },
         required: ['package'],
