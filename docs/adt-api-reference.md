@@ -1577,6 +1577,13 @@ It carries a transport link only while the object sits in an **open** request; o
 entry comes back with `atom:title` absent and **no `atom:link` at all** (the `noLink=1` above,
 and the `atom:name` count of 45 against 46 entries — one entry has no author either).
 
+The link names a **task or its request**, depending on the feed (measured 2026-11-16, one class
+in one open workbench request with one task): the version `00000` of each of the four includes
+named the task, the one of `main` named the request. Only the request is listed by
+`objectproperties/transports` (*Backlog reads*), and the request's detail
+(`/cts/transportrequests/<number>`) lists its tasks: that is the only link between the two
+numbers, and it is known for open requests only.
+
 #### ⚠️ The library's own projection must not be used
 
 `node_modules/abap-adt-api/build/api/revisions.js`, `extractVersion`, finds the

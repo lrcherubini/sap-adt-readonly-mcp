@@ -71,13 +71,6 @@ settle.
   specification's sense (then `false`, which some clients answer with a confirmation per call) or
   bookkeeping of the run (then it stays, as the IDE treats it).
 
-## 5. Found by the consumption matrix of the tools (2026-11-12)
-
-- **The holder of an object's active version.** `adt_transport {object}` names the request of
-  version 00000 as `holder`; on one class it was a task while `openRequests` listed its request.
-  Whether a version feed names the task or the request, and when, is not measured. Measure: one
-  object in an open task, its version feeds and its open requests side by side.
-
 ---
 
 An accepted limit is not an item: it is a decision, and it lives where the behaviour is (the

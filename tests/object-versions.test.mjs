@@ -227,7 +227,7 @@ test('an element or attribute the measurement did not declare is drift, not sile
 
 const NO_OPEN_REQUEST = '<?xml version="1.0" encoding="utf-8"?><tpr:transportProperties xmlns:tpr="http://www.sap.com/adt/ris/transportProperties"/>';
 
-function toolFor({ structure, feeds, search = 'hit', fail = null, open = NO_OPEN_REQUEST }) {
+function toolFor({ structure, feeds, search = 'hit', fail = null, open = NO_OPEN_REQUEST, requests = {} }) {
   const log = [];
   const journalLines = [];
   const cfg = {
@@ -237,6 +237,7 @@ function toolFor({ structure, feeds, search = 'hit', fail = null, open = NO_OPEN
   };
   const seen = [];
   const openSeen = [];
+  const details = [];
   const meta = structure.metaData;
   const session = {
     api: {
@@ -261,6 +262,12 @@ function toolFor({ structure, feeds, search = 'hit', fail = null, open = NO_OPEN
             if (open instanceof Error) throw open;
             return { status: 200, body: open, headers: { 'content-type': 'application/vnd.sap.adt.repository.trproperties.result.v1+xml' } };
           }
+          const detail = /^\/sap\/bc\/adt\/cts\/transportrequests\/([A-Z0-9]+)$/.exec(url);
+          if (detail) {
+            details.push(detail[1]);
+            if (requests[detail[1]]) return { status: 200, body: requests[detail[1]], headers: { 'content-type': 'application/xml' } };
+            throw Object.assign(new Error('Not Found'), { response: { status: 404 } });
+          }
           seen.push({ url, config });
           if (fail && url.endsWith(fail)) {
             const e = new Error('Internal Server Error');
@@ -274,7 +281,7 @@ function toolFor({ structure, feeds, search = 'hit', fail = null, open = NO_OPEN
       },
     },
   };
-  return { tool: transportTool(cfg, session, openJournal(cfg)), log, journalLines, seen, openSeen };
+  return { tool: transportTool(cfg, session, openJournal(cfg)), log, journalLines, seen, openSeen, details };
 }
 
 const outOf = async (h, args) => JSON.parse((await h.tool.handler(args)).content[0].text);
@@ -395,6 +402,7 @@ test('the object mode also names the open requests holding the object, with one 
   const h = toolFor({ structure: PROG_STRUCTURE, feeds: { 'source/main/versions': PROG_FEED }, open: OPEN });
   const out = await outOf(h, { object: { name: 'ZDEMO_REPORT', type: 'PROG/P' } });
   assert.equal(h.openSeen.length, 1);
+  assert.deepEqual(h.details, ['DEVK900124'], 'and one GET per open request, for its tasks');
   assert.equal(h.openSeen[0].url, '/sap/bc/adt/repository/informationsystem/objectproperties/transports?uri=%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fzdemo_report');
   assert.equal(h.openSeen[0].config.headers.Accept, 'application/vnd.sap.adt.repository.trproperties.result.v1+xml');
   assert.equal(out.openRequests.read, true);
@@ -414,4 +422,28 @@ test('open requests that could not be read are read: false and a gap, never "in 
   assert.equal(out.openRequests.requests, undefined);
   assert.equal(out.transports.length, 2, 'the history still answers');
   assert.ok(h.journalLines.some((l) => l.code === 'ADT_ERROR' && /open requests/.test(l.subject)));
+});
+
+test('a task in the history names its open request: the tasks of each open request are read', async () => {
+  // Measured on one class: each include's version 00000 named the task, main the request.
+  const [request, task] = ['DEVK900110', 'DEVK900111'];
+  const feeds = { ...CLASS_FEEDS };
+  feeds['includes/definitions/versions'] = feed(CLASS_URI, 'includes/definitions/versions', { versions: [REAL[2]], copies: 40, activeHolder: task });
+  feeds['includes/main/versions'] = feed(CLASS_URI, 'includes/main/versions', { versions: [REAL[1], REAL[2], REAL[2]], copies: 42, activeHolder: request });
+  const WORKBENCH = fs.readFileSync(path.join(import.meta.dirname, 'fixtures', 'transport-detail-workbench.xml'), 'utf8');
+  const h = toolFor({ structure: CLASS_STRUCTURE, feeds, open: OPEN.replace(/DEVK900124/g, request), requests: { [request]: WORKBENCH } });
+  const out = await outOf(h, { object: { name: 'ZCL_DEMO', type: 'CLAS/OC' } });
+  assert.deepEqual(out.openRequests.requests[0].tasks, ['DEVK900111', 'DEVK900112']);
+  assert.equal(out.transports.find((t) => t.number === task).request, request);
+  assert.equal(out.transports.find((t) => t.number === request).request, undefined, 'a request is not its own task');
+  assert.equal(out.transports.find((t) => t.number === REAL[2]).request, undefined, 'a number no open request lists is left as it is');
+  assert.deepEqual(out.activeVersion.filter((a) => a.holder).map((a) => [a.where, a.holder, a.holderRequest]), [['definitions', task, request], ['main', request, undefined]]);
+  assert.deepEqual(contractErrors(out), []);
+  assert.equal(out.complete, true);
+  assert.ok(h.log.some((l) => l.target === `${request} tasks`));
+
+  // A request whose tasks could not be read is named, and the history stands.
+  const failed = await outOf(toolFor({ structure: CLASS_STRUCTURE, feeds, open: OPEN.replace(/DEVK900124/g, request) }), { object: { name: 'ZCL_DEMO', type: 'CLAS/OC' } });
+  assert.deepEqual(failed.incomplete.map((i) => [i.list, i.code, i.requests]), [['openRequests.tasks', 'NOT_READ', [request]]]);
+  assert.equal(failed.transports.find((t) => t.number === task).request, undefined);
 });

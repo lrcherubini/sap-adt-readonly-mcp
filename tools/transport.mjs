@@ -68,6 +68,9 @@ const NUMBER = /^[A-Z][A-Z0-9]{2}K[0-9]{6}$/;
 /** A class publishes five version feeds (measured); nothing measured publishes more. */
 const MAX_VERSION_FEEDS = 8;
 
+/** Open requests whose tasks are read in the object mode, one GET each. */
+const MAX_OPEN_DETAILS = 5;
+
 export function transportTool(cfg, session, journal) {
   // The OPEN requests that hold one object now: one GET, read beside the version history
   // because the feed's version 00000 names only one holder and some objects publish no feed.
@@ -104,6 +107,44 @@ export function transportTool(cfg, session, journal) {
       });
     }
     return { read: true, requests: parsed.requests, ...(parsed.drift.length ? { drift: parsed.drift } : {}) };
+  }
+
+  // A version feed names a task or its request (measured: on one class each include named the
+  // task, main the request). The tasks of each OPEN request are read, one GET each, so a task in
+  // the history is tied to its request; the tasks of a released request are not read, and a
+  // number no open request lists is left as it is, never guessed to be a request.
+  async function tasksOfOpen(open) {
+    const byTask = new Map();
+    const notRead = [];
+    if (!open.read) return { byTask, notRead };
+    for (const [i, r] of open.requests.entries()) {
+      if (i >= MAX_OPEN_DETAILS) {
+        notRead.push(r.number);
+        continue;
+      }
+      let out;
+      try {
+        out = await namedGet(transportFor(session.raw), 'transportDetail', { number: r.number });
+        const doc = parseTransportDocument(out.body);
+        r.tasks = (doc.requests.find((x) => x.number === r.number)?.tasks ?? []).map((t) => t.number);
+        for (const t of r.tasks) byTask.set(t, r.number);
+      } catch (e) {
+        // Not swallowed: the gap is filed and the request is named in the answer's incomplete.
+        if (e?.name !== 'RouteViolation' && journal?.enabled) {
+          journal.gap({
+            code: 'ADT_ERROR',
+            subject: `transport ${r.number}`,
+            detail: `HTTP ${e?.status ?? '?'} on ${e?.url ?? 'transportDetail'}`,
+            impact: 'its tasks are unknown: a task in the history may belong to this request',
+            fallback: 'open the request in SE09/SE10',
+          });
+        }
+        notRead.push(r.number);
+      } finally {
+        record(cfg, 'adt_transport', `${r.number} tasks`, out?.bytes ?? 0);
+      }
+    }
+    return { byTask, notRead };
   }
 
   /** The incomplete entries of an open-requests part. */
@@ -322,16 +363,21 @@ export function transportTool(cfg, session, journal) {
 
     const history = unionByTransport(feeds);
     const openRequests = await openRequestsOf(objectUri, subjectOf);
+    const { byTask, notRead: tasksNotRead } = await tasksOfOpen(openRequests);
+    // A task in the history names its open request; the rows stay one per number the feeds named.
+    const transports = history.transports.map((t) => (byTask.has(t.number) ? { ...t, request: byTask.get(t.number) } : t));
+    const activeVersion = history.activeVersion.map((a) => (byTask.has(a.holder) ? { ...a, holderRequest: byTask.get(a.holder) } : a));
     const feedsNotRead = links.length - wanted.length;
     const incomplete = [...driftEntry('transports', drift), ...openIncomplete(openRequests)];
     if (feedsNotRead) incomplete.push({ list: 'feeds', code: 'CAP_REACHED', count: feedsNotRead, reason: `at most ${MAX_VERSION_FEEDS} version feeds per object` });
+    if (tasksNotRead.length) incomplete.push({ list: 'openRequests.tasks', code: 'NOT_READ', count: tasksNotRead.length, requests: tasksNotRead, reason: 'the tasks of these open requests were not read: a task in the history may belong to one of them' });
     return json(finish({
       mode: 'object',
       object: { name: hit['adtcore:name'], type: hit['adtcore:type'], uri: objectUri, foundBy },
       feedsRead: feeds.map((f) => ({ where: f.where, href: f.href, entries: f.entries.length, title: f.feedTitle })),
-      transports: history.transports,
+      transports,
       copies: history.copies,
-      activeVersion: history.activeVersion,
+      activeVersion,
       openRequests,
       versionsWithoutTransport: history.withoutLink,
       feeds: { read: true, published: links.length, asked: wanted.length, notRead: feedsNotRead },
@@ -389,9 +435,9 @@ export function transportTool(cfg, session, journal) {
         '(the request with every task, owner, description; one call; `logs: true` adds its ' +
         'action and transport logs), `recent: true` (the ' +
         'server\'s list: released, last two weeks), or `object: {name, type}` (every request ' +
-        'that carried it, from its version history; one GET per version feed; plus the open ' +
-        'requests holding it now, one GET), or `saved: true` (what your saved IDE search ' +
-        'selects, open and released: requests and tasks, objects counted). Empty openRequests ' +
+        'that carried it, from its version feeds; plus the open requests holding it now and ' +
+        'their tasks; one GET each), or `saved: true` (what your saved IDE search selects, ' +
+        'open and released: requests and tasks, objects counted). Empty openRequests ' +
         'is in no open request, never "never transported".',
       inputSchema: {
         type: 'object',
