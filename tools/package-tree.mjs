@@ -6,6 +6,7 @@ import { finish, page } from '../lib/completeness.mjs';
 import { record } from '../lib/audit.mjs';
 import { virtualFoldersPost, parseVirtualFolders } from '../lib/virtual-folders.mjs';
 import { asText } from './common.mjs';
+import { invalidArguments } from '../lib/tool-error.mjs';
 
 /** Objects listed per package in one answer of adt_package_tree. */
 const TREE_OBJECTS_CEILING = 5000;
@@ -48,7 +49,7 @@ export function packageTreeTool(cfg, session, journal, _shared = {}) {
       const isCompact = compact === true;
       const depthCeiling = isCompact ? 5 : 3;
       if (depth !== undefined && depth !== null && Number(depth) > depthCeiling) {
-        throw new Error(`depth ${depth} is beyond ${depthCeiling}${isCompact ? '' : ' (5 with compact: true)'}: walk a sub-package from the answer instead.`);
+        throw invalidArguments(`depth ${depth} is beyond ${depthCeiling}${isCompact ? '' : ' (5 with compact: true)'}: walk a sub-package from the answer instead.`);
       }
       const maxDepth = Number(depth) || 1;
       const seen = new Set();

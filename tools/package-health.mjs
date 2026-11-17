@@ -27,6 +27,7 @@ import { buildPackageRunBody, DEFAULT_VARIANT } from '../lib/atc.mjs';
 import { runCleanCoreScan } from './clean-core-scan.mjs';
 import { checkStored } from './syntax-check.mjs';
 import { runVariant } from './atc.mjs';
+import { invalidArguments } from '../lib/tool-error.mjs';
 
 // Every source adt_syntax_check checks except the CDS views, which the Clean Core part reads.
 export const CHECK_TYPES = Object.freeze(['CLAS/OC', 'PROG/P', 'BDEF/BDO', 'DDLX/EX']);
@@ -44,7 +45,7 @@ export const SOURCE_NOT_CHECKED = Object.freeze(['INTF/OI', 'FUGR/F', 'PROG/I'])
 const capOf = (value) => {
   if (value === undefined || value === null) return DEFAULT_MAX_CHECKS;
   const n = Number(value);
-  if (!Number.isInteger(n) || n < 1 || n > MAX_CHECKS) throw new Error(`maxChecks must be an integer from 1 to ${MAX_CHECKS}; got ${value}.`);
+  if (!Number.isInteger(n) || n < 1 || n > MAX_CHECKS) throw invalidArguments(`maxChecks must be an integer from 1 to ${MAX_CHECKS}; got ${value}.`);
   return n;
 };
 
@@ -138,7 +139,7 @@ export async function atcPackage(cfg, session, journal, pkg, { maxFindings = DEF
 
 export async function runPackageHealth(cfg, session, args = {}, journal = null, extra = {}) {
   const pkg = String(args.package ?? '').trim().toUpperCase();
-  if (!pkg) throw new Error('adt_package_health needs a package.');
+  if (!pkg) throw invalidArguments('adt_package_health needs a package.');
   if (!session?.raw) throw new Error('this session has no raw client: the syntax checks cannot be asked.');
   const max = capOf(args.maxChecks);
   const maxFindings = Number.isInteger(args.maxFindings) ? Math.min(Math.max(args.maxFindings, 1), MAX_FINDINGS) : DEFAULT_FINDINGS;

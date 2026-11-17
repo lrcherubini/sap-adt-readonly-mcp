@@ -3,7 +3,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ToolError, errorCodeOf, errorResult } from '../lib/tool-error.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import { ToolError, errorCodeOf, errorResult, invalidArguments, notApplicable } from '../lib/tool-error.mjs';
+import { readSourceTool } from '../tools/read-source.mjs';
 import { SelectViolation } from '../lib/data-preview.mjs';
 
 test('the code: the error s own, a refused HTTP status, the class name, or FAILED', () => {
@@ -27,4 +30,29 @@ test('the result: isError, the same JSON as structuredContent and as text, the s
   assert.equal(res.content[0].text, JSON.stringify(res.structuredContent));
   const bare = errorResult(new Error('no'));
   assert.deepEqual(bare.structuredContent, { error: { code: 'FAILED', message: 'no' } }, 'no signature, no next: neither is invented');
+});
+
+test('a refusal of the arguments is INVALID_ARGUMENTS, one that does not fit the object NOT_APPLICABLE', async () => {
+  assert.equal(errorCodeOf(invalidArguments('x')), 'INVALID_ARGUMENTS');
+  assert.equal(errorCodeOf(notApplicable('x')), 'NOT_APPLICABLE');
+  const next = { tool: 'adt_search', arguments: { query: 'ZDEMO*' } };
+  assert.deepEqual(invalidArguments('x', next).next, next);
+  // The call of the consumption matrix: refused before a session is touched.
+  const tool = readSourceTool({}, {}, null);
+  const e = await tool.handler({ objectNames: ['ZDEMO_A', 'ZDEMO_B'], method: 'CONSTRUCTOR' }).catch((x) => x);
+  assert.equal(errorCodeOf(e), 'INVALID_ARGUMENTS');
+});
+
+test('no tool refuses its arguments with a bare Error, which would answer the code FAILED', () => {
+  // A message that reads as a refusal of the call: what is required, allowed or combined.
+  const REFUSAL = /throw new Error\(\s*[`'][^`']*(must be|is required|never two|never both|no default mode|is empty|at most|needs a|takes `|Pass |not a transport request)/;
+  const dir = path.join(import.meta.dirname, '..', 'tools');
+  const hits = [];
+  for (const name of fs.readdirSync(dir).filter((n) => n.endsWith('.mjs'))) {
+    fs.readFileSync(path.join(dir, name), 'utf8').split(/\r?\n/).forEach((line, i, all) => {
+      const at = line + ' ' + (all[i + 1] ?? '');
+      if (REFUSAL.test(at)) hits.push(`tools/${name}:${i + 1}`);
+    });
+  }
+  assert.deepEqual(hits, [], 'use invalidArguments() or notApplicable() from lib/tool-error.mjs');
 });

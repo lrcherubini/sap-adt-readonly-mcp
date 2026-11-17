@@ -55,6 +55,7 @@ import { checkExposure } from '../lib/srvd-check.mjs';
 import { finish } from '../lib/completeness.mjs';
 import { summarizeUsage, precedentCandidates } from '../lib/usage.mjs';
 import { emit, renderOwnVhProposal } from '../lib/emit.mjs';
+import { invalidArguments } from '../lib/tool-error.mjs';
 
 /**
  * The catalogue, loaded once per server run. Missing, it is fatal (lib/catalog.mjs says why:
@@ -683,7 +684,7 @@ export async function analyseValueHelp(api, sources, params = {}) {
     spent.calls += chain.calls ?? 0;
     fields = [{ name: params.field ?? params.dataElement, ...chain }];
   } else {
-    throw new Error('Give an entity, or a field/dataElement to look up.');
+    throw invalidArguments('Give an entity, or a field/dataElement to look up.');
   }
 
   const results = [];

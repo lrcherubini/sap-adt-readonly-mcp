@@ -51,6 +51,7 @@ import {
 } from '../lib/object-keys.mjs';
 import { finish, page } from '../lib/completeness.mjs';
 import { isoOfStamp } from '../lib/timestamps.mjs';
+import { invalidArguments } from '../lib/tool-error.mjs';
 
 /** From the measured envelope: 6 requests / 672 objects / 270 138 bytes in one dump. */
 const MAX_REQUESTS = 50;
@@ -214,7 +215,7 @@ export function transportTool(cfg, session, journal) {
   async function objectHistory(spec) {
     const name = String(spec?.name ?? '').trim();
     const type = spec?.type ? String(spec.type).trim().toUpperCase() : undefined;
-    if (!name) throw new Error('adt_transport `object` needs a `name`.');
+    if (!name) throw invalidArguments('adt_transport `object` needs a `name`.');
 
     const resolved = await resolveObject(session.api, name, type, 'metadata');
     const { hit, foundBy } = resolved;
@@ -477,14 +478,14 @@ export function transportTool(cfg, session, journal) {
       const wantsObject = args.object !== undefined && args.object !== null;
       const wantsSaved = args.saved === true;
       if ([wantsDetail, wantsList, wantsObject, wantsSaved].filter(Boolean).length > 1) {
-        throw new Error(
+        throw invalidArguments(
           'adt_transport takes `number` OR `recent` OR `object` OR `saved`, never two: one ' +
             'reads a request you name, one a list whose scope the server decides, one the ' +
             'history of an object you name, one the list your saved search selects. Ask twice.'
         );
       }
       if (!wantsDetail && !wantsList && !wantsObject && !wantsSaved) {
-        throw new Error(
+        throw invalidArguments(
           'adt_transport has no default mode. Pass `number` for one request, ' +
             '`recent: true` for the recent released list, `object: {name, type}` for ' +
             'the version history of one object, or `saved: true` for the list your saved ' +
@@ -493,7 +494,7 @@ export function transportTool(cfg, session, journal) {
       }
       if (wantsSaved) {
         if (args.keys === true || args.logs === true) {
-          throw new Error(
+          throw invalidArguments(
             'adt_transport reads keys and logs only for a request you name by `number`; the ' +
               'saved search answers requests and tasks.'
           );
@@ -503,13 +504,13 @@ export function transportTool(cfg, session, journal) {
       const wantsLogs = args.logs === true;
       if (wantsObject) {
         if (wantsLogs) {
-          throw new Error(
+          throw invalidArguments(
             'adt_transport reads the logs of a request you name by `number`; the object ' +
               'history carries none.'
           );
         }
         if (args.keys === true) {
-          throw new Error(
+          throw invalidArguments(
             'adt_transport reads table keys for a request you name by `number`; the ' +
               'version feed of an object carries no keys.'
           );
@@ -517,21 +518,21 @@ export function transportTool(cfg, session, journal) {
         return objectHistory(args.object);
       }
       if (wantsLogs && !wantsDetail) {
-        throw new Error(
+        throw invalidArguments(
           'adt_transport reads the logs of a request you name by `number`; the recent list ' +
             'and the object history carry none.'
         );
       }
       const wantsKeys = args.keys === true;
       if (wantsKeys && !wantsDetail) {
-        throw new Error(
+        throw invalidArguments(
           'adt_transport reads table keys only for a request you name. The recent list ' +
             'carried 672 objects in the measured dump, and keys cost one ADT call per ' +
             'object -- ask by `number`.'
         );
       }
       if (wantsDetail && !NUMBER.test(String(args.number).trim())) {
-        throw new Error(
+        throw invalidArguments(
           `'${args.number}' is not a transport request number: expected the measured shape ` +
             'DEVK900123 (system, K, six digits).'
         );

@@ -27,6 +27,7 @@ import { detectHiddenWithRole, findingForHidden } from '../lib/annotation-detect
 import { packageSources, readSources, packageGaps, packageIncomplete, scopeOf, DEFAULT_MAX_OBJECTS, MAX_OBJECTS } from '../lib/package-sources.mjs';
 import { progressOf } from '../lib/tool-meta.mjs';
 import { finish, page } from '../lib/completeness.mjs';
+import { invalidArguments } from '../lib/tool-error.mjs';
 
 export const DEFAULT_UPSTREAM = 20;
 export const MAX_UPSTREAM = 60;
@@ -283,10 +284,10 @@ export function annotationScanTool(cfg, api, journal) {
     },
     async handler(args = {}, extra = {}) {
       if (args.key && !args.element) {
-        throw new Error('`key` filters a lookup: pass `element` too, or drop `key` to run the detectors.');
+        throw invalidArguments('`key` filters a lookup: pass `element` too, or drop `key` to run the detectors.');
       }
       if (args.entity && !args.element) {
-        throw new Error('`entity` narrows a lookup: pass `element` too, or scan a smaller package.');
+        throw invalidArguments('`entity` narrows a lookup: pass `element` too, or scan a smaller package.');
       }
       const out = await runAnnotationScan(cfg, api, args, journal, extra);
       return { content: [{ type: 'text', text: JSON.stringify(out) }] };

@@ -30,6 +30,7 @@ export const FINDINGS_CEILING = 1000;
 /** Citations listed per finding; `readBy` is the full count. */
 const CITATIONS_SHOWN = 5;
 import { progressOf } from '../lib/tool-meta.mjs';
+import { invalidArguments } from '../lib/tool-error.mjs';
 
 /** Built once per process: 24,707 rows parsed per call would be the tool's whole cost. */
 let cached = null;
@@ -209,7 +210,7 @@ export function cleanCoreScanTool(cfg, api, journal) {
     },
     async handler(args = {}, extra = {}) {
       if (args.minLevel && levelRank(args.minLevel) < 0) {
-        throw new Error(`minLevel must be one of A, B, C, D -- got '${args.minLevel}'`);
+        throw invalidArguments(`minLevel must be one of A, B, C, D -- got '${args.minLevel}'`);
       }
       const out = await runCleanCoreScan(cfg, api, args, journal, extra);
       return { content: [{ type: 'text', text: JSON.stringify(out) }] };

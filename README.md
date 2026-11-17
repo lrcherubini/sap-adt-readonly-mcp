@@ -312,7 +312,8 @@ The server follows the MCP specification (2025-06-18) and the official TypeScrip
   client must reject an answer that does not match a declared schema.
 - **Errors:** a tool failure is a result with `isError: true`, never a protocol error. It is
   structured like an answer: `{system, error: {code, message, next?}}`, where `code` is one an
-  agent can branch on (`INVALID_ARGUMENTS`, `NOT_FOUND`, `RATE_LIMITED`, `HTTP_403`, ...) and
+  agent can branch on (`INVALID_ARGUMENTS`, `NOT_APPLICABLE`, `NOT_FOUND`, `RATE_LIMITED`,
+  `HTTP_403`, ...; the closed list is `ERROR_CODES` in `lib/tool-error.mjs`) and
   `next`, when there is one, is the call that would answer instead.
 - **Long calls:** the package scans and a multi-variant ATC run send progress notifications when
   the client asks for them, and stop between reads when the call is cancelled.

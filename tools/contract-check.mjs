@@ -37,6 +37,7 @@ import {
   filesWorthReading,
   folderWorthWalking,
 } from '../lib/ui5-repository.mjs';
+import { invalidArguments } from '../lib/tool-error.mjs';
 
 const SRVD_NAME = /^[A-Z0-9_/]{1,30}$/;
 const APP_NAME = /^[A-Z0-9_]{1,30}$/;
@@ -54,8 +55,8 @@ function appsOf(raw) {
   if (raw === undefined || raw === null) return [];
   const list = (Array.isArray(raw) ? raw : [raw]).map((a) => String(a ?? '').trim().toUpperCase()).filter(Boolean);
   const bad = list.filter((a) => !APP_NAME.test(a));
-  if (bad.length) throw new Error(`apps must be names of deployed UI5 apps (BSP names, e.g. ZUI5_DEMO_APP) -- got '${bad.join("', '")}'`);
-  if (list.length > MAX_APPS) throw new Error(`at most ${MAX_APPS} apps per call -- got ${list.length}`);
+  if (bad.length) throw invalidArguments(`apps must be names of deployed UI5 apps (BSP names, e.g. ZUI5_DEMO_APP) -- got '${bad.join("', '")}'`);
+  if (list.length > MAX_APPS) throw invalidArguments(`at most ${MAX_APPS} apps per call -- got ${list.length}`);
   return [...new Set(list)];
 }
 
@@ -163,7 +164,7 @@ async function readApp(ctx, app) {
 
 export async function runContractCheck(cfg, api, args = {}, journal = null, transport = null) {
   const service = String(args.service ?? '').trim().toUpperCase();
-  if (!SRVD_NAME.test(service)) throw new Error(`service must be a service definition name, e.g. ZUI_DEMO_O4 -- got '${args.service}'`);
+  if (!SRVD_NAME.test(service)) throw invalidArguments(`service must be a service definition name, e.g. ZUI_DEMO_O4 -- got '${args.service}'`);
   const apps = appsOf(args.apps);
   if (apps.length && typeof transport !== 'function') {
     throw new Error('apps cannot be read: this session has no raw client for the UI5 repository routes.');

@@ -44,6 +44,7 @@ import {
 import { finish } from '../lib/completeness.mjs';
 import { isoOfStamp } from '../lib/timestamps.mjs';
 import { positionOf } from '../lib/object-shape.mjs';
+import { invalidArguments } from '../lib/tool-error.mjs';
 
 /** The server's own "since" of a feed: the `from` of its self link, UTC (measured), or null. */
 const windowOf = (self) => {
@@ -83,7 +84,7 @@ const asText = (value) => ({
 const capOf = (v, fallback) => {
   if (v === undefined || v === null) return fallback;
   const n = Number(v);
-  if (!Number.isInteger(n) || n < 1 || n > MAX_MAX) throw new Error(`max must be an integer from 1 to ${MAX_MAX}; got ${v}.`);
+  if (!Number.isInteger(n) || n < 1 || n > MAX_MAX) throw invalidArguments(`max must be an integer from 1 to ${MAX_MAX}; got ${v}.`);
   return n;
 };
 
@@ -192,12 +193,12 @@ export function runtimeErrorsTool(cfg, session, journal) {
 
   async function list({ feed, filters, max, skip, report } = {}, { pickId, full } = {}) {
     const spec = FEEDS.get(String(feed ?? ''));
-    if (!spec) throw new Error(`list.feed must be one of ${[...FEEDS.keys()].join(', ')}; got '${feed}'.`);
+    if (!spec) throw invalidArguments(`list.feed must be one of ${[...FEEDS.keys()].join(', ')}; got '${feed}'.`);
     const top = capOf(max, DEFAULT_MAX);
     const params = { $top: String(top) };
     if (skip !== undefined && skip !== null) {
       const n = Number(skip);
-      if (!Number.isInteger(n) || n < 0 || n > 99999) throw new Error(`skip must be an integer from 0 to 99999; got ${skip}.`);
+      if (!Number.isInteger(n) || n < 0 || n > 99999) throw invalidArguments(`skip must be an integer from 0 to 99999; got ${skip}.`);
       if (n > 0) params.$skip = String(n);
     }
     let query = null;
@@ -321,10 +322,10 @@ export function runtimeErrorsTool(cfg, session, journal) {
       const wantsList = args.list !== undefined && args.list !== null;
       const wantsDetail = args.detail !== undefined && args.detail !== null;
       if ([wantsFeeds, wantsList, wantsDetail].filter(Boolean).length > 1) {
-        throw new Error('adt_runtime_errors takes `feeds` OR `list` OR `detail`, never two. Ask twice.');
+        throw invalidArguments('adt_runtime_errors takes `feeds` OR `list` OR `detail`, never two. Ask twice.');
       }
       if (!wantsFeeds && !wantsList && !wantsDetail) {
-        throw new Error(
+        throw invalidArguments(
           'adt_runtime_errors has no default mode. Pass `feeds: true` for the catalogue, ' +
             '`list: {feed: "dumps"}` for one page of dumps, or `detail: {id}` for one dump in full.'
         );
@@ -333,7 +334,7 @@ export function runtimeErrorsTool(cfg, session, journal) {
       if (wantsFeeds) return catalogue();
       if (wantsList) return list(args.list);
       const id = String(args.detail.id ?? '').trim();
-      if (!id) throw new Error('detail.id is required: the id (or key) a list answered.');
+      if (!id) throw invalidArguments('detail.id is required: the id (or key) a list answered.');
       return list({ feed: 'dumps', max: args.detail.max }, { pickId: id, full: args.detail.full === true });
     },
   };

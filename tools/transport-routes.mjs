@@ -16,6 +16,7 @@ import { buildSelect, previewPost, parsePreview, assertRanAsSent, cutCodeOf, MAX
 import { finish } from '../lib/completeness.mjs';
 import { isoOfStamp } from '../lib/timestamps.mjs';
 import { asText } from './common.mjs';
+import { invalidArguments, notApplicable } from '../lib/tool-error.mjs';
 
 const VERSION = /^\d{4}$/;
 /** TMSCSYS-SYSTYP as measured: R a real system, V a virtual one. Any other value is shown as read. */
@@ -106,10 +107,10 @@ export function transportRoutesTool(cfg, session, journal) {
       const active = versions.filter((v) => v.active);
       let chosen = null;
       if (version !== undefined && version !== null) {
-        if (!VERSION.test(String(version))) throw new Error(`version must be four digits, got '${version}'.`);
+        if (!VERSION.test(String(version))) throw invalidArguments(`version must be four digits, got '${version}'.`);
         chosen = String(version);
         if (versionRows && !versions.some((v) => v.version === chosen)) {
-          throw new Error(`configuration version ${chosen} does not exist here. Versions: ${versions.map((v) => v.version).join(', ') || 'none'}.`);
+          throw notApplicable(`configuration version ${chosen} does not exist here. Versions: ${versions.map((v) => v.version).join(', ') || 'none'}.`);
         }
       } else if (active.length === 1) {
         chosen = active[0].version;

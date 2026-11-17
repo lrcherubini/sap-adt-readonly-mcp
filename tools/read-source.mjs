@@ -16,6 +16,7 @@ import { VERSION_PATTERN, readVersion, compareVersions, readerFor, documentVersi
 import { parseClassComponents, findMethod, sliceLines, methodLabel } from '../lib/class-components.mjs';
 import { objectSegmentOf } from '../lib/object-name.mjs';
 import { asText, typeNotInContractGap } from './common.mjs';
+import { invalidArguments, notApplicable } from '../lib/tool-error.mjs';
 
 /** What a "not found" in a batch does and does not say -- the caveat of an empty adt_search. */
 const NOT_FOUND_NOTE =
@@ -76,11 +77,11 @@ export function readSourceTool(cfg, session, journal, { resolveOpts } = {}) {
     const uri = hit['adtcore:uri'];
     const name = hit['adtcore:name'];
     if (!/^\/sap\/bc\/adt\/oo\/classes\/[^/]+$/i.test(uri)) {
-      throw new Error(`method reads a method of a class; ${hit['adtcore:type']} ${name} is not one.`);
+      throw notApplicable(`method reads a method of a class; ${hit['adtcore:type']} ${name} is not one.`);
     }
     const v = version ?? 'active';
     if (v !== 'active' && v !== 'inactive') {
-      throw new Error('method is read in the active or the inactive version, not in a history number.');
+      throw invalidArguments('method is read in the active or the inactive version, not in a history number.');
     }
     if (!session.raw) throw new Error('this session has no raw client: the class outline cannot be read.');
     const read = readerFor(transportFor(session.raw), uri, (kind, out) =>
@@ -89,13 +90,13 @@ export function readSourceTool(cfg, session, journal, { resolveOpts } = {}) {
     if (v === 'inactive') {
       const doc = await read('objectVersion', null, { version: 'inactive' });
       if (documentVersion(doc.body) !== 'inactive') {
-        throw new Error(`${name} has no inactive version: read the method with version active.`);
+        throw notApplicable(`${name} has no inactive version: read the method with version active.`);
       }
     }
     const outline = await read('classComponents', `${uri}/objectstructure`, { version: v, withShortDescriptions: 'true' });
     const found = findMethod(parseClassComponents(outline.body), method);
     if (!found.method) {
-      throw new Error(
+      throw notApplicable(
         found.candidates.length
           ? `'${method}' names several methods of ${name}: ${found.candidates.join(', ')}. Name one (LOCAL_CLASS->NAME for a local class).`
           : `${name} has no method '${method}'. Its methods: ${found.known.slice(0, 40).join(', ')}${found.known.length > 40 ? ', ...' : ''}.`
@@ -184,7 +185,7 @@ export function readSourceTool(cfg, session, journal, { resolveOpts } = {}) {
     const objectUri = hit['adtcore:uri'];
     const name = hit['adtcore:name'];
     if (!STORED_FAMILY.test(objectUri)) {
-      throw new Error(
+      throw notApplicable(
         `version and compareTo are measured for classes and programs only; ${hit['adtcore:type']} ${name} ` +
           'is not one. Read the current source without them, or compare in the IDE.'
       );
@@ -337,7 +338,7 @@ export function readSourceTool(cfg, session, journal, { resolveOpts } = {}) {
       const includes = classIncludes(structure);
       sourceUrl = includes.get(include);
       if (!sourceUrl) {
-        throw new Error(`Include '${include}' not available for ${objectName}.`);
+        throw notApplicable(`Include '${include}' not available for ${objectName}.`);
       }
     } else {
       sourceUrl = mainInclude(structure);
@@ -521,21 +522,21 @@ export function readSourceTool(cfg, session, journal, { resolveOpts } = {}) {
     async handler({ objectName, objectNames, objectType, include, enhancements, enhancementSource, context, version, compareTo, method, textElements }) {
       const flags = { objectType, include, enhancements, enhancementSource, context, version, compareTo, method, textElements };
       if (method && (compareTo || Array.isArray(objectNames) || enhancements || enhancementSource || include || textElements)) {
-        throw new Error('method reads one method of one class: no compareTo, objectNames, include, enhancements or textElements with it.');
+        throw invalidArguments('method reads one method of one class: no compareTo, objectNames, include, enhancements or textElements with it.');
       }
-      if (textElements && (version || compareTo)) throw new Error('text elements are read as they are now: ask them without version/compareTo.');
+      if (textElements && (version || compareTo)) throw invalidArguments('text elements are read as they are now: ask them without version/compareTo.');
       const versioned = version !== undefined && version !== null || compareTo !== undefined && compareTo !== null;
       if (versioned && Array.isArray(objectNames)) {
-        throw new Error('version and compareTo read one object: pass objectName, not objectNames.');
+        throw invalidArguments('version and compareTo read one object: pass objectName, not objectNames.');
       }
       if (versioned && (enhancements || enhancementSource)) {
-        throw new Error('enhancements describe the object as it is now: ask them without version/compareTo.');
+        throw invalidArguments('enhancements describe the object as it is now: ask them without version/compareTo.');
       }
       if (Array.isArray(objectNames)) {
-        if (objectName) throw new Error('Pass objectName or objectNames, never both.');
-        if (!objectNames.length) throw new Error('objectNames is empty.');
+        if (objectName) throw invalidArguments('Pass objectName or objectNames, never both.');
+        if (!objectNames.length) throw invalidArguments('objectNames is empty.');
         if (objectNames.length > BATCH_CAP) {
-          throw new Error(
+          throw invalidArguments(
             `objectNames has ${objectNames.length} names; the cap is ${BATCH_CAP} per call -- split the batch.`
           );
         }
@@ -581,7 +582,7 @@ export function readSourceTool(cfg, session, journal, { resolveOpts } = {}) {
           ])
         );
       }
-      if (!objectName) throw new Error('objectName (or objectNames) is required.');
+      if (!objectName) throw invalidArguments('objectName (or objectNames) is required.');
       const one = await readOne(objectName, flags);
       if (one.json) return asText(one.json);
       // The source stays the text a person reads; what was asked, read and left out is the
