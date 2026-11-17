@@ -202,7 +202,7 @@ test('the scan reads the package from the system and reports the non-A names wit
   assert.equal(out.scope.objects, 2, 'only the DDLS: a class and a type folder are not CDS sources');
   assert.equal(out.scope.read, 1);
   assert.equal(out.scope.references, 3);
-  assert.equal(out.scope.complete, false, 'the empty source is not a clean view');
+  assert.equal(out.complete, false, 'the empty source is not a clean view');
   assert.deepEqual(out.scope.notRead, [{ object: 'DDLS/DF ZI_EMPTY', reason: 'the system answered an empty source' }]);
   const byName = Object.fromEntries(out.findings.map((f) => [f.name, f]));
   assert.equal(byName.I_PRODUCT, undefined, 'a released name is not a finding');
@@ -251,7 +251,7 @@ test('an entity filter reads one source, not the package', async () => {
   const calls = [];
   const out = await runCleanCoreScan(cfgFor(), fakeApi({ calls }), { package: 'ZTEST', entity: 'zi_a' });
   assert.equal(calls.filter((c) => c.startsWith('read')).length, 1);
-  assert.equal(out.scope.complete, true);
+  assert.deepEqual([out.scope.objects, out.scope.read, out.scope.notRead], [1, 1, undefined], 'the one source, read');
   assert.equal(out.scope.entityFilter, 'zi_a');
 });
 

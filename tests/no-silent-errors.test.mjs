@@ -205,7 +205,7 @@ test('a package scan files SOURCE_NOT_READ for an object and for a package it co
   const out = await runCleanCoreScan(cfg, api, { package: 'ZDEMO' }, openJournal(cfg));
   const gaps = lines.filter((l) => l.stream === 'gaps' && l.code === 'SOURCE_NOT_READ').map((l) => l.subject).sort();
   assert.deepEqual(gaps, ['DDLS/DF ZI_GONE', 'DEVC/K ZDEMO_SUB']);
-  assert.equal(out.scope.complete, false, 'the counts are a floor, not a total');
+  assert.equal(out.complete, false, 'the counts are a floor, not a total');
   assert.equal(out.scope.read, 1, 'the readable half still came through: degrading is not failing');
 });
 

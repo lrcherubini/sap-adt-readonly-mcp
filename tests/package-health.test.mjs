@@ -99,7 +99,8 @@ test('one listing feeds both parts; each class and program is checked on its sto
   assert.equal(out.syntax.clean, 2);
   assert.deepEqual(out.syntax.withMessages.map((m) => [m.object, m.byType]), [['CLAS/OC ZCL_DEMO_BROKEN', { E: 1 }]]);
   assert.deepEqual(out.syntax.notChecked, [{ object: 'CLAS/OC ZCL_DEMO_NOURI', package: 'ZDEMO_PKG', reason: 'the package listing gave no URI for it' }]);
-  assert.equal(out.syntax.complete, false, 'an object not checked is not clean');
+  assert.ok(out.incomplete.some((i) => i.list === 'syntax' && i.code === 'NOT_READ'), 'an object not checked is not clean');
+  assert.equal(out.syntax.complete, undefined, 'the cut is said once, in incomplete');
   assert.equal(out.complete, false);
   assert.equal(out.atc.read, false, 'ATC is not run unless asked, and the answer says so');
   assert.match(out.atc.reason, /atc: true/);
@@ -123,7 +124,7 @@ test('the cap on checks is a gap and an incomplete answer, never a smaller clean
   const out = await runPackageHealth(cfgFor(), fakeSession(), { package: 'ZDEMO_PKG', maxChecks: 1 }, journal);
   assert.equal(out.syntax.checked, 1);
   assert.equal(out.syntax.skipped, 3);
-  assert.equal(out.syntax.complete, false);
+  assert.ok(out.incomplete.some((i) => i.list === 'syntax' && i.code === 'CAP_REACHED'));
   assert.ok(gaps.some((g) => g.code === 'SCAN_AT_CAP' && /3 of 4/.test(g.detail)));
   await assert.rejects(() => runPackageHealth(cfgFor(), fakeSession(), { package: 'ZDEMO_PKG', maxChecks: MAX_CHECKS + 1 }, journal), /maxChecks must be/);
 });
@@ -173,7 +174,7 @@ test('atc: true runs the default variant once over the whole package and summari
   assert.ok(calls.includes('atc body /sap/bc/adt/repository/informationsystem/virtualfolders?selection=package%3aZDEMO_PKG'));
   assert.equal(calls.filter((c) => c === 'atc POST /sap/bc/adt/atc/runs').length, 1, 'one run, not one per object');
   assert.equal(out.atc.read, true);
-  assert.equal(out.atc.complete, true);
+  assert.ok(!out.incomplete.some((i) => i.list.startsWith('atc')));
   assert.equal(out.atc.worklistId, WL);
   assert.equal(out.atc.count, 1);
   assert.equal(out.atc.findings[0].checkId, 'SELECT');
@@ -186,7 +187,7 @@ test('atc: true runs the default variant once over the whole package and summari
   session.raw.httpClient.request = async (url, req) => (req.method === 'GET' && url.startsWith('/sap/bc/adt/atc/worklists/') ? { status: 200, body: empty, headers: {} } : request(url, req));
   const none = await runPackageHealth(cfgFor(), session, { package: 'ZDEMO_PKG', atc: true }, journal);
   assert.equal(none.atc.objectsChecked, 0);
-  assert.equal(none.atc.complete, false);
+  assert.ok(none.incomplete.some((i) => i.list === 'atc' && /checked nothing/.test(i.reason)));
   assert.match(none.atc.reason, /checked nothing/);
   assert.equal(none.complete, false);
 });

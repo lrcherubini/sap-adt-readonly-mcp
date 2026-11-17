@@ -335,7 +335,7 @@ test('lookup mode lists the layers and picks no winner', async () => {
   );
   assert.equal(out.reminder, undefined, "the fixed reading of the answer is the tool's description and docs/tools.md, not a field of every answer");
   assert.equal(out.scope.package, 'ZTEST');
-  assert.equal(out.scope.complete, true);
+  assert.equal(out.complete, true);
 });
 
 test('an entity in neither the package nor upstream is said to be missing, not answered as empty', async () => {
@@ -421,7 +421,7 @@ test('an object the system does not return is a gap of its own, and the scope sa
   const lines = [];
   resetAnnotationIndexCache();
   const out = await runAnnotationScan(cfg((l) => lines.push(l)), apiFor(root, { failing: ['ZI_BASE'] }), { package: 'ZTEST' }, journalFor(lines));
-  assert.equal(out.scope.complete, false);
+  assert.equal(out.complete, false);
   assert.deepEqual(out.scope.notRead.map((n) => n.object), ['DDLS/DF ZI_BASE', 'DDLX/EX ZI_BASE']);
   const gaps = lines.filter((l) => l.code === 'SOURCE_NOT_READ');
   assert.equal(gaps.length, 2);

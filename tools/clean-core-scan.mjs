@@ -170,8 +170,8 @@ export async function runCleanCoreScan(cfg, api, args = {}, journal = null, extr
     absent: { count: absent.length, names: absent },
     unmapped,
     reported: rows.length,
-    findingsPage: { total: p.total, returned: p.returned, offset: p.offset, limit: p.limit, truncated: p.truncated, ...(p.next ? { next: { findingsOffset: p.next.offset } } : {}) },
-    citationsShown: CITATIONS_SHOWN,
+    findingsPage: { total: p.total, returned: p.returned, offset: p.offset, limit: p.limit, ...(p.next ? { next: { findingsOffset: p.next.offset } } : {}) },
+    ...(rows.length ? { citationsShown: CITATIONS_SHOWN } : {}),
     findings: rows,
   }, incomplete);
 }

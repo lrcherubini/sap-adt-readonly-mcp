@@ -204,7 +204,7 @@ export async function runPackageHealth(cfg, session, args = {}, journal = null, 
   } else {
     atc = { asked: true, ...(await atcPackage(cfg, session, journal, pkg, { maxFindings })) };
     if (!atc.read) incomplete.push({ list: 'atc', code: 'NOT_READ', reason: atc.reason });
-    else if (!atc.complete && atc.reason) incomplete.push({ list: 'atc', code: 'NOT_READ', reason: atc.reason });
+    else if (!atc.complete) incomplete.push({ list: 'atc', code: 'NOT_READ', reason: atc.reason ?? 'the run did not cover the whole object set of the package' });
     for (const i of atc.runIncomplete ?? []) incomplete.push({ ...i, list: `atc.${i.list}` });
     if (atc.truncated) incomplete.push({ list: 'atc.findings', code: 'CAP_REACHED', returned: atc.returned, total: atc.count, narrowBy: ['maxFindings', 'package'], reason: 'one more page is one more ATC run: raise maxFindings, or run a sub-package' });
   }
@@ -221,11 +221,15 @@ export async function runPackageHealth(cfg, session, args = {}, journal = null, 
     objects: listing.objects.length,
     ...(listing.notListed.length ? { notListed: listing.notListed } : {}),
     notCovered,
-    cleanCore,
-    syntax,
-    atc,
+    // Each part's own complete/truncated flags steer the entries above; the answer says each
+    // cut once, in incomplete, under the part's name.
+    cleanCore: partOf(cleanCore),
+    syntax: partOf(syntax),
+    atc: partOf(atc),
   }, incomplete);
 }
+
+const partOf = ({ complete: _complete, truncated: _truncated, ...shown }) => shown;
 
 export function packageHealthTool(cfg, session, journal) {
   return {

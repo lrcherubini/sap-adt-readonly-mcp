@@ -25,3 +25,17 @@ test('no tool copies the metadata of an ADT reply into its answer', () => {
   }
   assert.deepEqual(found, []);
 });
+
+// A page object copying the cut flag of page() (`truncated: p.truncated`): the cut is said once,
+// in `incomplete`, and the page carries only where it is and its `next`.
+const PAGE_FLAG = /\btruncated\s*:\s*[a-z]\w*\.truncated\b/;
+
+test('no page object repeats the cut that incomplete states', () => {
+  const found = [];
+  for (const { f, text } of files) {
+    text.split(/\r?\n/).forEach((line, i) => {
+      if (!/^\s*(\/\/|\*)/.test(line) && PAGE_FLAG.test(line)) found.push(`tools/${f}:${i + 1}: ${line.trim()}`);
+    });
+  }
+  assert.deepEqual(found, []);
+});

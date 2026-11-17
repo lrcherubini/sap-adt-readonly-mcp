@@ -955,7 +955,7 @@ test('the analysis answers the contract, and two pages of fields are every field
   assert.deepEqual(one.fieldsPage.next, { fieldsOffset: 2 });
   const two = await analyseValueHelp(fakeApi({ tree }), sources, { entity: 'ZC_Test', validate: false, exposure: false, maxFields: 2, fieldsOffset: 2 });
   assert.deepEqual(contractErrors(two), []);
-  assert.equal(two.fieldsPage.truncated, false);
+  assert.equal(two.fieldsPage.next, undefined);
   assert.deepEqual([...one.fields, ...two.fields].map((f) => f.field), ['Plant', 'StorageLocation', 'CompanyCode']);
 });
 

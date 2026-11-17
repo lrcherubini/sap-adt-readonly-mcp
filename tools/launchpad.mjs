@@ -29,7 +29,7 @@ import { finish, page } from '../lib/completeness.mjs';
 function paged(list, args, name, incomplete) {
   const p = page(list, { max: args.max, offset: args.offset, defaultMax: DEFAULT_MAX, ceiling: MAX_MAX });
   if (p.truncated) incomplete.push({ list: name, code: 'CAP_REACHED', returned: p.returned, total: p.total, next: { offset: p.next.offset, costsCalls: 1 } });
-  return { items: p.items, page: { total: p.total, returned: p.returned, offset: p.offset, limit: p.limit, truncated: p.truncated, ...(p.next ? { next: { offset: p.next.offset, costsCalls: 1 } } : {}) } };
+  return { items: p.items, page: { total: p.total, returned: p.returned, offset: p.offset, limit: p.limit, ...(p.next ? { next: { offset: p.next.offset, costsCalls: 1 } } : {}) } };
 }
 
 /** The entries of an FDM read: a server next page not followed, and the navigations deferred. */
@@ -222,7 +222,7 @@ export function launchpadTool(cfg, session, journal) {
       const more = count !== null ? n + rows.length < count : rows.length >= 50;
       const next = more ? { skip: n + rows.length } : null;
       if (more) incomplete.push({ list: 'pages', code: count !== null ? 'CAP_REACHED' : 'SERVER_PAGE_FULL', returned: rows.length, total: count, next });
-      return { total: count, skip: n, returned: rows.length, truncated: more, ...(next ? { next } : {}), pages: rows, incomplete };
+      return { total: count, skip: n, returned: rows.length, ...(next ? { next } : {}), pages: rows, incomplete };
     },
     async page({ id }) {
       const p = need(id, 'id', 'page');

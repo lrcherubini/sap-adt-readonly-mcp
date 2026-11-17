@@ -410,7 +410,8 @@ test('a truncated answer says how much it dropped', async () => {
   // arrive whatever the caps say. Saying so is the difference between a cap and a filter.
   const { out } = await run({ body: LIST }, { recent: true, maxRequests: 2 });
   assert.equal(out.requests.length, 2);
-  assert.deepEqual([out.requestsPage.total, out.requestsPage.truncated, out.requestsPage.next.offset], [3, true, 2]);
+  assert.deepEqual([out.requestsPage.total, out.requestsPage.next.offset], [3, 2]);
+  assert.equal(out.requestsPage.truncated, undefined, 'the cut is said in incomplete');
   assert.deepEqual(contractErrors(out), []);
   const second = await run({ body: LIST }, { recent: true, maxRequests: 2, offset: 2 });
   assert.deepEqual([...out.requests, ...second.out.requests].map((r) => r.number), (await run({ body: LIST }, { recent: true })).out.requests.map((r) => r.number), 'two pages are the list once');
@@ -423,7 +424,7 @@ test('a truncated answer says how much it dropped', async () => {
   assert.equal(rest.out.requests[0].objects.length, 2);
   // Always present, so "no truncation" is stated rather than inferred from an absence.
   const whole = await run({ body: LIST }, { recent: true });
-  assert.equal(whole.out.requestsPage.truncated, false);
+  assert.equal(whole.out.requestsPage.next, undefined);
 });
 
 test('the answer carries the description and the owner, and the audit line carries neither', async () => {

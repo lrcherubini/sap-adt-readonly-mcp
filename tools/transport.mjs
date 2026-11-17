@@ -636,7 +636,7 @@ export function transportTool(cfg, session, journal) {
         const o = page(objects, { max: args.maxObjectsPerRequest, offset: wantsDetail ? args.objectsOffset : 0, defaultMax: MAX_OBJECTS_PER_REQUEST, ceiling: OBJECTS_CEILING });
         const next = o.next ? (wantsDetail ? { objectsOffset: o.next.offset, costsCalls: 1 } : { number, objectsOffset: o.next.offset }) : null;
         if (o.truncated) incomplete.push({ list: `requests.${number}.objects`, code: 'CAP_REACHED', returned: o.returned, total: o.total, next });
-        return { objects: o.items, objectsPage: { total: o.total, returned: o.returned, offset: o.offset, limit: o.limit, truncated: o.truncated, ...(next ? { next } : {}) } };
+        return { objects: o.items, objectsPage: { total: o.total, returned: o.returned, offset: o.offset, limit: o.limit, ...(next ? { next } : {}) } };
       }
 
       // WHICH ROWS moved. One ADT call per object, so: opt-in, budgeted, and every object
@@ -787,7 +787,7 @@ function listScope(doc, kept) {
 }
 
 /** A list page as the answer shows it; the next page re-reads the list (`costsCalls`). */
-const pageOf = (p, costsCalls) => ({ total: p.total, returned: p.returned, offset: p.offset, limit: p.limit, truncated: p.truncated, ...(p.next ? { next: { ...p.next, costsCalls } } : {}) });
+const pageOf = (p, costsCalls) => ({ total: p.total, returned: p.returned, offset: p.offset, limit: p.limit, ...(p.next ? { next: { ...p.next, costsCalls } } : {}) });
 
 const capOf = (given, fallback) => {
   const n = Number(given);

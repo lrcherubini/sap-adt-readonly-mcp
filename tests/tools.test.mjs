@@ -1052,7 +1052,7 @@ test('adt_package_tree pages the objects of the package asked', async () => {
   const nodes = Array.from({ length: 5 }, (_, i) => ({ OBJECT_NAME: `ZCL_${i}`, OBJECT_TYPE: 'CLAS/OC', DESCRIPTION: '' }));
   const api = fakeApi({ nodeContents: () => ({ nodes }) });
   const p1 = jsonOf(await byName(toolsWith(api), 'adt_package_tree').handler({ packageName: 'ZDEMO', max: 2 }));
-  assert.deepEqual(p1.objectsPage, { returned: 2, offset: 0, limit: 2, truncated: true, next: { packageName: 'ZDEMO', offset: 2 } });
+  assert.deepEqual(p1.objectsPage, { returned: 2, offset: 0, limit: 2, next: { packageName: 'ZDEMO', offset: 2 } });
   assert.equal(p1.total, 5);
   const p2 = jsonOf(await byName(toolsWith(api), 'adt_package_tree').handler({ packageName: 'ZDEMO', max: 3, offset: 2 }));
   assert.deepEqual([...p1.objects, ...p2.objects].map((o) => o.name), nodes.map((n) => n.OBJECT_NAME));

@@ -662,10 +662,9 @@ export async function analyseValueHelp(api, sources, params = {}) {
     if (inv.missing.length) fieldsPage.notFound = inv.missing;
     const end = inv.offset + inv.fields.length;
     if (end < inv.matched) {
-      fieldsPage.truncated = true;
       fieldsPage.next = { fieldsOffset: end };
       incomplete.push({ list: 'fields', code: 'CAP_REACHED', returned: inv.fields.length, total: inv.matched, next: { fieldsOffset: end } });
-    } else fieldsPage.truncated = false;
+    }
     spent.calls += inv.calls;
     notes.push(...inv.notes);
     notes.push(applyModelSemantics(params.entity, fields, inv.annotations));

@@ -160,7 +160,7 @@ export function packageTreeTool(cfg, session, journal, _shared = {}) {
           total: objects.length,
           ...(folders ? { treeFolders: folders } : {}),
           byType,
-          ...(listed ? { objects: listed.items, objectsPage: { returned: listed.returned, offset: listed.offset, limit: listed.limit, truncated: listed.truncated, ...(next ? { next } : {}) } } : {}),
+          ...(listed ? { objects: listed.items, objectsPage: { returned: listed.returned, offset: listed.offset, limit: listed.limit, ...(next ? { next } : {}) } } : {}),
           ...(notWalked.length ? { subPackagesNotWalked: notWalked } : {}),
           subPackages,
         };

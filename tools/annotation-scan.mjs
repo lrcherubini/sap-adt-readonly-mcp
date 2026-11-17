@@ -180,7 +180,7 @@ export async function runAnnotationScan(cfg, api, args = {}, journal = null, ext
     if (p.truncated) incomplete.push({ list: args.element ? 'rows' : 'findings', code: 'CAP_REACHED', returned: p.returned, total: p.total, next: { rowsOffset: p.next.offset } });
     return p;
   };
-  const pageOf = (p) => ({ total: p.total, returned: p.returned, offset: p.offset, limit: p.limit, truncated: p.truncated, ...(p.next ? { next: { rowsOffset: p.next.offset } } : {}) });
+  const pageOf = (p) => ({ total: p.total, returned: p.returned, offset: p.offset, limit: p.limit, ...(p.next ? { next: { rowsOffset: p.next.offset } } : {}) });
 
   // --- lookup mode ---------------------------------------------------------------
   if (args.element) {
