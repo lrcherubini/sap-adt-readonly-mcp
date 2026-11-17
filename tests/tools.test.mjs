@@ -1280,7 +1280,11 @@ test('adt_customizing reads an allow-listed table by POST and audits the table, 
 test('adt_customizing refuses a table outside the list before any request, and needs a raw client', async () => {
   const sent = [];
   const tools = buildTools(cfgWith([]), sessionWithPost(fakeApi(), PREVIEW_BODY, sent));
-  await assert.rejects(() => byName(tools, 'adt_customizing').handler({ table: 'VBAK' }), /not in the customizing allow-list/);
+  await assert.rejects(() => byName(tools, 'adt_customizing').handler({ table: 'VBAK' }), (e) => {
+    assert.match(e.message, /not in the customizing allow-list/);
+    assert.ok(!/npm run|T683S/.test(e.message), 'no operator command, no copy of the list in the description');
+    return true;
+  });
   await assert.rejects(() => byName(tools, 'adt_customizing').handler({ table: 'T683S', rows: 999 }), /1 to 200/);
   assert.equal(sent.length, 0);
   await assert.rejects(() => byName(toolsWith(fakeApi()), 'adt_customizing').handler({ table: 'T683S' }), /no raw client/);
