@@ -18,7 +18,8 @@ import {
   rankCandidates,
 } from '../tools/value-help.mjs';
 import { loadCatalog } from '../lib/catalog.mjs';
-import { resolveDataElement } from '../lib/ddic.mjs';
+import { resolveDataElement, dataElementUrl, domainUrl } from '../lib/ddic.mjs';
+import { derivedGet } from '../lib/adt-get.mjs';
 import { noDefs } from '../lib/annotation-defs.mjs';
 import { contractErrors } from '../lib/completeness.mjs';
 import { checkExposure } from '../lib/srvd-check.mjs';
@@ -1000,4 +1001,17 @@ test('a field without a data element is an answer, not a gap: it adds no incompl
   const r = await analyseValueHelp(api, sources, { entity: 'ZC_Test', validate: false, exposure: false });
   assert.equal(fieldOf(r, 'X1').noDataElement, true);
   assert.equal(r.incomplete.some((i) => i.list === 'fields.X1'), false);
+});
+
+test('a namespaced data element is one %2f segment, which the URI check admits', async () => {
+  // Measured live: /DMO/CARRIER_ID left raw became dataelements//dmo/carrier_id and was refused.
+  assert.equal(dataElementUrl('/DMO/CARRIER_ID'), '/sap/bc/adt/ddic/dataelements/%2fdmo%2fcarrier_id');
+  assert.equal(domainUrl('/DMO/CARRIER_ID'), '/sap/bc/adt/ddic/domains/%2fdmo%2fcarrier_id');
+  assert.equal(dataElementUrl('WERKS_D'), '/sap/bc/adt/ddic/dataelements/werks_d');
+  const seen = [];
+  const t = async (request) => (seen.push(request), { status: 200, body: '<x/>', headers: { 'content-type': 'application/xml' } });
+  const url = dataElementUrl('/DMO/CARRIER_ID');
+  await derivedGet(t, url, url, { kind: 'objectDocument' });
+  assert.equal(seen[0].url, url);
+  assert.equal(seen[0].method, 'GET');
 });
