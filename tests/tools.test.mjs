@@ -1268,6 +1268,7 @@ test('adt_customizing reads an allow-listed table by POST and audits the table, 
   assert.deepEqual(out.incomplete.map((i) => `${i.code}:${i.total}`), ['CAP_REACHED:9400']);
   assert.deepEqual(out.incomplete[0].narrowBy, ['where', 'fields', 'rows'], 'no offset exists: the cut names the filters that narrow it');
   assert.equal(out.truncated, undefined, 'the cut is said once, in incomplete');
+  assert.equal(out.why, undefined, 'why the table is listed is governance, not part of the rows');
   assert.deepEqual(contractErrors(out), []);
   assert.deepEqual(out.rows[1], { KALSM: 'ZDEMO2', KOFRM: '0000953' });
   assert.equal(out.drift, undefined);
@@ -1379,6 +1380,7 @@ test('adt_atc_run sends the two POSTs and the GET, answers the findings, and aud
   assert.equal(out.variantChecks.length, 8);
   assert.deepEqual(out.variantChecks[1].parameters, [{ name: 'ABAPLanguageVersion', value: '1' }]);
   assert.equal(out.variant, 'ZDEMO_CLEAN_CORE');
+  assert.equal(out.variantWhy, undefined, 'what a variant is for is in the tool description');
   assert.equal(out.worklistId, ATC_ID);
   assert.equal(out.object.name, 'ZCL_T');
   assert.equal(out.count, 2);

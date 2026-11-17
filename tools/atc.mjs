@@ -312,7 +312,6 @@ export async function runVariant(cfg, session, journal, v, { subject, body, incl
   if (parsed.drift.length) incomplete.push({ list: 'findings', code: 'PARSE_FAILED', count: parsed.drift.length, reason: 'see drift' });
   return {
     variant: v,
-    variantWhy: ATC_VARIANTS.get(v),
     worklistId,
     timestamp: runReply.timestamp,
     // The server's own count, only where it differs from what the worklist holds (`short`).

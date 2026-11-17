@@ -122,7 +122,6 @@ export function customizingTool(cfg, session, journal) {
       if (parsed.drift.length) incomplete.push({ list: 'rows', code: 'PARSE_FAILED', count: parsed.drift.length, reason: 'see drift' });
       return asText(finish({
         table: built.table,
-        why: CUSTOMIZING_TABLES.get(built.table).why,
         sql: built.sql,
         totalRows: parsed.totalRows,
         count: parsed.rows.length,
