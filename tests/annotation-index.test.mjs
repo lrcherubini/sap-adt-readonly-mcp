@@ -437,10 +437,33 @@ test('a case is unreachable; a cast of a non-field operand stays an expression',
   const index = indexOf(castWorkspace());
   assert.ok(reaching(index, 'ZDEMO_C_CASE', 'Plant').every((r) => r.unreachable?.reason === 'case'));
   assert.deepEqual(elementOrigin("key cast( Werks as werks_d ) as Plant"), { kind: 'cast', field: 'Werks', preservingType: false });
-  assert.deepEqual(elementOrigin('cast( s.Werks as werks_d preserving type ) as Plant'), { kind: 'cast', field: 'Werks', preservingType: true });
+  assert.deepEqual(elementOrigin('cast( s.Werks as werks_d preserving type ) as Plant'), { kind: 'cast', field: 'Werks', preservingType: true, source: 's' });
   assert.deepEqual(elementOrigin('cast( _Plant.Werks as werks_d ) as Plant'), { kind: 'expression' });
   assert.deepEqual(elementOrigin("cast( concat( Werks, 'X' ) as abap.char(5) ) as Plant"), { kind: 'expression' });
   assert.deepEqual(elementOrigin("CASE Werks WHEN '' THEN 'X' END as Plant"), { kind: 'case' });
+});
+
+test('a qualified element follows the source its qualifier names, not every join partner', () => {
+  // Measured on 2026-11-18: `b.Werks as Plant` over `a inner join b` carries b's DDLX and
+  // nothing written in a. Both partners have a Werks here, so following every edge would list a.
+  const ddls = (name, label) => [`define view entity ${name} as select from t001w {`, `  @EndUserText.label: '${label}'`, '  key werks as Werks', '}'].join('\n');
+  const index = indexOf({
+    'zdemo_i_a.ddls.asddls': ddls('ZDEMO_I_A', 'A'),
+    'zdemo_i_b.ddls.asddls': ddls('ZDEMO_I_B', 'B'),
+    'zdemo_c_join.ddls.asddls': [
+      'define view entity ZDEMO_C_JOIN as select from ZDEMO_I_A as a',
+      '  inner join ZDEMO_I_B as b on b.Werks = a.Werks {',
+      '  key b.Werks as Plant,',
+      '  ZDEMO_I_A.Werks as ByName,',
+      '  Werks as Either',
+      '}',
+    ].join('\n'),
+  });
+  const from = (element) => reaching(index, 'ZDEMO_C_JOIN', element).map((r) => r.from).sort();
+  assert.deepEqual(from('Plant'), ['ZDEMO_I_B'], 'by alias');
+  assert.deepEqual(from('ByName'), ['ZDEMO_I_A'], 'by the source name');
+  assert.deepEqual(from('Either'), ['ZDEMO_I_A', 'ZDEMO_I_B'], 'unqualified: either may give it');
+  assert.deepEqual(index.entities.get('ZDEMO_C_JOIN').lineage.map((e) => e.alias), ['A', 'B']);
 });
 
 test('a hide that arrives only through an unmeasured expression makes a finding that says so', () => {
@@ -462,8 +485,14 @@ test('a view reached along an open path and a held one reaches', () => {
   const index = indexOf({
     'zdemo_i_src.ddls.asddls': ['define view entity ZDEMO_I_SRC as select from t001w {', '  @UI.hidden: true', '  key Plant', '}'].join('\n'),
     'zdemo_i_held.ddls.asddls': ['@Metadata.ignorePropagatedAnnotations: true', 'define view entity ZDEMO_I_HELD as select from ZDEMO_I_SRC {', '  key Plant', '}'].join('\n'),
+    // An unqualified element of a union may come from either branch: two paths to one source.
     'zdemo_c_both.ddls.asddls': [
-      'define view entity ZDEMO_C_BOTH as select from ZDEMO_I_HELD',
+      'define view entity ZDEMO_C_BOTH as select from ZDEMO_I_HELD { key Plant }',
+      '  union select from ZDEMO_I_SRC { key Plant }',
+    ].join('\n'),
+    // A qualified one names its source: measured on 2026-11-18, the partner gives it nothing.
+    'zdemo_c_qual.ddls.asddls': [
+      'define view entity ZDEMO_C_QUAL as select from ZDEMO_I_HELD',
       '  inner join ZDEMO_I_SRC on ZDEMO_I_HELD.Plant = ZDEMO_I_SRC.Plant',
       '{',
       '  key ZDEMO_I_HELD.Plant',
@@ -472,7 +501,9 @@ test('a view reached along an open path and a held one reaches', () => {
   });
   const rows = reaching(index, 'ZDEMO_C_BOTH', 'Plant');
   assert.equal(rows.length, 1, 'one source, one row');
-  assert.equal(rows[0].heldBy, undefined, 'the join reaches it directly');
+  assert.equal(rows[0].heldBy, undefined, 'the open branch reaches it directly');
+  const [qual] = reaching(index, 'ZDEMO_C_QUAL', 'Plant');
+  assert.deepEqual(qual.heldBy, { entity: 'ZDEMO_I_HELD', by: 'ignorePropagatedAnnotations' });
 });
 
 test('lookup mode marks each row that cannot reach, and counts them (issue #1)', async () => {
