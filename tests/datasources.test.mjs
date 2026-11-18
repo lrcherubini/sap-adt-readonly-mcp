@@ -28,6 +28,20 @@ define view entity ZI_Demo
   assert.deepEqual(of(hits, 'association'), ['I_ProductGroup_2']);
   assert.deepEqual(of(hits, 'composition'), ['ZI_DemoItem']);
   assert.equal(hits.every((h) => h.file === 'z/zi_demo.ddls.asddls'), true);
+  assert.equal(hits.some((h) => 'alias' in h), false, 'no alias unless asked: the scan rows keep their shape');
+});
+
+test('aliases are read on request, after parameters too, and never from `as select`', () => {
+  const src = `
+define view entity ZI_Demo with parameters p_date : abap.dats
+  as select from ZI_DemoSrc( p_date : $parameters.p_date ) as s
+  left outer join mara on mara.matnr = s.Product
+  association [0..1] to I_ProductGroup_2 as _Group on _Group.ProductGroup = s.ProductGroup
+{ key s.Product }
+`;
+  const hits = dataSourcesFrom(src, null, { aliases: true });
+  const alias = Object.fromEntries(hits.map((h) => [h.name, h.alias ?? null]));
+  assert.deepEqual(alias, { ZI_DemoSrc: 's', mara: null, I_ProductGroup_2: null });
 });
 
 test('redirected to is its own kind, never folded into association', () => {
