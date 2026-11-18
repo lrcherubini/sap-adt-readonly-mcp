@@ -134,6 +134,10 @@ test('a key with no active contribution at all is flagged silenced, not absent',
   assert.equal(a.path, 'ui.fieldgroup[1].label');
   assert.equal(a.value, undefined, 'nothing reaches the app');
   assert.equal(a.from, undefined);
+  // What was written, and by whom, is said beside it -- never as `value`.
+  assert.equal(a.written.from.name, 'ZC_DEMOINVMAPTP');
+  assert.equal(a.written.value, p.conflicts.find((c) => c.path === a.path).overridden[0].value);
+  assert.equal(p.annotations.find((x) => !x.silenced).written, undefined);
   // It still appears in conflicts, because "in the chain but reaching nothing" is exactly
   // the thing somebody is looking for when a label went missing.
   assert.ok(p.conflicts.some((c) => c.path === 'ui.fieldgroup[1].label' && c.winner === null));
