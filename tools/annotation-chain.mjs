@@ -183,8 +183,9 @@ export function annotationChainTool(cfg, session, journal) {
       // `conflicts` alone was not enough -- measured twice on 2026-09-09.
       // The entity asked, not the payload's: each contribution names the entity it annotates, and
       // the first one is an upstream view whenever the asked one adds nothing of its own
-      // (measured 2026-11-17: ZDEMO_C_CHANCTRL answered with ZDEMO_I_CHANNELUP).
-      const hiddenRole = hiddenWithUiRole({ ...chain, entity: args.entity });
+      // (measured 2026-11-17: ZDEMO_C_CHANCTRL answered with ZDEMO_I_CHANNELUP). The same for the
+      // element: a renamed one answers with its upstream name (SourceChannel came back as Channel).
+      const hiddenRole = hiddenWithUiRole({ ...chain, entity: args.entity, element: args.element ?? chain.element });
 
       // Two sources writing one key is the diagnosis this tool exists for, so it is a
       // finding about the WORKSPACE, not a gap in the server.
@@ -210,7 +211,7 @@ export function annotationChainTool(cfg, session, journal) {
           journal.finding({
             code: 'ANNOTATION_OVERRIDDEN',
             subject:
-              `${args.entity}.${chain.element ?? args.element ?? '*'} ` +
+              `${args.entity}.${args.element ?? '*'} ` +
               `${c.path}`,
             // `effect`, not `detail`: detail is a GAPS field and the journal allowlist
             // drops it on a finding -- correctly, and silently, because the allowlist is
@@ -232,7 +233,7 @@ export function annotationChainTool(cfg, session, journal) {
 
       return json(finish({
         entity: args.entity,
-        element: chain.element ?? args.element,
+        element: args.element ?? null,
         counts: chain.counts,
         sources: chain.sources,
         annotations: chain.annotations,

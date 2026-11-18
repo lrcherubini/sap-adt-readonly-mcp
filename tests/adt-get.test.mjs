@@ -357,8 +357,10 @@ test('the answer names the entity asked, not the one the first contribution anno
   // Measured 2026-11-17: a view that adds nothing of its own answers with contributions whose
   // ENTITY is the upstream view, and the answer used to take that name for the asked one.
   const { tool } = toolWith({ body: MEASURED });
-  const out = JSON.parse((await tool.handler({ entity: 'ZDEMO_C_ONTOP', element: 'BaseUnit' })).content[0].text);
+  // A renamed element answers with its upstream name, too (SourceChannel came back as Channel).
+  const out = JSON.parse((await tool.handler({ entity: 'ZDEMO_C_ONTOP', element: 'RenamedUnit' })).content[0].text);
   assert.equal(out.entity, 'ZDEMO_C_ONTOP');
+  assert.equal(out.element, 'RenamedUnit');
   assert.equal(out.counts.annotations, 7, 'the contributions are the upstream ones, as the system lists them');
 });
 
