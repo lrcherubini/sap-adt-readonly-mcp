@@ -1,9 +1,11 @@
-# The offline suite on every push and pull request (docs/security.md, "CI, reopened").
+# The offline suite on every pull request and on main (docs/security.md, "CI, reopened").
 # No secret, no SAP system, no network beyond the package registry: the suite needs none.
+# A push to a branch is tested through its pull request, so a change does not run twice.
 name: test
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 # Read the code, nothing else: the job writes nowhere.
