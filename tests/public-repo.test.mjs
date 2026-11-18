@@ -88,15 +88,27 @@ const LOANWORD = new RegExp(`Caf${chars(0xe9)}(?![A-Za-z${chars(0xc0)}-${chars(0
 const PORTUGUESE_ASCII =
   /\b(?:nao|voce|tambem|entao|porque|nenhum|nenhuma|objetivo|ainda|falta|busca|achados|aqui|pesquisa|ajuda|medido|vazio|exibir|criar|relatorios|pedido|cliente|verificar|carregando|removido|sumido|itens|nicht|vorhanden|contabilidade|dados|mestre|partidas|estoque|viajante|administrador|recurso|conteudo)\b/gi;
 
+// A percent-encoded run (a URL in a captured reply) is read as the text it encodes: an accent
+// written as its UTF-8 bytes is still an accent. A catalogue id once left the English-only rule
+// this way. Decoding bytes never
+// throws, so nothing has to be caught; an invalid sequence reads as U+FFFD, which no rule matches.
+const decodePercent = (text) =>
+  text.replace(/(?:%[0-9A-Fa-f]{2})+/g, (run) => Buffer.from(run.replace(/%/g, ''), 'hex').toString('utf8'));
+const DECODED = FILES.map(({ file, text }) => ({ file, text: decodePercent(text) }));
+
+test('a percent-encoded accent is read as the accent it encodes', () => {
+  assert.equal(decodePercent('Caf%C3%A9 a%20b 100%'), `Caf${chars(0xe9)} a b 100%`);
+});
+
 test('English only: no Portuguese or German text is stored in the repository', () => {
   assert.deepEqual(
-    offenders(FOREIGN_WORD, (w) => !HAS_FOREIGN.test(w.replace(LOANWORD, ''))),
+    offenders(FOREIGN_WORD, (w) => !HAS_FOREIGN.test(w.replace(LOANWORD, '')), DECODED),
     [],
     'translate it: the repository is English-only (a reply captured in another logon language ' +
       'is translated before it becomes a fixture)'
   );
   // This file spells the list out; it is the rule, not an instance of it.
-  assert.deepEqual(offenders(PORTUGUESE_ASCII, (w, f) => f === 'tests/public-repo.test.mjs'), []);
+  assert.deepEqual(offenders(PORTUGUESE_ASCII, (w, f) => f === 'tests/public-repo.test.mjs', DECODED), []);
 });
 
 test('no control character is stored: an escape a shell ate is a broken regex, not text', () => {
@@ -166,7 +178,11 @@ test('every Z/Y word is a demo name, a short placeholder or a listed exception',
 test('no path into a private sibling repository is stored', () => {
   // The server is self-contained (docs/security.md): a citation of another checkout is a pointer
   // the public reader cannot follow, and it describes the author's machine.
-  assert.deepEqual(offenders(/\bsibling-(?:a|b)\b|\b[a-z-]+\/doc\/[a-z-]+\.md\b/g), []);
+  // Shapes, not names: a list of the private repositories would publish what it protects.
+  assert.deepEqual(
+    offenders(/\.\.[\\/][a-z][a-z0-9-]+[\\/](?:docs?|src|lib)[\\/]|\b[a-z-]+\/doc\/[a-z-]+\.md\b/g),
+    []
+  );
 });
 
 test('CLAUDE.md stays a short rulebook: no history, no dates, no counts', () => {
