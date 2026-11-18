@@ -273,6 +273,162 @@ test('reaching says which layer wrote each key, and how far upstream', () => {
   assert.ok(role.line > 0, 'a backlog row needs somewhere to click');
 });
 
+// --- what can reach an element -------------------------------------------------
+
+/**
+ * The views measured against the chain on 2026-11-17 (docs/adt-api-reference.md, "What reaches
+ * a CDS element"). ZDEMO_I_CHANNELUP hides Channel in its DDLX and gives it a lineItem and a
+ * selectionField; each top view asks for Channel through a different view in between.
+ *
+ *   ZDEMO_C_CHANCTRL    nothing in between                  chain: the three UI.* arrive
+ *   ZDEMO_C_CHANPARIGN  parameter + ignorePropagated (#1)   chain: none of them
+ *   ZDEMO_C_CHANPAR     parameter only                      chain: none of them
+ *   ZDEMO_C_CHANIGN     ignorePropagated only               chain: all three, silenced
+ */
+function channelWorkspace() {
+  const root = {};
+  const put = (name, lines) => {
+    root[name] = lines.join('\n');
+  };
+  put('zdemo_i_channelup.ddls.asddls', [
+    '@Metadata.allowExtensions: true',
+    'define view entity ZDEMO_I_CHANNELUP',
+    '  as select from tvtw',
+    '{',
+    '  key vtweg as Channel',
+    '}',
+  ]);
+  put('zdemo_i_channelup.ddlx.asddlxs', [
+    '@Metadata.layer: #CORE',
+    'annotate entity ZDEMO_I_CHANNELUP with',
+    '{',
+    '  @UI.hidden: true',
+    '  @UI.lineItem: [{ position: 10 }]',
+    '  @UI.selectionField: [{ position: 10 }]',
+    '  Channel;',
+    '}',
+  ]);
+  const withParameter = (name, ignore) => [
+    ...(ignore ? ['@Metadata.ignorePropagatedAnnotations: true'] : []),
+    `define view entity ${name}`,
+    '  with parameters',
+    '    p_channel : vtweg',
+    '  as select from ZDEMO_I_CHANNELUP',
+    '{',
+    '  key Channel              as SourceChannel,',
+    '      $parameters.p_channel as Channel',
+    '}',
+  ];
+  put('zdemo_i_chanparign.ddls.asddls', withParameter('ZDEMO_I_CHANPARIGN', true));
+  put('zdemo_i_chanpar.ddls.asddls', withParameter('ZDEMO_I_CHANPAR', false));
+  put('zdemo_i_chanign.ddls.asddls', [
+    '@Metadata.ignorePropagatedAnnotations: true',
+    'define view entity ZDEMO_I_CHANIGN',
+    '  as select from ZDEMO_I_CHANNELUP',
+    '{',
+    '  key Channel',
+    '}',
+  ]);
+  for (const [top, base, params] of [
+    ['ZDEMO_C_CHANCTRL', 'ZDEMO_I_CHANNELUP', false],
+    ['ZDEMO_C_CHANPARIGN', 'ZDEMO_I_CHANPARIGN', true],
+    ['ZDEMO_C_CHANPAR', 'ZDEMO_I_CHANPAR', true],
+    ['ZDEMO_C_CHANIGN', 'ZDEMO_I_CHANIGN', false],
+  ]) {
+    put(`${top.toLowerCase()}.ddls.asddls`, [
+      `define view entity ${top}`,
+      ...(params ? ['  with parameters p_channel : vtweg'] : []),
+      `  as select from ${base}${params ? '( p_channel: $parameters.p_channel )' : ''}`,
+      '{',
+      params ? '  key SourceChannel,' : '  key Channel',
+      ...(params ? ['      Channel'] : []),
+      '}',
+    ]);
+  }
+  return root;
+}
+
+const upstreamUi = (index, entity) =>
+  reaching(index, entity, 'Channel').filter((r) => r.from === 'ZDEMO_I_CHANNELUP');
+
+test('with nothing in between, the upstream rows reach the element unmarked', () => {
+  const rows = upstreamUi(indexOf(channelWorkspace()), 'ZDEMO_C_CHANCTRL');
+  assert.deepEqual(rows.map((r) => r.key), ['UI.hidden', 'UI.lineItem', 'UI.selectionField']);
+  assert.ok(rows.every((r) => !r.unreachable && !r.heldBy && !r.unverified));
+  assert.ok(rows.every((r) => r.depth === 1), 'depth counts hops from the asked view');
+});
+
+test('a parameter projection is unreachable from above, ignore or not (issue #1)', () => {
+  const index = indexOf(channelWorkspace());
+  for (const top of ['ZDEMO_C_CHANPARIGN', 'ZDEMO_C_CHANPAR']) {
+    const rows = upstreamUi(index, top);
+    assert.equal(rows.length, 3, `${top}: the rows are listed, not dropped`);
+    for (const r of rows) {
+      assert.equal(r.unreachable?.reason, 'parameter', top);
+      assert.match(r.unreachable.entity, /^ZDEMO_I_CHANPAR/, 'names the view that projects the parameter');
+      assert.equal(r.heldBy, undefined, 'the parameter is checked before the ignore');
+      assert.equal(r.depth, 2, 'two hops: the asked view, the base view, the source');
+    }
+  }
+});
+
+test('ignorePropagatedAnnotations in a view in between holds what is above it', () => {
+  const rows = upstreamUi(indexOf(channelWorkspace()), 'ZDEMO_C_CHANIGN');
+  assert.equal(rows.length, 3);
+  assert.ok(rows.every((r) => r.heldBy?.entity === 'ZDEMO_I_CHANIGN'));
+  assert.ok(rows.every((r) => r.heldBy.by === 'ignorePropagatedAnnotations'));
+});
+
+test('a renamed element is followed under the name it has upstream', () => {
+  const index = indexOf({
+    'zdemo_i_src.ddls.asddls': ['define view entity ZDEMO_I_SRC as select from t001w {', '  @UI.hidden: true', '  key werks as Werks', '}'].join('\n'),
+    'zdemo_c_ren.ddls.asddls': ['define view entity ZDEMO_C_REN as select from ZDEMO_I_SRC {', '  key Werks as Plant', '}'].join('\n'),
+    'zdemo_c_same.ddls.asddls': ['define view entity ZDEMO_C_SAME as select from ZDEMO_I_SRC as s {', '  key s.Werks', '}'].join('\n'),
+  });
+  assert.deepEqual(reaching(index, 'ZDEMO_C_REN', 'Plant').map((r) => `${r.key}@${r.from}`), ['UI.hidden@ZDEMO_I_SRC']);
+  assert.equal(reaching(index, 'ZDEMO_C_REN', 'Werks').length, 0, 'the view has no element Werks');
+  assert.equal(reaching(index, 'ZDEMO_C_SAME', 'Werks').length, 1, 'a qualified field is a field');
+});
+
+test('an element computed by an expression is listed as unverified, never as reaching', () => {
+  const index = indexOf({
+    'zdemo_i_src.ddls.asddls': ['define view entity ZDEMO_I_SRC as select from t001w {', '  @UI.hidden: true', '  key werks as Werks', '}'].join('\n'),
+    'zdemo_c_cast.ddls.asddls': [
+      'define view entity ZDEMO_C_CAST as select from ZDEMO_I_SRC {',
+      '  key cast( Werks as abap.char(4) ) as Werks',
+      '}',
+    ].join('\n'),
+  });
+  const [row] = reaching(index, 'ZDEMO_C_CAST', 'Werks');
+  assert.deepEqual(row.unverified, { entity: 'ZDEMO_C_CAST', reason: 'expression' });
+});
+
+test('a view reached along an open path and a held one reaches', () => {
+  const index = indexOf({
+    'zdemo_i_src.ddls.asddls': ['define view entity ZDEMO_I_SRC as select from t001w {', '  @UI.hidden: true', '  key Plant', '}'].join('\n'),
+    'zdemo_i_held.ddls.asddls': ['@Metadata.ignorePropagatedAnnotations: true', 'define view entity ZDEMO_I_HELD as select from ZDEMO_I_SRC {', '  key Plant', '}'].join('\n'),
+    'zdemo_c_both.ddls.asddls': [
+      'define view entity ZDEMO_C_BOTH as select from ZDEMO_I_HELD',
+      '  inner join ZDEMO_I_SRC on ZDEMO_I_HELD.Plant = ZDEMO_I_SRC.Plant',
+      '{',
+      '  key ZDEMO_I_HELD.Plant',
+      '}',
+    ].join('\n'),
+  });
+  const rows = reaching(index, 'ZDEMO_C_BOTH', 'Plant');
+  assert.equal(rows.length, 1, 'one source, one row');
+  assert.equal(rows[0].heldBy, undefined, 'the join reaches it directly');
+});
+
+test('lookup mode marks each row that cannot reach, and counts them (issue #1)', async () => {
+  resetAnnotationIndexCache();
+  const out = await runAnnotationScan(cfg(), apiFor(channelWorkspace()), { package: 'ZTEST', entity: 'ZDEMO_C_CHANPARIGN', element: 'Channel' });
+  assert.equal(out.rows.length, 3);
+  assert.ok(out.rows.every((r) => r.unreachable?.reason === 'parameter'));
+  assert.deepEqual([out.reaching, out.unreachable, out.held, out.unverified], [0, 3, 0, 0]);
+  resetAnnotationIndexCache();
+});
+
 // --- the detector --------------------------------------------------------------
 
 test('hidden upstream with a display role downstream comes out ARMED', () => {

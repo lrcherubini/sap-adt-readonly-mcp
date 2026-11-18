@@ -213,15 +213,24 @@ export async function runAnnotationScan(cfg, api, args = {}, journal = null, ext
           depth: r.depth,
           file: r.file,
           line: r.line,
+          ...(r.unreachable ? { unreachable: r.unreachable } : {}),
+          ...(r.heldBy ? { heldBy: r.heldBy } : {}),
+          ...(r.unverified ? { unverified: r.unverified } : {}),
         });
       }
     }
     const p = paged(rows);
+    const count = (field) => rows.filter((r) => r[field]).length;
     return finish({
       scope,
       mode: 'lookup',
       question: `${args.entity ?? '*'}.${args.element}${args.key ? ` (${args.key}*)` : ''}`,
       entities: names.length,
+      // Over every row, not the page: how many of them the source says can reach the element.
+      reaching: rows.length - count('unreachable') - count('heldBy') - count('unverified'),
+      unreachable: count('unreachable'),
+      held: count('heldBy'),
+      unverified: count('unverified'),
       reported: p.returned,
       rowsPage: pageOf(p),
       rows: p.items,
@@ -254,7 +263,9 @@ export function annotationScanTool(cfg, api, journal) {
       name: 'adt_annotation_scan',
       description:
         'Annotations of a package\'s CDS (DDLS + DDLX + upstream views), per layer. With ' +
-        '`element`: every annotation reaching it. Without: elements whose layers contradict. ' +
+        '`element`: every annotation written for it; an upstream row that cannot reach it says ' +
+        'why (unreachable: a parameter; heldBy: ignorePropagatedAnnotations; unverified: an ' +
+        'expression). Without: elements whose layers contradict. ' +
         'One call per source: keep the package small. Index kept 10 minutes. A row is what the ' +
         'SOURCE says, never a verdict: adt_annotation_chain confirms it (ARMED: hidden upstream, ' +
         'given a display role downstream; HELD: the same, held by ignorePropagatedAnnotations).',

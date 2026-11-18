@@ -565,6 +565,33 @@ Propagation follows the element's **select-list lineage** — `from`, `join`,
 `as projection on`. Restricting the triage to those edges dropped it from 84 candidate
 pairs to 49, removed every false positive, and still reproduced the one known case.
 
+#### What reaches a CDS element: a parameter and an ignore in between both stop it — measured
+
+Measured 2026-11-17 on the development system with views built for it. A source view
+`ZDEMO_I_CHANNELUP` (`select from tvtw { key vtweg as Channel }`) has a DDLX that sets
+`UI.hidden`, `UI.lineItem` and `UI.selectionField` on `Channel`. Each top view selects from
+it through a different view in between, and the chain of `<top>/Channel` was read:
+
+| top view | in between | chain of `Channel` |
+|---|---|---|
+| `ZDEMO_C_CHANCTRL` | nothing | the 3 `UI.*`, active, from the DDLX |
+| `ZDEMO_C_CHANPAR` | `$parameters.p_channel as Channel`, no ignore | 5 own (the parameter type's labels, `ObjectModel.upperCase`, `changeDocumentRelevant`), **no `UI.*`** |
+| `ZDEMO_C_CHANPARIGN` | the same plus `@Metadata.ignorePropagatedAnnotations: true` | the same 5, no `UI.*` |
+| `ZDEMO_C_CHANIGN` | `key Channel` plus the ignore | the 5 own, plus the 3 `UI.*` with `silenced: true` (`active: 0`) |
+
+So, for an element of a view:
+- A **parameter projection** gets nothing from the data source, even when the source has an
+  element of the same name and nothing ignores anything.
+- **`ignorePropagatedAnnotations`** on a view *in between* silences everything above it, for
+  every view on top of it too, not only for the view that carries it. The chain still lists
+  those contributions, as silenced.
+- The top views carry no ignore of their own, so the cut happens in the view in between.
+
+A walk that matches upstream elements by name alone lists the three `UI.*` rows for every one of
+these top views. `lib/annotation-index.mjs` (`reaching`) follows the element instead, and marks
+what cannot reach. Not measured yet: what a `cast`, a `case` or a literal does to propagation
+(`docs/backlog.md`).
+
 #### The contradiction that produces ZERO conflicts — measured, twice
 
 | entity/element | bytes | contributions | sources | conflicts |
