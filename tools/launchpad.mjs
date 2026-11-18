@@ -166,7 +166,7 @@ export function launchpadTool(cfg, session, journal) {
       const hit = matcher(match);
       const rows = all.filter((r) => wanted(r) && hit(r.id, r.title));
       const p = paged(rows, args, 'catalogs', incomplete);
-      return { total: all.length, byOrigin, matched: rows.length, catalogsPage: p.page, catalogs: p.items, incomplete };
+      return { total: all.length, byOrigin, catalogsPage: p.page, catalogs: p.items, incomplete };
     },
     async catalog({ id }) {
       const page = catalogPageId(need(id, 'id', 'catalog'));
@@ -184,7 +184,7 @@ export function launchpadTool(cfg, session, journal) {
       const hit = matcher(match);
       const rows = all.filter((r) => (origin === 'all' ? true : origin ? r.origin === origin : r.origin !== 'sap') && hit(r.id, r.title));
       const p = paged(rows, args, 'groups', incomplete);
-      return { total: all.length, matched: rows.length, groupsPage: p.page, groups: p.items, incomplete };
+      return { total: all.length, groupsPage: p.page, groups: p.items, incomplete };
     },
     async group({ id }) {
       const g = need(id, 'id', 'group');
@@ -202,7 +202,7 @@ export function launchpadTool(cfg, session, journal) {
       const hit = matcher(args.match);
       const found = rows.filter((r) => hit(r.id, r.title, r.description));
       const p = paged(found, args, 'spaces', incomplete);
-      return { total: rows.length, customer: rows.filter((r) => /^[ZY]/.test(r.id)).length, matched: found.length, spacesPage: p.page, spaces: p.items, incomplete };
+      return { total: rows.length, customer: rows.filter((r) => /^[ZY]/.test(r.id)).length, spacesPage: p.page, spaces: p.items, incomplete };
     },
     async space({ id }) {
       const s = need(id, 'id', 'space');
@@ -245,7 +245,6 @@ export function launchpadTool(cfg, session, journal) {
         layer: 'cross-client',
         total: so.totalRows,
         read: { semanticObjects: so.rows.length, texts: tx.rows.length, truncated: truncationOf(so, 200) || truncationOf(tx, 200), ...(truncationOf(so, 200) || truncationOf(tx, 200) ? { narrowBy: ['id'] } : {}) },
-        matched: rows.length,
         semanticObjectsPage: p.page,
         semanticObjects: p.items,
         incomplete,

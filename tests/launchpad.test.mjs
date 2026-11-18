@@ -200,6 +200,9 @@ test('adt_launchpad lists: the customer catalogs by default, counts by origin, m
   assert.equal(first.complete, false);
   const second = await run(session, { kind: 'groups', origin: 'all', max: 2, offset: first.groupsPage.next.offset });
   assert.deepEqual([...first.groups, ...second.groups].map((g) => g.id), groups.groups.map((g) => g.id));
+  // The count of what matched is said once, as the page's total.
+  assert.equal(one.catalogsPage.total, 1);
+  for (const answer of [all, one, groups, first]) assert.equal('matched' in answer, false);
 });
 
 test('an FDM body with __next or deferred navigations says so: not followed, not expanded', () => {
