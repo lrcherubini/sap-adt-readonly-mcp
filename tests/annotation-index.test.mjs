@@ -20,6 +20,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { indexSources, reaching, upstreamOf, missingUpstream, PROPAGATING } from '../lib/annotation-index.mjs';
 import { detectHiddenWithRole, findingForHidden } from '../lib/annotation-detectors.mjs';
+import { elementOrigin } from '../lib/annotations.mjs';
 import { runAnnotationScan, resetAnnotationIndexCache } from '../tools/annotation-scan.mjs';
 
 /**
@@ -390,17 +391,71 @@ test('a renamed element is followed under the name it has upstream', () => {
   assert.equal(reaching(index, 'ZDEMO_C_SAME', 'Werks').length, 1, 'a qualified field is a field');
 });
 
-test('an element computed by an expression is listed as unverified, never as reaching', () => {
+test('an element computed by an unmeasured expression is listed as unverified, never as reaching', () => {
   const index = indexOf({
     'zdemo_i_src.ddls.asddls': ['define view entity ZDEMO_I_SRC as select from t001w {', '  @UI.hidden: true', '  key werks as Werks', '}'].join('\n'),
-    'zdemo_c_cast.ddls.asddls': [
-      'define view entity ZDEMO_C_CAST as select from ZDEMO_I_SRC {',
-      '  key cast( Werks as abap.char(4) ) as Werks',
+    'zdemo_c_fn.ddls.asddls': [
+      'define view entity ZDEMO_C_FN as select from ZDEMO_I_SRC {',
+      '  key concat( Werks, \'X\' ) as Werks',
       '}',
     ].join('\n'),
   });
-  const [row] = reaching(index, 'ZDEMO_C_CAST', 'Werks');
-  assert.deepEqual(row.unverified, { entity: 'ZDEMO_C_CAST', reason: 'expression' });
+  const [row] = reaching(index, 'ZDEMO_C_FN', 'Werks');
+  assert.deepEqual(row.unverified, { entity: 'ZDEMO_C_FN', reason: 'expression' });
+});
+
+// Measured on 2026-11-18 (docs/adt-api-reference.md): a cast, in either form, and a case receive
+// nothing written above for their operand. The alias differs from the operand on purpose: with
+// the same name on both sides, following the alias and following the field look alike (issue #6).
+function castWorkspace() {
+  const top = (name, element) => [`define view entity ${name} as select from ZDEMO_I_SRC {`, `  key ${element} as Plant`, '}'].join('\n');
+  return {
+    'zdemo_i_src.ddls.asddls': ['@Metadata.allowExtensions: true', 'define view entity ZDEMO_I_SRC as select from ZDEMO_I_TRAP {', '  key werks as Werks,', '  Plant', '}'].join('\n'),
+    'zdemo_i_src.ddlx.asddlxs': ['@Metadata.layer: #CUSTOMER', 'annotate entity ZDEMO_I_SRC with {', '  @UI.hidden: true', '  Werks;', '}'].join('\n'),
+    'zdemo_i_trap.ddls.asddls': ['define view entity ZDEMO_I_TRAP as select from t001w {', '  key werks,', '  @EndUserText.label: \'Trap\'', '  werks as Plant', '}'].join('\n'),
+    'zdemo_c_ren.ddls.asddls': top('ZDEMO_C_REN', 'Werks'),
+    'zdemo_c_cast.ddls.asddls': top('ZDEMO_C_CAST', 'cast( Werks as werks_d )'),
+    'zdemo_c_castp.ddls.asddls': top('ZDEMO_C_CASTP', 'cast( Werks as werks_d preserving type )'),
+    'zdemo_c_castn.ddls.asddls': top('ZDEMO_C_CASTN', 'cast( cast( Werks as abap.char(4) ) as werks_d )'),
+    'zdemo_c_case.ddls.asddls': top('ZDEMO_C_CASE', "case when Werks = '' then '0000' else Werks end"),
+  };
+}
+
+test('a cast follows its operand, not its alias, and nothing written above reaches it (issue #6)', () => {
+  const index = indexOf(castWorkspace());
+  const rowsOf = (view) => reaching(index, view, 'Plant').map((r) => `${r.key}@${r.from}:${r.unreachable?.reason ?? 'reaches'}`);
+  assert.deepEqual(rowsOf('ZDEMO_C_REN'), ['UI.hidden@ZDEMO_I_SRC:reaches'], 'the control: a rename carries it');
+  assert.deepEqual(rowsOf('ZDEMO_C_CAST'), ['UI.hidden@ZDEMO_I_SRC:cast'], 'the operand is looked up, and held');
+  assert.deepEqual(rowsOf('ZDEMO_C_CASTP'), ['UI.hidden@ZDEMO_I_SRC:cast preserving type']);
+  assert.deepEqual(rowsOf('ZDEMO_C_CASTN'), ['UI.hidden@ZDEMO_I_SRC:cast'], 'a nested cast reaches the field');
+  for (const view of ['ZDEMO_C_CAST', 'ZDEMO_C_CASTP', 'ZDEMO_C_CASTN']) {
+    assert.ok(!rowsOf(view).some((r) => r.includes('ZDEMO_I_TRAP')), `${view}: the unrelated Plant above is not listed`);
+  }
+});
+
+test('a case is unreachable; a cast of a non-field operand stays an expression', () => {
+  const index = indexOf(castWorkspace());
+  assert.ok(reaching(index, 'ZDEMO_C_CASE', 'Plant').every((r) => r.unreachable?.reason === 'case'));
+  assert.deepEqual(elementOrigin("key cast( Werks as werks_d ) as Plant"), { kind: 'cast', field: 'Werks', preservingType: false });
+  assert.deepEqual(elementOrigin('cast( s.Werks as werks_d preserving type ) as Plant'), { kind: 'cast', field: 'Werks', preservingType: true });
+  assert.deepEqual(elementOrigin('cast( _Plant.Werks as werks_d ) as Plant'), { kind: 'expression' });
+  assert.deepEqual(elementOrigin("cast( concat( Werks, 'X' ) as abap.char(5) ) as Plant"), { kind: 'expression' });
+  assert.deepEqual(elementOrigin("CASE Werks WHEN '' THEN 'X' END as Plant"), { kind: 'case' });
+});
+
+test('a hide that arrives only through an unmeasured expression makes a finding that says so', () => {
+  const index = indexOf({
+    'zdemo_i_src.ddls.asddls': ['define view entity ZDEMO_I_SRC as select from t001w {', '  @UI.hidden: true', '  key werks as Werks', '}'].join('\n'),
+    'zdemo_c_fn.ddls.asddls': ['define view entity ZDEMO_C_FN as select from ZDEMO_I_SRC {', '  @UI.lineItem: [{ position: 10 }]', "  key concat( Werks, 'X' ) as Werks", '}'].join('\n'),
+  });
+  const hit = detectHiddenWithRole(index).find((r) => r.entity === 'ZDEMO_C_FN');
+  assert.deepEqual(hit.unverified, { entity: 'ZDEMO_C_FN', reason: 'expression' });
+  assert.equal(findingForHidden(hit).context.unverified, 'ZDEMO_C_FN (expression)');
+  // A cast is measured: what it holds back is no finding at all.
+  assert.equal(stateOf(detectHiddenWithRole(indexOf({
+    ...castWorkspace(),
+    'zdemo_c_cast.ddlx.asddlxs': ['@Metadata.layer: #CUSTOMER', 'annotate entity ZDEMO_C_CAST with {', '  @UI.lineItem: [{ position: 10 }]', '  Plant;', '}'].join('\n'),
+  })), 'ZDEMO_C_CAST', 'Plant'), null);
 });
 
 test('a view reached along an open path and a held one reaches', () => {
