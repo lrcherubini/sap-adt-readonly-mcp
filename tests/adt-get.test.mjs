@@ -353,6 +353,15 @@ test('the tool parses the measured reply and names the source of each annotation
   assert.equal(log[0].target, 'ZC_DemoInvMapTP/BaseUnit');
 });
 
+test('the answer names the entity asked, not the one the first contribution annotates', async () => {
+  // Measured 2026-11-17: a view that adds nothing of its own answers with contributions whose
+  // ENTITY is the upstream view, and the answer used to take that name for the asked one.
+  const { tool } = toolWith({ body: MEASURED });
+  const out = JSON.parse((await tool.handler({ entity: 'ZDEMO_C_ONTOP', element: 'BaseUnit' })).content[0].text);
+  assert.equal(out.entity, 'ZDEMO_C_ONTOP');
+  assert.equal(out.counts.annotations, 7, 'the contributions are the upstream ones, as the system lists them');
+});
+
 test('a reply that does not match the measured shape is a gap, not "no annotations"', async () => {
   // The dangerous case: 200 OK, bytes on the wire, and nothing the parser recognises.
   // "The element has no annotations" and "I could not read this" must never render the

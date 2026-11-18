@@ -181,7 +181,10 @@ export function annotationChainTool(cfg, session, journal) {
       // The cross-key contradiction: hidden AND given a display role, both active. It
       // produces NO conflict (the two keys are different), which is exactly why reading
       // `conflicts` alone was not enough -- measured twice on 2026-09-09.
-      const hiddenRole = hiddenWithUiRole(chain);
+      // The entity asked, not the payload's: each contribution names the entity it annotates, and
+      // the first one is an upstream view whenever the asked one adds nothing of its own
+      // (measured 2026-11-17: ZDEMO_C_CHANCTRL answered with ZDEMO_I_CHANNELUP).
+      const hiddenRole = hiddenWithUiRole({ ...chain, entity: args.entity });
 
       // Two sources writing one key is the diagnosis this tool exists for, so it is a
       // finding about the WORKSPACE, not a gap in the server.
@@ -189,7 +192,7 @@ export function annotationChainTool(cfg, session, journal) {
         for (const h of hiddenRole) {
           journal.finding({
             code: 'ANNOTATION_HIDDEN_WITH_ROLE',
-            subject: `${h.entity ?? args.entity}.${h.element ?? args.element ?? '*'}`,
+            subject: `${args.entity}.${h.element ?? args.element ?? '*'}`,
             effect:
               `${h.hiddenBy?.name ?? 'an upstream layer'} sets @UI.hidden: true while ` +
               `${h.roleSources.map((s) => s.name).join(', ') || 'another layer'} gives it ` +
@@ -207,7 +210,7 @@ export function annotationChainTool(cfg, session, journal) {
           journal.finding({
             code: 'ANNOTATION_OVERRIDDEN',
             subject:
-              `${chain.entity ?? args.entity}.${chain.element ?? args.element ?? '*'} ` +
+              `${args.entity}.${chain.element ?? args.element ?? '*'} ` +
               `${c.path}`,
             // `effect`, not `detail`: detail is a GAPS field and the journal allowlist
             // drops it on a finding -- correctly, and silently, because the allowlist is
@@ -228,7 +231,7 @@ export function annotationChainTool(cfg, session, journal) {
       }
 
       return json(finish({
-        entity: chain.entity ?? args.entity,
+        entity: args.entity,
         element: chain.element ?? args.element,
         counts: chain.counts,
         sources: chain.sources,
