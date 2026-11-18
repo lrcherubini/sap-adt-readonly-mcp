@@ -126,6 +126,53 @@ test('adt_annotation_scan answers the contract, and rowsOffset pages the lookup 
   assert.ok(detect.incomplete.some((i) => i.list === 'upstream' && i.code === 'BUDGET_REACHED'));
 });
 
+/**
+ * Issue #5. ZDEMO_C_TOP/Channel passes through ZDEMO_I_MID (in the package) to the table TVTW;
+ * ZDEMO_C_OTHER selects from four upstream views that no element of ZDEMO_C_TOP passes through.
+ */
+function chainPackage() {
+  const others = ['ZDEMO_I_U1', 'ZDEMO_I_U2', 'ZDEMO_I_U3', 'ZDEMO_I_U4'];
+  const sources = {
+    [srcOf('ZDEMO_C_TOP')]: 'define view entity ZDEMO_C_TOP as select from ZDEMO_I_MID {\n  key Channel\n}',
+    [srcOf('ZDEMO_I_MID')]: 'define view entity ZDEMO_I_MID as select from TVTW {\n  @UI.hidden: true\n  key vtweg as Channel\n}',
+    [srcOf('ZDEMO_C_OTHER')]: `define view entity ZDEMO_C_OTHER as select from ${others[0]}\n${others.slice(1).map((o) => `  inner join ${o} on 1 = 1`).join('\n')}\n{ key ${others[0]}.Channel }`,
+  };
+  return treeApi({ ZDEMO_PKG: ['ZDEMO_C_TOP', 'ZDEMO_I_MID', 'ZDEMO_C_OTHER'].map(ddls) }, sources);
+}
+
+test('a lookup is incomplete only when the upstream cut touches the element\'s own chain (issue #5)', async () => {
+  // upstream: 1 reads TVTW (first in name order), which answers 404: a table, nothing above it.
+  const away = await runAnnotationScan(cfg(), chainPackage(), { package: 'ZDEMO_PKG', entity: 'ZDEMO_C_TOP', element: 'Channel', upstream: 1 });
+  assert.deepEqual(contractErrors(away), []);
+  assert.equal(away.scope.upstream.stoppedBy, 'budget', 'the package-level cut is still reported in the scope');
+  assert.equal(away.chainComplete, true);
+  assert.equal(away.complete, true, 'the cut is in views the element never passes through');
+  assert.deepEqual(away.rows.map((r) => r.writtenBy), ['ZDEMO_I_MID']);
+
+  // The same package scanned as a whole lacks those views: detect still says so.
+  const detect = await runAnnotationScan(cfg(), chainPackage(), { package: 'ZDEMO_PKG', upstream: 1 });
+  assert.ok(detect.incomplete.some((i) => i.list === 'upstream' && i.code === 'BUDGET_REACHED'));
+});
+
+test('a cut inside the element\'s chain names the view, and how to read past it (issue #5)', async () => {
+  const cut = await runAnnotationScan(cfg(), chainPackage(), { package: 'ZDEMO_PKG', entity: 'ZDEMO_C_TOP', element: 'Channel', upstream: 0 });
+  assert.deepEqual(contractErrors(cut), []);
+  assert.equal(cut.complete, false);
+  assert.equal(cut.chainComplete, false);
+  assert.deepEqual(cut.incomplete, [{ list: 'chain', code: 'BUDGET_REACHED', count: 1, views: ['TVTW'], narrowBy: ['upstream'] }]);
+  assert.deepEqual(cut.chainNotRead, [{ name: 'TVTW', element: 'vtweg', depth: 2, reason: 'budget' }]);
+
+  // A view of the chain that failed to read is NOT_READ, not a budget.
+  const api = chainPackage();
+  const get = api.getObjectSource;
+  api.getObjectSource = async (uri) => {
+    if (uri === srcOf('TVTW')) throw Object.assign(new Error('500'), { status: 500 });
+    return get(uri);
+  };
+  const failed = await runAnnotationScan(cfg(), api, { package: 'ZDEMO_PKG', entity: 'ZDEMO_C_TOP', element: 'Channel', upstream: 1, refresh: true });
+  assert.deepEqual(failed.incomplete.map((i) => `${i.list}:${i.code}:${i.views}`), ['chain:NOT_READ:TVTW']);
+});
+
 test('the annotation index store drops what expired and keeps only the newest indexes', () => {
   const store = new Map();
   const opts = { ttl: 600, max: 3 };
