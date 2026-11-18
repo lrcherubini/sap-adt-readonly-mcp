@@ -153,18 +153,45 @@ test('a store edited by hand into an invalid state is refused at read, not trust
   assert.throws(() => readEnvironment({ file }), /client/);
 });
 
-function withState(fn) {
-  const saved = { LOCALAPPDATA: process.env.LOCALAPPDATA, APPDATA: process.env.APPDATA };
-  const base = tmp();
-  process.env.LOCALAPPDATA = path.join(base, 'local');
-  process.env.APPDATA = path.join(base, 'roaming');
-  try {
-    return fn(path.join(base, 'local', 'sap-adt'));
-  } finally {
-    process.env.LOCALAPPDATA = saved.LOCALAPPDATA;
-    process.env.APPDATA = saved.APPDATA;
+// The variables that place the state directory. SAP_ADT_STATE_DIR outranks the profile folders,
+// so it is what a test sets: a value the developer's shell carries can then never reach the test.
+const STATE_VARS = ['SAP_ADT_STATE_DIR', 'LOCALAPPDATA', 'APPDATA'];
+
+/**
+ * Put back what was there. A variable that was unset is deleted: assigning `undefined` to
+ * process.env stores the string "undefined", which on Linux (no LOCALAPPDATA) became the state
+ * directory's base and broke every test that ran after.
+ */
+function restoreEnv(saved) {
+  for (const [k, v] of Object.entries(saved)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
   }
 }
+
+function withState(fn) {
+  const saved = Object.fromEntries(STATE_VARS.map((k) => [k, process.env[k]]));
+  const state = path.join(tmp(), 'sap-adt');
+  process.env.SAP_ADT_STATE_DIR = state;
+  try {
+    return fn(state);
+  } finally {
+    restoreEnv(saved);
+  }
+}
+
+test('withState leaves the environment as it found it, an unset variable included', () => {
+  const saved = Object.fromEntries(STATE_VARS.map((k) => [k, process.env[k]]));
+  try {
+    delete process.env.LOCALAPPDATA;
+    delete process.env.SAP_ADT_STATE_DIR;
+    withState(() => assert.ok(path.isAbsolute(process.env.SAP_ADT_STATE_DIR)));
+    assert.equal('LOCALAPPDATA' in process.env, false, 'an unset variable stays unset');
+    assert.equal('SAP_ADT_STATE_DIR' in process.env, false);
+  } finally {
+    restoreEnv(saved);
+  }
+});
 
 test('loadConfig builds the config from the store, and refuses without host or client', () => {
   withState((state) => {
