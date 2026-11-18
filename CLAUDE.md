@@ -14,8 +14,8 @@ used. This file covers how to change it without breaking what it promises.
 - Never run `npm run adt`, `probe`, `propose:table` or `measure:ddla`. They log on to a real SAP
   system, need a TTY and a typed password, and a failed logon can lock the user. Ask the owner to
   run them and paste the result.
-- Release, only when the owner asks: `npm run release` (dry run), then `-- --apply`, which
-  commits `chore(release): vX.Y.Z` and tags it. Never push.
+- Release, only when the owner asks, on a branch: `npm run release` (dry run), then `-- --apply`,
+  which commits `chore(release): vX.Y.Z`. After the owner merges it, `-- --tag` on main. Never push.
 
 ## How work is done: PDCA cycles
 

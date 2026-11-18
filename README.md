@@ -531,10 +531,13 @@ their results.
 | docs, tests, refactors, chores | `docs`, `test`, `refactor`, `chore`, ... | none on their own |
 
 `npm run release` reads the commits since the latest `v*` tag, prints the next version and its
-CHANGELOG entry, and with `--apply` writes `package.json`, `package-lock.json` and `CHANGELOG.md`,
-commits those three files as `chore(release): vX.Y.Z` and tags that commit `vX.Y.Z`. It refuses,
-before writing anything, when something is already staged, when one of the three files has
-changes of its own, or when the tag exists. It never pushes. The first release needs a baseline
+CHANGELOG entry, and with `--apply` writes `package.json`, `package-lock.json` and `CHANGELOG.md`
+and commits those three files as `chore(release): vX.Y.Z`. It refuses, before writing anything,
+when something is already staged, when one of the three files has changes of its own, or when
+the tag exists. It does not tag: `main` takes the commit through a pull request merged by rebase,
+which gives it a new id, and a `v*` tag cannot be moved once pushed. After the merge,
+`npm run release -- --tag` on the updated `main` tags the release commit `vX.Y.Z`, and refuses
+when HEAD is not that commit. It never pushes. The first release needs a baseline
 tag, `v0.1.0`, on the last commit that belongs to that version.
 
 ## Project layout
