@@ -1,15 +1,19 @@
 #!/usr/bin/env node
-// npm run release [-- --apply]
+// npm run release [-- --apply | --tag]
 //
 // Reads the commits since the latest v* tag, chooses the next SemVer version from their
 // Conventional Commits types (lib/release.mjs) and prints the CHANGELOG entry.
 //
 // IT WRITES NOTHING WITHOUT --apply. With it, it sets the version in package.json and
-// package-lock.json, puts the entry at the top of CHANGELOG.md, commits those three files (by
-// name, nothing else) as `chore(release): vX.Y.Z` and tags that commit `vX.Y.Z`, so a release
-// can no longer be left untagged. It refuses, before writing anything, when something is already
-// staged, when one of the three files has changes of its own, or when the tag exists. The commit
-// goes through the repository's hooks like any other. It never pushes.
+// package-lock.json, puts the entry at the top of CHANGELOG.md and commits those three files (by
+// name, nothing else) as `chore(release): vX.Y.Z`. It refuses, before writing anything, when
+// something is already staged, when one of the three files has changes of its own, or when the
+// tag exists. The commit goes through the repository's hooks like any other.
+//
+// It does not tag that commit: main takes it through a pull request merged by rebase, which gives
+// it a new id, and a protected tag cannot be moved afterwards. Once merged, `--tag` on main tags
+// HEAD `vX.Y.Z`, and only when HEAD is the release commit of the version in package.json.
+// It never pushes.
 //
 // Runs in the current directory, which npm sets to the package root.
 
@@ -19,12 +23,31 @@ import { execFileSync } from 'node:child_process';
 import { classify, nextVersion, renderEntry, prependEntry, setVersion, releaseBase } from '../lib/release.mjs';
 
 const apply = process.argv.includes('--apply');
+const tagMode = process.argv.includes('--tag');
 const root = process.cwd();
 const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: 'pipe' });
 const read = (name) => {
   const file = path.join(root, name);
   return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
 };
+
+if (tagMode) {
+  const version = JSON.parse(read('package.json')).version;
+  const want = `chore(release): v${version}`;
+  const subject = git('log', '-1', '--format=%s').trim();
+  if (subject !== want) {
+    console.error(`tag refused: HEAD is "${subject}", not "${want}". Check out the merged release commit.`);
+    process.exit(2);
+  }
+  if (git('tag', '--list', `v${version}`).trim()) {
+    console.error(`tag refused: v${version} already exists.`);
+    process.exit(2);
+  }
+  git('tag', `v${version}`);
+  const head = git('rev-parse', '--short', 'HEAD').trim();
+  console.log(`Tagged ${head} v${version}. Not pushed. To publish: git push origin v${version}`);
+  process.exit(0);
+}
 
 let tag;
 try {
@@ -98,7 +121,7 @@ if (lock !== null) fs.writeFileSync(path.join(root, 'package-lock.json'), setVer
 fs.writeFileSync(path.join(root, 'CHANGELOG.md'), prependEntry(read('CHANGELOG.md'), entry));
 git('add', '--', ...files);
 git('commit', '-q', '-m', `chore(release): v${version}`, '--', ...files);
-git('tag', `v${version}`);
 const head = git('rev-parse', '--short', 'HEAD').trim();
-console.log(`Committed ${head} chore(release): v${version} (${files.join(', ')}) and tagged it v${version}.`);
-console.log(`Not pushed. To publish: git push && git push origin v${version}`);
+console.log(`Committed ${head} chore(release): v${version} (${files.join(', ')}). Not tagged, not pushed.`);
+console.log('Push the branch, merge its pull request by rebase, then on the updated main:');
+console.log('  npm run release -- --tag');

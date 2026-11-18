@@ -144,7 +144,7 @@ test('the repository version is SemVer, the lockfile agrees, and npm formatting 
   assert.equal(pkg.scripts.release, 'node scripts/release.mjs');
 });
 
-test('the release script against a scratch repository: no tag, dry run, apply, refusals', () => {
+test('the release script against a scratch repository: no tag, dry run, apply, tag, refusals', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'release-'));
   const git = (...args) =>
     execFileSync('git', ['-c', 'user.name=Dev User', '-c', 'user.email=dev@example.com',
@@ -214,11 +214,11 @@ test('the release script against a scratch repository: no tag, dry run, apply, r
 
     const applied = run('--apply');
     assert.equal(applied.status, 0, applied.out);
-    assert.match(applied.out, /chore\(release\): v0\.2\.0 \(package\.json, CHANGELOG\.md\) and tagged it v0\.2\.0/);
-    assert.match(applied.out, /Not pushed/);
+    assert.match(applied.out, /chore\(release\): v0\.2\.0 \(package\.json, CHANGELOG\.md\)\. Not tagged, not pushed/);
+    assert.match(applied.out, /npm run release -- --tag/);
+    assert.equal(git('tag', '--list', 'v0.2.0').trim(), '', 'apply leaves the tag to after the merge');
     assert.equal(git('log', '-1', '--format=%s').trim(), 'chore(release): v0.2.0');
     assert.deepEqual(git('show', '--name-only', '--format=', 'HEAD').trim().split('\n').sort(), ['CHANGELOG.md', 'package.json']);
-    assert.equal(git('rev-parse', 'v0.2.0^{commit}').trim(), git('rev-parse', 'HEAD').trim(), 'the tag is on the release commit');
     assert.equal(git('status', '--porcelain').trim(), '', 'nothing left behind');
     assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).version, '0.2.0');
     const log = fs.readFileSync(path.join(dir, 'CHANGELOG.md'), 'utf8');
@@ -228,17 +228,32 @@ test('the release script against a scratch repository: no tag, dry run, apply, r
     assert.match(log, /- docs: a page/);
     assert.ok(!log.includes('Old-style'));
 
+    // An untagged release commit: the next release counts from it only.
+    const untagged = run();
+    assert.match(untagged.out, /Nothing to release/);
+
+    // --tag tags HEAD only when it is the release commit of package.json's version, and only once.
+    const tagged = run('--tag');
+    assert.equal(tagged.status, 0, tagged.out);
+    assert.match(tagged.out, /Tagged [0-9a-f]{7} v0\.2\.0\. Not pushed\. To publish: git push origin v0\.2\.0/);
+    assert.equal(git('rev-parse', 'v0.2.0^{commit}').trim(), git('rev-parse', 'HEAD').trim(), 'the tag is on the release commit');
+    const again = run('--tag');
+    assert.equal(again.status, 2);
+    assert.match(again.out, /v0\.2\.0 already exists/);
+
     // A tag that already exists is refused. It sits on a commit outside the history, so it is not
     // the tag the release counts from -- only the name the next release would take.
     commit('fix(tools): after the release');
+    const notRelease = run('--tag');
+    assert.equal(notRelease.status, 2);
+    assert.match(notRelease.out, /HEAD is "fix\(tools\): after the release", not "chore\(release\): v0\.2\.0"/);
     git('tag', 'v0.2.1', git('commit-tree', 'HEAD^{tree}', '-m', 'elsewhere').trim());
     const exists = run('--apply');
     assert.equal(exists.status, 2);
     assert.match(exists.out, /tag v0\.2\.1 already exists/);
     git('tag', '-d', 'v0.2.1');
 
-    // A release committed and not tagged (made by hand, or before the script tagged): the next one
-    // counts from the release commit only.
+    // A release committed and not tagged yet: the next one counts from the release commit only.
     git('tag', '-d', 'v0.2.0');
     const next = run();
     assert.equal(next.status, 0);
