@@ -453,6 +453,30 @@ test('ignorePropagatedAnnotations makes it HELD, which is not the same as clean'
   assert.match(finding.effect, /re-arms it/, 'the effect names what removing that line does');
 });
 
+test('detect follows what reaches: a parameter is no finding, an ignore in between holds (issue #1)', () => {
+  // Measured: the chain of each top view (see channelWorkspace). Before, the four views that
+  // reach the hide through a parameter or a held view all came out ARMED.
+  const rows = detectHiddenWithRole(indexOf(channelWorkspace()));
+  const states = Object.fromEntries(rows.map((r) => [`${r.entity}.${r.element}`, r.state]));
+  assert.deepEqual(states, {
+    'ZDEMO_I_CHANNELUP.Channel': 'ARMED',
+    'ZDEMO_C_CHANCTRL.Channel': 'ARMED',
+    // `key Channel as SourceChannel`: the rename is followed, and that element does inherit.
+    'ZDEMO_I_CHANPAR.SourceChannel': 'ARMED',
+    'ZDEMO_C_CHANPAR.SourceChannel': 'ARMED',
+    'ZDEMO_I_CHANIGN.Channel': 'HELD',
+    'ZDEMO_C_CHANIGN.Channel': 'HELD',
+    'ZDEMO_I_CHANPARIGN.SourceChannel': 'HELD',
+    'ZDEMO_C_CHANPARIGN.SourceChannel': 'HELD',
+  });
+  const above = rows.find((r) => r.entity === 'ZDEMO_C_CHANIGN');
+  assert.equal(above.heldBy, 'ZDEMO_I_CHANIGN', 'the view that holds it, not the one asked');
+  const finding = findingForHidden(above);
+  assert.equal(finding.code, 'ANNOTATION_HIDDEN_HELD');
+  assert.match(finding.effect, /^ZDEMO_I_CHANNELUP sets .* ZDEMO_I_CHANIGN carries @Metadata\.ignorePropagatedAnnotations/);
+  assert.equal(finding.context.heldBy, 'ZDEMO_I_CHANIGN');
+});
+
 test('an inline @UI.hidden with no display role is not a finding, and the reason is the role', () => {
   // All ten inline @UI.hidden measured in the workspace are of this shape: a criticality
   // or flag field that feeds a colour and is not meant to render. None is a defect.
