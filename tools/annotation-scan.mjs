@@ -123,6 +123,48 @@ async function indexFor(cfg, api, args, extra) {
   return value;
 }
 
+const STOPPED = { cancelled: 'CANCELLED', budget: 'BUDGET_REACHED', rounds: 'DEPTH_LIMIT' };
+
+/** The upstream cut of the whole package: what a detect run, which reads every element, lacks. */
+function upstreamIncomplete(upstream) {
+  const out = [];
+  if (upstream.notRead.length) out.push({ list: 'upstream', code: 'NOT_READ', count: upstream.notRead.length, reason: 'see scope.upstream.notRead' });
+  if (upstream.left.length) {
+    const code = STOPPED[upstream.stoppedBy];
+    out.push({ list: 'upstream', code, count: upstream.left.length, ...(code === 'BUDGET_REACHED' ? { narrowBy: ['upstream'] } : {}) });
+  }
+  return out;
+}
+
+/**
+ * The views of one element's chain that were not read, sorted into why. A name that answered 404
+ * is a table: nothing above it to read, so it is no gap. A name in neither list was never asked
+ * for (the walk is in the index, so this means the hop cap of the index walk itself).
+ */
+function chainOf(gaps, upstream) {
+  const notFound = new Set(upstream.notFound.map((n) => n.toUpperCase()));
+  const notRead = new Map(upstream.notRead.map((o) => [o.name.toUpperCase(), o.reason]));
+  const left = new Set(upstream.left.map((n) => n.toUpperCase()));
+  const byName = new Map();
+  for (const g of gaps) {
+    if (g.reason === 'not indexed' && notFound.has(g.name)) continue;
+    const why = g.reason === 'depth' ? 'depth' : notRead.has(g.name) ? 'notRead' : left.has(g.name) ? upstream.stoppedBy ?? 'budget' : 'depth';
+    if (!byName.has(g.name)) byName.set(g.name, { name: g.name, element: g.element, depth: g.depth, why });
+  }
+  const list = [...byName.values()].sort((a, b) => a.depth - b.depth || a.name.localeCompare(b.name));
+  const of = (why) => list.filter((g) => g.why === why).map((g) => g.name);
+  const incomplete = [];
+  const unread = of('notRead');
+  if (unread.length) incomplete.push({ list: 'chain', code: 'NOT_READ', count: unread.length, views: unread, reason: 'see scope.upstream.notRead' });
+  for (const why of ['budget', 'cancelled', 'rounds']) {
+    const views = of(why);
+    if (views.length) incomplete.push({ list: 'chain', code: STOPPED[why], count: views.length, views, ...(why === 'budget' ? { narrowBy: ['upstream'] } : {}) });
+  }
+  const deep = of('depth');
+  if (deep.length) incomplete.push({ list: 'chain', code: 'DEPTH_LIMIT', count: deep.length, views: deep });
+  return { incomplete, notRead: list.map(({ why, ...g }) => ({ ...g, reason: why })) };
+}
+
 /** Limits of THIS SERVER for one run: to the gaps stream, never to findings. */
 function journalGaps(built, journal) {
   if (!journal?.enabled || built.cached) return;
@@ -168,12 +210,9 @@ export async function runAnnotationScan(cfg, api, args = {}, journal = null, ext
     ...(index.unread.length ? { unreadSources: index.unread } : {}),
   });
   // The scope's own `complete` is the package read; the answer's `complete` is everything.
+  // A lookup is about one element, so the upstream cut counts only where it touches its chain.
   const incomplete = packageIncomplete(read);
-  if (upstream.notRead.length) incomplete.push({ list: 'upstream', code: 'NOT_READ', count: upstream.notRead.length, reason: 'see scope.upstream.notRead' });
-  if (upstream.left.length) {
-    const code = { cancelled: 'CANCELLED', budget: 'BUDGET_REACHED', rounds: 'DEPTH_LIMIT' }[upstream.stoppedBy];
-    incomplete.push({ list: 'upstream', code, count: upstream.left.length, ...(code === 'BUDGET_REACHED' ? { narrowBy: ['upstream'] } : {}) });
-  }
+  if (!args.element) incomplete.push(...upstreamIncomplete(upstream));
   if (index.unread.length) incomplete.push({ list: 'sources', code: 'PARSE_FAILED', count: index.unread.length, reason: 'see scope.unreadSources' });
   const paged = (list) => {
     const p = page(list, { max: args.max, offset: args.rowsOffset, defaultMax: 200, ceiling: ROWS_CEILING });
@@ -197,12 +236,14 @@ export async function runAnnotationScan(cfg, api, args = {}, journal = null, ext
         reminder:
           `No CDS entity named '${args.entity}' is in ${pkg} or upstream of it within the cap. ` +
           'adt_object_info answers where it lives; adt_annotation_chain reads its chain directly.',
-      }, incomplete);
+        // The entity itself may be past the upstream cut, so here the whole cut counts.
+      }, [...incomplete, ...upstreamIncomplete(upstream)]);
     }
     const rows = [];
+    const gaps = [];
     for (const name of names) {
       const entity = index.entities.get(name);
-      for (const r of reaching(index, name, args.element, { key: args.key })) {
+      for (const r of reaching(index, name, args.element, { key: args.key, gaps })) {
         rows.push({
           entity: entity.name,
           element: r.element,
@@ -219,6 +260,8 @@ export async function runAnnotationScan(cfg, api, args = {}, journal = null, ext
         });
       }
     }
+    const chain = chainOf(gaps, upstream);
+    incomplete.push(...chain.incomplete);
     const p = paged(rows);
     const count = (field) => rows.filter((r) => r[field]).length;
     return finish({
@@ -226,6 +269,10 @@ export async function runAnnotationScan(cfg, api, args = {}, journal = null, ext
       mode: 'lookup',
       question: `${args.entity ?? '*'}.${args.element}${args.key ? ` (${args.key}*)` : ''}`,
       entities: names.length,
+      // Whether every view the element passes through was read. The package-level upstream cut
+      // stays in `scope.upstream`; only the views of this chain decide `complete` here.
+      chainComplete: chain.incomplete.length === 0,
+      ...(chain.notRead.length ? { chainNotRead: chain.notRead } : {}),
       // Over every row, not the page: how many of them the source says can reach the element.
       reaching: rows.length - count('unreachable') - count('heldBy') - count('unverified'),
       unreachable: count('unreachable'),
