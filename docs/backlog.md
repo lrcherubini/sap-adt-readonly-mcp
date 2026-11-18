@@ -37,10 +37,11 @@ read more.
 - **The FDM routes and `__next`.** `adt_launchpad` reports a `__next` link and does not follow it,
   because no FDM reply measured so far carried one. Measure: the spaces and role catalogs lists
   with the largest result on the system, to see whether the server pages them.
-- **Propagation through an expression.** `adt_annotation_scan` marks an upstream row `unverified`
-  when the element is a `cast`, a `case`, a literal or an association path in a view in between:
-  whether its source's annotations still travel was never measured. Measure: one view per shape
-  on top of a source whose DDLX annotates the element, and the chain of each.
+- **Propagation through an expression.** A cast and a case are measured (`adt-api-reference.md`,
+  *A cast or a case gets nothing from its operand*). `adt_annotation_scan` still marks an upstream
+  row `unverified` when the element is a literal, a function, arithmetic or an association path
+  in a view in between. Measure: one view per shape on top of a source whose DDLX annotates the
+  element, and the chain of each.
 - **The ATC run over a namespaced or local package.** The run body percent-encodes the package
   into `selection=package%3a<PKG>`; only a plain package was measured from the IDE's log. Measure:
   one run with `atc: true` on a `$` package and on a namespaced one, compared with the IDE's log.

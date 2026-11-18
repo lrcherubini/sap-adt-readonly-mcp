@@ -589,7 +589,27 @@ So, for an element of a view:
 
 A walk that matches upstream elements by name alone lists the three `UI.*` rows for every one of
 these top views. `lib/annotation-index.mjs` (`reaching`) follows the element instead, and marks
-what cannot reach. Not measured yet: what a `cast`, a `case` or a literal does to propagation
+what cannot reach.
+
+#### A cast or a case gets nothing from its operand; a qualified field does — measured
+
+Measured 2026-11-18 on the development system with views built for it. A source view
+`ZDEMO_I_SRC` (`select from t001w { key werks as Werks, ... }`) has a DDLX that sets
+`UI.hidden` and `EndUserText.label` on `Werks`. A second view `ZDEMO_I_TRAP` exposes
+`werks as Plant` with a label of its own. The chain of `<top>/Plant` was read:
+
+| top view | element | chain of `Plant` |
+|---|---|---|
+| `ZDEMO_C_REN` | `Werks as Plant` | the 2 rows of the DDLX, active |
+| `ZDEMO_C_CAST` | `cast( Werks as werks_d ) as Plant` | 5 own (the data element's labels, `ObjectModel.upperCase`, `changeDocumentRelevant`), **no `UI.hidden`**, nothing from the DDLX |
+| `ZDEMO_C_CASTP` | the same with `preserving type` | the same 5 own, nothing from the DDLX |
+| `ZDEMO_C_CASE` | `case when Werks = '' then '0000' else Werks end as Plant` | the same 5 own, nothing from the DDLX |
+| `ZDEMO_C_JOIN` | `ZDEMO_I_TRAP as a inner join ZDEMO_I_SRC as b`, `b.Werks as Plant` | the 2 rows of the DDLX of `b`'s view, nothing from `a` |
+
+So a cast, with or without `preserving type`, and a case behave like a parameter projection:
+the element carries only what its own type gives it, and nothing written above for the operand
+reaches it. A qualified field takes its annotations from the data source its qualifier names.
+Not measured: a literal, a function, arithmetic, and a path through an association
 (`docs/backlog.md`).
 
 #### The contradiction that produces ZERO conflicts — measured, twice
