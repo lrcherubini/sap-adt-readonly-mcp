@@ -402,7 +402,7 @@ test('the list mode carries its scope as data, not as a footnote', async () => {
   assert.equal(out.scope.includesOthers, true);
   assert.deepEqual(out.scope.serverStated, ['Released (From Last 2 Weeks)']);
   assert.deepEqual(out.scope.owners, ['DEVUSER1', 'DEVUSER2', 'DEVUSER3']);
-  assert.match(out.scope.note, /ask by number/);
+  assert.equal(out.scope.note, undefined, 'the fixed reading of the scope is docs/tools.md, not a field of every answer');
 });
 
 test('a truncated answer says how much it dropped', async () => {

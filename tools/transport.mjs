@@ -222,9 +222,6 @@ export function transportTool(cfg, session, journal) {
       scope: {
         serverStated: tree.listScope?.serverStated ?? [],
         owners: tree.listScope?.owners ?? [],
-        note:
-          'what the saved configuration selects (its properties above), modifiable and released. ' +
-          'It is the configuration the IDE saved; this tool never creates or changes one.',
       },
       requests: kept.map((r) => ({
         number: r.number,
@@ -824,11 +821,6 @@ function listScope(doc, kept) {
     includesOthers: true,
     owners,
     ownersInList: (s.owners ?? []).length,
-    note:
-      (s.note ?? '') +
-      ' The window and the released-only cut are the server\'s: this route takes no ' +
-      'parameter that widens either, and sending one empties the reply instead of ' +
-      'erroring. For an open request, or one older than two weeks, ask by number.',
   };
 }
 
